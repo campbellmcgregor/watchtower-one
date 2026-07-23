@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "mode": "Smoke",
+  "capturedAt": "2026-07-23T13:11:13.5375952Z",
+  "environment": {
+    "platform": "Windows 11 Enterprise 25H2",
+    "sandboxUser": "WDAGUtilityAccount",
+    "memoryGB": 3
+  },
+  "controls": {
+    "isSandboxUser": true,
+    "inputMappingIsReadOnly": true,
+    "evidenceMappingIsWritable": true,
+    "activeNetworkAdapterCount": 0,
+    "networkingDisabled": true,
+    "hostLaunchRecorded": true,
+    "resultObserved": true,
+    "sandboxClientClosed": true,
+    "activeSandboxProcessCountAfterCompletion": 0
+  },
+  "scope": {
+    "packagedApplicationExecuted": false,
+    "procmonExecuted": false,
+    "rawEvidenceCommitted": false
+  }
+}

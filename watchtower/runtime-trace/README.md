@@ -46,3 +46,5 @@ launched by Playwright; the harness never terminates by image name.
 
 The reviewed result and packaged-build follow-up matrix are in
 [`docs/research/joplin-v3.6.15-windows-runtime-plaintext-footprint.md`](../../docs/research/joplin-v3.6.15-windows-runtime-plaintext-footprint.md).
+The disposable Windows Sandbox containment prerequisite is under
+[`watchtower/sandbox-trace`](../sandbox-trace/).
