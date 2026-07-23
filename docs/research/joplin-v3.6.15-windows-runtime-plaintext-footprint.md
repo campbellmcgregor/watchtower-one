@@ -2,7 +2,7 @@
 
 # Joplin v3.6.15 Windows runtime plaintext footprint
 
-Status: partial exact-source development trace; complete Windows qualification remains
+Status: partial exact-source development and packaged traces; complete Windows qualification remains
 
 Issue: [#7 — Re-trace the v3.6.15 plaintext footprint at runtime](https://github.com/campbellmcgregor/watchtower-one/issues/7)
 
@@ -15,6 +15,18 @@ What persistent plaintext does the pinned Joplin v3.6.15 desktop baseline produc
 The answer is broader than `database.sqlite`. The controlled runtime trace found note content in SQLite and `log.txt`, exact resource bytes in `resources`, plugin state in settings and logs, a complete external-edit Markdown copy, and a stock Backup JEX containing both note and resource canaries. The forced process-tree kill preserved every one of those copies. Recovery restored the note, removed the external-edit and unpacked test-plugin temporary files, and retained the database, resource, settings, log and Backup copies.
 
 The trace found no unexpected content canary outside the selected profile within its controlled observation root. That is not a complete answer to issue #7 or a Windows-wide zero-plaintext claim: the run used the exact v3.6.15 source in the development Electron harness, redirected the selected profile and Electron session/temp paths, and did not scan the host account's existing home/app-data trees. Stable source still proves that normal installed Backup and crash paths can leave the selected profile. Those paths must be brought inside the Watchtower Profile Vault, replaced with encrypted equivalents, or treated as disclosed Explicit Plaintext Egress.
+
+A later packaged x64 Windows Sandbox slice exercised the pinned v3.6.15
+directory artifact through an auto-start test plugin. After the plugin's
+durable completion barrier, an exact process-tree kill, and Procmon shutdown,
+the closed-profile scanner found the note canary in `database.sqlite`, the
+resource canary in both `resources\<resource-id>.txt` and the plugin's input
+file, and the plugin canary in `settings.json` and its `plugin-data` file.
+There were no scan errors or canary hits outside the selected profile within
+the disposable observation root. The
+[sanitized issue #37 summary](../evidence/issue-37-packaged-content-trace/note-resource-plugin-summary.json)
+records the exact binary, fixture, harness, PML, and manifest hashes. Raw PML
+and canary-bearing manifests remain outside source control.
 
 ## Evidence language
 
@@ -53,6 +65,28 @@ The live snapshots report two expected read errors: Chromium held both LevelDB `
 | Renderer crash | The forced renderer crash created no allocated-file change between checkpoints. This does not negate the source-confirmed content-bearing Joplin crash JSON path for other crash classes. |
 | Forced termination | `taskkill /pid <main-pid> /f /t` stopped the complete Electron tree. The immediate closed snapshot retained all four note, two resource and four plugin canary-bearing files, including the external-edit file and Backup. |
 | Recovery | The normal UI reopened and the note was searchable. Startup removed `edit-<note-id>.md` and the unpacked test-plugin temporary JavaScript, reducing note/plugin hit counts by one each. SQLite created a recovery journal; the database, resource, logs, settings and Backup remained. |
+
+### Packaged note/resource/plugin slice
+
+Issue #37 added `NoteResourcePlugin` to the disposable Sandbox lab. The test
+fixture constructs three canary values at runtime, creates the note and
+resource through `joplin.data`, persists a plugin setting and `dataDir` file,
+and writes a completion barrier last. Procmon was ready before application
+launch. The barrier arrived with note and resource IDs, the five-process
+Electron tree was force-terminated with no remaining process, and the guest
+scanned 72 allocated regular files with zero errors before the Sandbox closed.
+
+| Canary | Closed-profile allocated locations |
+| --- | --- |
+| Note | `<profile>\database.sqlite` |
+| Resource | `<profile>\resources\<resource-id>.txt`; `<profile>\plugin-data\com.watchtower.packaged-content-trace\resource-input.txt` |
+| Plugin | `<profile>\settings.json`; `<profile>\plugin-data\com.watchtower.packaged-content-trace\plugin-data.txt` |
+
+This confirms ordinary packaged note, attachment, setting, and plugin-owned
+persistence is contained by the proposed complete root-profile boundary in
+this scenario. It does not yet cover the fixture's intentional writes to OS
+temp/home/arbitrary paths, item `user_data`, plugin update/uninstall, resource
+OCR/delete, or deleted/unallocated records.
 
 The canary-bearing immediate post-kill paths were:
 
@@ -225,9 +259,9 @@ The development trace above partially answers issue #7 at the public profile-sto
 | `S1` | Fresh normal installed launch; wait for usable UI; graceful quit without user content. | UI-ready and post-quit. | Default root, Electron `userData`, local/roaming app data, temp, crash and updater roots. | `PENDING` |
 | `S2` | Fresh explicit `--profile` launch. | Kill once after root/main log/IPC/lock activity but before UI; repeat after UI. Recover each clone. | Explicit root **and** default-root IPC path. | `PENDING` |
 | `S3` | Fresh portable and alternate-instance launches. | Graceful quit plus one post-UI tree kill for each form. | Portable/alternate root, default IPC path, Electron app data. | `PENDING` |
-| `N1` | Create a note with distinct title/body/source URL; replace the body; wait for revision collection; exact and fuzzy search; delete note. | Snapshot after create, replace, history/search and delete; kill during repeated large-body saves; recover. | Database and sidecars, logs, temp, internal session. | `PENDING` |
-| `R1` | Attach deterministic text, image and OCR-able document fixtures with unique filenames/content; view, OCR and delete them. | Snapshot after attach/OCR/delete; kill during repeated large-resource import and OCR; recover. | Database, resources, temp, cache, logs. | `PENDING` |
-| `P1` | Install/start a purpose-built trace plugin. Write separate canaries to a plugin setting, item `user_data`, `dataDir`, installation dir, OS temp, home and a declared arbitrary path. | Kill after a plugin barrier before/after each durable write; recover. | Root plugins, profile cache/plugin-data/database plus every intentional outside target. | `PENDING` |
+| `N1` | Create a note with distinct title/body/source URL; replace the body; wait for revision collection; exact and fuzzy search; delete note. | Snapshot after create, replace, history/search and delete; kill during repeated large-body saves; recover. | Database and sidecars, logs, temp, internal session. | `PARTIAL` — issue #37 proved packaged create/barrier/forced-kill persistence; replace/history/search/delete/recovery remain. |
+| `R1` | Attach deterministic text, image and OCR-able document fixtures with unique filenames/content; view, OCR and delete them. | Snapshot after attach/OCR/delete; kill during repeated large-resource import and OCR; recover. | Database, resources, temp, cache, logs. | `PARTIAL` — issue #37 proved one packaged text resource create/barrier/forced-kill persistence; image/OCR/delete/recovery remain. |
+| `P1` | Install/start a purpose-built trace plugin. Write separate canaries to a plugin setting, item `user_data`, `dataDir`, installation dir, OS temp, home and a declared arbitrary path. | Kill after a plugin barrier before/after each durable write; recover. | Root plugins, profile cache/plugin-data/database plus every intentional outside target. | `PARTIAL` — issue #37 proved packaged auto-start, setting, `dataDir`, barrier, and forced-kill persistence; `user_data`, outside writes, per-transition kills, and recovery remain. |
 | `P2` | Update, disable and uninstall the trace plugin. | Snapshot after each state; kill during package update/copy. | Root plugins, cache, plugin-data, database and logs. | `PENDING` |
 | `B1` | Invoke the bundled Backup manually with stock defaults. | Snapshot while `joplin_active_backup_job` exists, after completion and after graceful exit; kill during JEX export and final move; recover. | Home `JoplinBackup`, active-job stage, profile temp, plugin/database settings and logs. | `PENDING` |
 | `B2` | Repeat Backup with password/archive enabled and a declared custom export path. | Kill during staging, archive creation and final rename/move; recover; verify archive listing/content with and without the password. | Custom stage/destination, profile temp, partial/final 7z and logs. | `PENDING` |

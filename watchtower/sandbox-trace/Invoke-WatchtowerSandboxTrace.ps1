@@ -12,6 +12,9 @@ param(
 	[ValidateSet('Smoke', 'Trace')]
 	[string] $Mode = 'Smoke',
 
+	[ValidateSet('CleanStartup', 'NoteResourcePlugin')]
+	[string] $Scenario = 'CleanStartup',
+
 	[ValidateRange(10, 120)]
 	[int] $TraceDurationSeconds = 30,
 
@@ -175,6 +178,90 @@ function Wait-ForProcessExit {
 	return $false
 }
 
+function Get-DirectoryEvidence {
+	param([Parameter(Mandatory = $true)][string] $LiteralPath)
+
+	$root = (Get-Item -LiteralPath $LiteralPath -ErrorAction Stop).FullName.TrimEnd('\', '/')
+	$files = @(
+		Get-ChildItem -LiteralPath $root -File -Recurse |
+			Sort-Object FullName |
+			ForEach-Object {
+				[ordered]@{
+					path = $_.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+					sizeBytes = $_.Length
+					sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+				}
+			}
+	)
+	$directoryRecord = @(
+		$files | ForEach-Object { "$($_.path)`n$($_.sizeBytes)`n$($_.sha256)" }
+	) -join "`n"
+	$sha256 = [System.Security.Cryptography.SHA256]::Create()
+	try {
+		$directoryHash = [System.BitConverter]::ToString(
+			$sha256.ComputeHash([System.Text.UTF8Encoding]::new($false).GetBytes($directoryRecord))
+		).Replace('-', '').ToLowerInvariant()
+	} finally {
+		$sha256.Dispose()
+	}
+
+	return [ordered]@{
+		path = $root
+		directorySha256 = $directoryHash
+		files = $files
+	}
+}
+
+function Wait-ForApplicationBarrier {
+	param(
+		[Parameter(Mandatory = $true)]
+		[System.Diagnostics.Process] $Process,
+
+		[Parameter(Mandatory = $true)]
+		[string] $CompletionPath,
+
+		[Parameter(Mandatory = $true)]
+		[string] $FailurePath,
+
+		[ValidateRange(10, 120)]
+		[int] $TimeoutSeconds
+	)
+
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	do {
+		$Process.Refresh()
+		if ($Process.HasExited) {
+			throw 'Packaged application exited before the content completion barrier was written'
+		}
+		if (Test-Path -LiteralPath $FailurePath) {
+			$failure = Get-Content -Raw -LiteralPath $FailurePath | ConvertFrom-Json
+			throw "Packaged content fixture failed: $($failure.message)"
+		}
+		if (Test-Path -LiteralPath $CompletionPath) {
+			$completion = Get-Content -Raw -LiteralPath $CompletionPath | ConvertFrom-Json
+			if (
+				$completion.schemaVersion -ne 1 -or
+				[string] $completion.noteId -notmatch '^[a-f0-9]{32}$' -or
+				[string] $completion.resourceId -notmatch '^[a-f0-9]{32}$'
+			) {
+				throw 'Packaged content fixture wrote an invalid completion barrier'
+			}
+			return [ordered]@{
+				observedAt = (Get-Date).ToUniversalTime().ToString('o')
+				noteId = [string] $completion.noteId
+				resourceId = [string] $completion.resourceId
+			}
+		}
+		Start-Sleep -Milliseconds 250
+	} while ((Get-Date) -lt $deadline)
+	throw "Packaged content fixture did not complete within $TimeoutSeconds seconds"
+}
+
+function Get-Canary {
+	param([Parameter(Mandatory = $true)][string] $Kind)
+	return @('WT1', '-ISSUE37', "-$Kind-", 'CANARY-', '20260723') -join ''
+}
+
 $application = (Get-Item -LiteralPath $ApplicationPath -ErrorAction Stop).FullName
 $procmon = (Get-Item -LiteralPath $ProcmonPath -ErrorAction Stop).FullName
 $evidence = (Get-Item -LiteralPath $EvidencePath -ErrorAction Stop).FullName
@@ -219,10 +306,23 @@ $procmonStartedAt = $null
 $procmonBackingFileReadyAt = $null
 $applicationStartedAt = $null
 $applicationWasRunningBeforeTermination = $false
+$completionBarrier = $null
+$fixtureEvidence = $null
+$artifactManifestEvidence = $null
+$canaryHitFileCounts = $null
+$requiredPersistence = $null
 $observationRoot = 'C:\WatchtowerObservation'
 $profileRoot = Join-Path $observationRoot 'profile'
-$pmlFileName = 'clean-startup.pml'
+$scenarioId = if ($Scenario -eq 'NoteResourcePlugin') { 'note-resource-plugin' } else { 'clean-startup' }
+$pmlFileName = "$scenarioId.pml"
 $pmlPath = Join-Path $evidence $pmlFileName
+$artifactManifestFileName = "$scenarioId-artifact-manifest.json"
+$artifactManifestPath = Join-Path $evidence $artifactManifestFileName
+$fixturePath = Join-Path $PSScriptRoot 'fixtures\content-canary-plugin'
+$pluginDataPath = Join-Path $profileRoot 'plugin-data\com.watchtower.packaged-content-trace'
+$completionPath = Join-Path $pluginDataPath 'trace-complete.json'
+$failurePath = Join-Path $pluginDataPath 'trace-failure.json'
+$artifactScannerPath = Join-Path $PSScriptRoot 'Get-WatchtowerSandboxArtifactManifest.ps1'
 
 if ($Mode -eq 'Trace') {
 	try {
@@ -232,8 +332,24 @@ if ($Mode -eq 'Trace') {
 		if (Test-Path -LiteralPath $pmlPath) {
 			throw "EvidencePath already contains $pmlFileName"
 		}
+		if (Test-Path -LiteralPath $artifactManifestPath) {
+			throw "EvidencePath already contains $artifactManifestFileName"
+		}
 
 		New-Item -ItemType Directory -Path $profileRoot -Force -ErrorAction Stop | Out-Null
+		if ($Scenario -eq 'NoteResourcePlugin') {
+			$fixtureEvidence = Get-DirectoryEvidence -LiteralPath $fixturePath
+			$pluginDirectory = Join-Path $profileRoot 'plugins\com.watchtower.packaged-content-trace'
+			New-Item -ItemType Directory -Path $pluginDirectory -Force -ErrorAction Stop | Out-Null
+			foreach ($fixtureItem in Get-ChildItem -LiteralPath $fixturePath -Force) {
+				Copy-Item `
+					-LiteralPath $fixtureItem.FullName `
+					-Destination $pluginDirectory `
+					-Recurse `
+					-Force `
+					-ErrorAction Stop
+			}
+		}
 		$procmonProcess = Start-Process `
 			-FilePath $procmon `
 			-ArgumentList @(
@@ -255,7 +371,16 @@ if ($Mode -eq 'Trace') {
 			-FilePath $application `
 			-ArgumentList @('--profile', ('"' + $profileRoot + '"'), '--no-welcome') `
 			-PassThru
-		Start-Sleep -Seconds $TraceDurationSeconds
+		if ($Scenario -eq 'NoteResourcePlugin') {
+			$completionBarrier = Wait-ForApplicationBarrier `
+				-Process $applicationProcess `
+				-CompletionPath $completionPath `
+				-FailurePath $failurePath `
+				-TimeoutSeconds $TraceDurationSeconds
+			Start-Sleep -Seconds 2
+		} else {
+			Start-Sleep -Seconds $TraceDurationSeconds
+		}
 		$applicationProcess.Refresh()
 		$applicationWasRunningBeforeTermination = -not $applicationProcess.HasExited
 		if (-not $applicationWasRunningBeforeTermination) {
@@ -287,9 +412,52 @@ if ($Mode -eq 'Trace') {
 		if ($pmlItem.Length -le 0) {
 			throw "Procmon produced an empty $pmlFileName"
 		}
+
+		if ($Scenario -eq 'NoteResourcePlugin') {
+			& $artifactScannerPath `
+				-RootPath $observationRoot `
+				-OutputPath $artifactManifestPath `
+				-ScenarioId $scenarioId `
+				-RequireContentPersistence `
+				-ExpectedResourceId $completionBarrier.resourceId `
+				-NoteCanary (Get-Canary -Kind 'NOTE') `
+				-ResourceCanary (Get-Canary -Kind 'RESOURCE') `
+				-PluginCanary (Get-Canary -Kind 'PLUGIN') | Out-Null
+			$artifactManifest = Get-Content -Raw -LiteralPath $artifactManifestPath | ConvertFrom-Json
+			if (@($artifactManifest.errors).Count -ne 0) {
+				throw 'Artifact manifest reported one or more scan errors'
+			}
+			$canaryHitFileCounts = [ordered]@{}
+			$requiredPersistence = $artifactManifest.requiredPersistence
+			foreach ($canaryId in @('note', 'resource', 'plugin')) {
+				$hitCount = @(
+					$artifactManifest.files |
+						Where-Object { @($_.canaries | ForEach-Object id) -contains $canaryId }
+				).Count
+				$canaryHitFileCounts[$canaryId] = $hitCount
+				if ($hitCount -le 0) {
+					throw "Artifact manifest did not find the required $canaryId canary"
+				}
+			}
+			$artifactManifestItem = Get-Item -LiteralPath $artifactManifestPath -ErrorAction Stop
+			$artifactManifestEvidence = [ordered]@{
+				fileName = $artifactManifestFileName
+				sizeBytes = $artifactManifestItem.Length
+				sha256 = (
+					Get-FileHash -LiteralPath $artifactManifestItem.FullName -Algorithm SHA256
+				).Hash.ToLowerInvariant()
+			}
+		}
 		$tracePassed = (
 			$procmonStartedAt -lt $applicationStartedAt -and
-			$procmonBackingFileReadyAt -le $applicationStartedAt
+			$procmonBackingFileReadyAt -le $applicationStartedAt -and
+			(
+				$Scenario -eq 'CleanStartup' -or
+				(
+					$null -ne $completionBarrier -and
+					$null -ne $artifactManifestEvidence
+				)
+			)
 		)
 	} catch {
 		$traceFailure = $_.Exception.Message
@@ -325,7 +493,7 @@ if ($Mode -eq 'Trace') {
 		}
 	}
 	$traceResult = [ordered]@{
-		scenarioId = 'clean-startup'
+		scenarioId = $scenarioId
 		requestedDurationSeconds = $TraceDurationSeconds
 		procmonStartedAt = if ($null -ne $procmonStartedAt) { $procmonStartedAt.ToString('o') } else { $null }
 		procmonProcessId = if ($null -ne $procmonProcess) { $procmonProcess.Id } else { $null }
@@ -351,6 +519,11 @@ if ($Mode -eq 'Trace') {
 		procmonStop = $procmonStop
 		observationRoot = $observationRoot
 		profileRoot = $profileRoot
+		fixture = $fixtureEvidence
+		completionBarrier = $completionBarrier
+		canaryHitFileCounts = $canaryHitFileCounts
+		requiredPersistence = $requiredPersistence
+		artifactManifest = $artifactManifestEvidence
 		pml = $pmlEvidence
 		failure = $traceFailure
 	}
@@ -379,6 +552,14 @@ $result = [ordered]@{
 	procmon = [ordered]@{
 		path = $procmon
 		sha256 = (Get-FileHash -LiteralPath $procmon -Algorithm SHA256).Hash.ToLowerInvariant()
+	}
+	harness = [ordered]@{
+		runnerSha256 = (
+			Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256
+		).Hash.ToLowerInvariant()
+		artifactScannerSha256 = (
+			Get-FileHash -LiteralPath $artifactScannerPath -Algorithm SHA256
+		).Hash.ToLowerInvariant()
 	}
 	trace = $traceResult
 }

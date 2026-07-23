@@ -15,6 +15,9 @@ param(
 	[ValidateSet('Smoke', 'Trace')]
 	[string] $Mode = 'Smoke',
 
+	[ValidateSet('CleanStartup', 'NoteResourcePlugin')]
+	[string] $Scenario = 'CleanStartup',
+
 	[ValidateRange(10, 120)]
 	[int] $TraceDurationSeconds = 30,
 
@@ -117,6 +120,40 @@ function Test-PathOverlap {
 	)
 }
 
+function Get-DirectoryEvidence {
+	param([Parameter(Mandatory = $true)][string] $LiteralPath)
+
+	$root = Resolve-DirectoryPath -LiteralPath $LiteralPath -Description 'Scenario fixture'
+	$files = @(
+		Get-ChildItem -LiteralPath $root -File -Recurse |
+			Sort-Object FullName |
+			ForEach-Object {
+				[ordered]@{
+					path = $_.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+					sizeBytes = $_.Length
+					sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+				}
+			}
+	)
+	$directoryRecord = @(
+		$files | ForEach-Object { "$($_.path)`n$($_.sizeBytes)`n$($_.sha256)" }
+	) -join "`n"
+	$sha256 = [System.Security.Cryptography.SHA256]::Create()
+	try {
+		$directoryHash = [System.BitConverter]::ToString(
+			$sha256.ComputeHash([System.Text.UTF8Encoding]::new($false).GetBytes($directoryRecord))
+		).Replace('-', '').ToLowerInvariant()
+	} finally {
+		$sha256.Dispose()
+	}
+
+	return [ordered]@{
+		path = $root
+		directorySha256 = $directoryHash
+		files = $files
+	}
+}
+
 function Get-TrustedProcmonMetadata {
 	param([Parameter(Mandatory = $true)][string] $LiteralPath)
 
@@ -210,6 +247,15 @@ if ($Mode -eq 'Trace' -and -not $KeepOpen -and $ResultTimeoutSeconds -le ($Trace
 $guestRunnerPath = Resolve-LeafPath `
 	-LiteralPath (Join-Path $PSScriptRoot 'Invoke-WatchtowerSandboxTrace.ps1') `
 	-Description 'Sandbox guest runner'
+$artifactScannerPath = Resolve-LeafPath `
+	-LiteralPath (Join-Path $PSScriptRoot 'Get-WatchtowerSandboxArtifactManifest.ps1') `
+	-Description 'Sandbox artifact scanner'
+$scenarioId = if ($Scenario -eq 'NoteResourcePlugin') { 'note-resource-plugin' } else { 'clean-startup' }
+$fixture = $null
+if ($Scenario -eq 'NoteResourcePlugin') {
+	$fixture = Get-DirectoryEvidence `
+		-LiteralPath (Join-Path $PSScriptRoot 'fixtures\content-canary-plugin')
+}
 
 $applicationDirectory = Split-Path -Parent $resolvedApplication
 $procmonDirectory = Split-Path -Parent $resolvedProcmon
@@ -248,6 +294,7 @@ $guestCommand = @(
 	'-ProcmonPath ' + (Quote-WindowsCommandArgument $procmonSandboxPath)
 	'-EvidencePath ' + (Quote-WindowsCommandArgument 'C:\WatchtowerEvidence')
 	'-Mode ' + (Quote-WindowsCommandArgument $Mode)
+	'-Scenario ' + (Quote-WindowsCommandArgument $Scenario)
 	'-TraceDurationSeconds ' + $TraceDurationSeconds
 ) -join ' '
 if (-not $KeepOpen) {
@@ -302,6 +349,7 @@ $configurationPath = Join-Path $resolvedLab 'WatchtowerTraceLab.wsb'
 $launchRecord = [ordered]@{
 	schemaVersion = 2
 	mode = $Mode
+	scenarioId = $scenarioId
 	traceDurationSeconds = $TraceDurationSeconds
 	launched = $false
 	resultObserved = $false
@@ -326,8 +374,12 @@ $launchRecord = [ordered]@{
 	}
 	harness = [ordered]@{
 		path = $PSScriptRoot
-		sha256 = (Get-FileHash -LiteralPath $guestRunnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+		runnerSha256 = (Get-FileHash -LiteralPath $guestRunnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+		artifactScannerSha256 = (
+			Get-FileHash -LiteralPath $artifactScannerPath -Algorithm SHA256
+		).Hash.ToLowerInvariant()
 	}
+	fixture = $fixture
 }
 
 $resultPath = Join-Path $resolvedEvidence 'sandbox-result.json'
@@ -359,12 +411,25 @@ if (-not $PrepareOnly) {
 		$launchRecord.guestHashAgreement = [ordered]@{
 			application = $guestResult.application.sha256 -eq $launchRecord.application.sha256
 			procmon = $guestResult.procmon.sha256 -eq $launchRecord.procmon.sha256
+			harnessRunner = $guestResult.harness.runnerSha256 -eq $launchRecord.harness.runnerSha256
+			artifactScanner = (
+				$guestResult.harness.artifactScannerSha256 -eq
+				$launchRecord.harness.artifactScannerSha256
+			)
+			fixture = (
+				$Scenario -eq 'CleanStartup' -or
+				$guestResult.trace.fixture.directorySha256 -eq $launchRecord.fixture.directorySha256
+			)
 		}
 		$guestContractValid = (
 			$guestResult.schemaVersion -eq 2 -and
 			$guestResult.mode -eq $Mode -and
+			($Mode -eq 'Smoke' -or $guestResult.trace.scenarioId -eq $scenarioId) -and
 			$launchRecord.guestHashAgreement.application -and
-			$launchRecord.guestHashAgreement.procmon
+			$launchRecord.guestHashAgreement.procmon -and
+			$launchRecord.guestHashAgreement.harnessRunner -and
+			$launchRecord.guestHashAgreement.artifactScanner -and
+			$launchRecord.guestHashAgreement.fixture
 		)
 		if (-not $guestContractValid) {
 			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
@@ -397,6 +462,34 @@ if (-not $PrepareOnly) {
 			}
 			if (-not $launchRecord.traceEvidence.guestHashAgreement) {
 				throw 'Host and guest PML evidence hashes or sizes do not agree'
+			}
+
+			if ($Scenario -eq 'NoteResourcePlugin') {
+				$artifactManifestFileName = [string] $guestResult.trace.artifactManifest.fileName
+				if (
+					[string]::IsNullOrWhiteSpace($artifactManifestFileName) -or
+					[System.IO.Path]::GetFileName($artifactManifestFileName) -ne $artifactManifestFileName
+				) {
+					throw 'Sandbox Trace result did not provide a safe artifact manifest file name'
+				}
+				$hostArtifactManifestPath = Join-Path $resolvedEvidence $artifactManifestFileName
+				$hostArtifactManifest = Get-Item -LiteralPath $hostArtifactManifestPath -ErrorAction Stop
+				$hostArtifactManifestSha256 = (
+					Get-FileHash -LiteralPath $hostArtifactManifest.FullName -Algorithm SHA256
+				).Hash.ToLowerInvariant()
+				$artifactManifestAgreement = (
+					$hostArtifactManifestSha256 -eq $guestResult.trace.artifactManifest.sha256 -and
+					$hostArtifactManifest.Length -eq $guestResult.trace.artifactManifest.sizeBytes
+				)
+				$launchRecord.traceEvidence['artifactManifest'] = [ordered]@{
+					path = $hostArtifactManifest.FullName
+					sizeBytes = $hostArtifactManifest.Length
+					sha256 = $hostArtifactManifestSha256
+					guestHashAgreement = $artifactManifestAgreement
+				}
+				if (-not $artifactManifestAgreement) {
+					throw 'Host and guest artifact manifest hashes or sizes do not agree'
+				}
 			}
 		}
 

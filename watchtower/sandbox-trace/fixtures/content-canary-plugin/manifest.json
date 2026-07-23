@@ -1,0 +1,9 @@
+{
+	"id": "com.watchtower.packaged-content-trace",
+	"manifest_version": 1,
+	"app_min_version": "3.6",
+	"name": "Watchtower Packaged Content Trace",
+	"description": "Test-only plugin for the disposable packaged plaintext trace.",
+	"version": "1.0.0",
+	"author": "Watchtower maintainers"
+}
