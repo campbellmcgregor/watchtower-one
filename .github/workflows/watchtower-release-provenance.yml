@@ -1,0 +1,72 @@
+name: Generate Watchtower release provenance
+
+on:
+  workflow_call:
+    inputs:
+      upstream_tag:
+        description: Exact Joplin stable tag used by the release
+        required: true
+        type: string
+      upstream_sha:
+        description: Full commit SHA resolved from the Joplin tag
+        required: true
+        type: string
+      revision:
+        description: Exact Watchtower release commit
+        required: true
+        type: string
+      artifact_name:
+        description: Complete build artifact bundle uploaded by the caller
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    name: Hash exact source and every release artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.revision }}
+
+      - name: Use supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download the complete release artifact bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: release-artifacts
+
+      - name: Generate strict release provenance
+        env:
+          UPSTREAM_SHA: ${{ inputs.upstream_sha }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          WATCHTOWER_REVISION: ${{ inputs.revision }}
+        shell: bash
+        run: |
+          node watchtower/tools/release-ledger.mjs generate \
+            --repository "$GITHUB_WORKSPACE" \
+            --upstream-tag "$UPSTREAM_TAG" \
+            --upstream-sha "$UPSTREAM_SHA" \
+            --revision "$WATCHTOWER_REVISION" \
+            --lockfile yarn.lock \
+            --patch-registry watchtower/patches.json \
+            --artifact-directory release-artifacts \
+            --output watchtower-release-ledger.json
+
+      - name: Publish the release ledger
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-release-provenance
+          path: watchtower-release-ledger.json
+          if-no-files-found: error

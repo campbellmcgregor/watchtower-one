@@ -1,27 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-
-const parseArguments = arguments_ => {
-	const [command, ...tokens] = arguments_;
-	const options = {};
-
-	for (let index = 0; index < tokens.length; index += 1) {
-		const token = tokens[index];
-		if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
-
-		const name = token.slice(2);
-		if (name === 'dry-run') {
-			options.dryRun = true;
-			continue;
-		}
-
-		const value = tokens[index + 1];
-		if (!value || value.startsWith('--')) throw new Error(`Missing value for --${name}`);
-		options[name] = value;
-		index += 1;
-	}
-
-	return { command, options };
-};
+import parseArguments from './cli-arguments.mjs';
 
 const readJson = async path => JSON.parse(await readFile(path, 'utf8'));
 
@@ -67,6 +45,22 @@ const compareVersions = (left, right) => {
 	return 0;
 };
 
+const isCommitSha = value => /^[0-9a-f]{40}$/i.test(value || '');
+
+const resolveTagCommit = async (apiUrl, policy, tag) => {
+	const repositoryUrl = `${apiUrl}/repos/${policy.upstream.owner}/${policy.upstream.repository}`;
+	let object = (await requestJson(`${repositoryUrl}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
+
+	for (let depth = 0; depth < 5; depth += 1) {
+		if (object?.type === 'commit' && isCommitSha(object.sha)) return object.sha.toLowerCase();
+		if (object?.type !== 'tag' || !isCommitSha(object.sha)) {
+			throw new Error(`Tag ${tag} does not resolve to a commit`);
+		}
+		object = (await requestJson(`${repositoryUrl}/git/tags/${object.sha}`)).object;
+	}
+	throw new Error(`Tag ${tag} has too many nested tag objects`);
+};
+
 const releaseCandidates = (releases, policy) => {
 	const baselineVersion = parseStableTag(policy.upstream.baselineTag);
 	if (!baselineVersion) throw new Error(`Invalid baseline tag: ${policy.upstream.baselineTag}`);
@@ -85,6 +79,7 @@ const releaseCandidates = (releases, policy) => {
 			sourceUrl: release.html_url,
 			publishedAt: release.published_at,
 			upstreamTag: release.tag_name,
+			upstreamCommit: release.tag_commit,
 			syncBranch: `sync/joplin-${release.tag_name}`,
 		}];
 	});
@@ -127,6 +122,7 @@ const releaseIssueBody = candidate => `${candidate.marker}
 - Source: ${candidate.sourceUrl}
 - Published: ${candidate.publishedAt}
 - Exact tag: \`${candidate.upstreamTag}\`
+- Exact commit: \`${candidate.upstreamCommit}\`
 - Required branch: \`${candidate.syncBranch}\`
 
 ## Reviewed synchronization
@@ -204,19 +200,26 @@ const reconcileIssues = async (apiUrl, targetRepository, token, candidates) => {
 
 const monitor = async options => {
 	if (!options.policy) throw new Error('--policy is required');
-	if (options.dryRun && !options.snapshot) throw new Error('--snapshot is required in dry-run mode');
+	if (options['dry-run'] && !options.snapshot) throw new Error('--snapshot is required in dry-run mode');
 
 	const policy = await readJson(options.policy);
 	const apiUrl = (process.env.WATCHTOWER_API_URL || 'https://api.github.com').replace(/\/$/, '');
 	const snapshot = options.snapshot
 		? await readJson(options.snapshot)
 		: await liveSnapshot(apiUrl, policy);
-	const candidates = [
+	let candidates = [
 		...releaseCandidates(snapshot.releases || [], policy),
 		...advisoryCandidates(snapshot.advisories || [], policy),
 	].sort((left, right) => left.key.localeCompare(right.key));
+	candidates = await Promise.all(candidates.map(async candidate => {
+		if (candidate.kind !== 'release' || candidate.upstreamCommit) return candidate;
+		return {
+			...candidate,
+			upstreamCommit: await resolveTagCommit(apiUrl, policy, candidate.upstreamTag),
+		};
+	}));
 
-	const result = options.dryRun
+	const result = options['dry-run']
 		? { candidates }
 		: await reconcileIssues(
 			apiUrl,
@@ -224,7 +227,7 @@ const monitor = async options => {
 			process.env.WATCHTOWER_GITHUB_TOKEN,
 			candidates,
 		);
-	process.stdout.write(`${JSON.stringify(result, null, options.dryRun ? 2 : 0)}\n`);
+	process.stdout.write(`${JSON.stringify(result, null, options['dry-run'] ? 2 : 0)}\n`);
 };
 
 const verifyRelease = async options => {
@@ -250,9 +253,20 @@ const verifyRelease = async options => {
 	if (!release || release.draft || release.prerelease || !release.published_at) {
 		throw new Error(`${options.tag} is not a published stable release`);
 	}
+	if (!isCommitSha(options['expected-sha'])) {
+		throw new Error('--expected-sha must be a full commit SHA');
+	}
+	const upstreamCommit = release.tag_commit
+		|| await resolveTagCommit(apiUrl, policy, release.tag_name);
+	if (upstreamCommit.toLowerCase() !== options['expected-sha'].toLowerCase()) {
+		throw new Error(
+			`Unexpected tag retarget: ${release.tag_name} resolves to ${upstreamCommit}, not ${options['expected-sha']}`,
+		);
+	}
 
 	process.stdout.write(`${JSON.stringify({
 		upstreamTag: release.tag_name,
+		upstreamCommit,
 		syncBranch: `sync/joplin-${release.tag_name}`,
 		sourceUrl: release.html_url,
 		publishedAt: release.published_at,
@@ -282,8 +296,28 @@ const recordBaseline = async options => {
 	process.stdout.write(`${options.policy}\n`);
 };
 
+const verifyCandidateIssue = async options => {
+	if (!options.tag || !parseStableTag(options.tag)) {
+		throw new Error(`Invalid stable tag: ${options.tag || '(missing)'}`);
+	}
+	if (!options['issue-body']) throw new Error('--issue-body is required');
+
+	const body = await readFile(options['issue-body'], 'utf8');
+	const marker = `<!-- watchtower-upstream-candidate:release:${options.tag} -->`;
+	if (!body.includes(marker)) throw new Error(`Issue is not the candidate for ${options.tag}`);
+
+	const commitMatch = /^- Exact commit: `([0-9a-f]{40})`$/im.exec(body);
+	if (!commitMatch) throw new Error('Candidate issue does not pin an exact commit');
+	process.stdout.write(`${JSON.stringify({
+		upstreamTag: options.tag,
+		expectedCommit: commitMatch[1].toLowerCase(),
+	})}\n`);
+};
+
 const main = async () => {
-	const { command, options } = parseArguments(process.argv.slice(2));
+	const { command, options } = parseArguments(process.argv.slice(2), {
+		boolean: ['dry-run'],
+	});
 	if (command === 'monitor') {
 		await monitor(options);
 		return;
@@ -294,6 +328,10 @@ const main = async () => {
 	}
 	if (command === 'record-baseline') {
 		await recordBaseline(options);
+		return;
+	}
+	if (command === 'verify-candidate-issue') {
+		await verifyCandidateIssue(options);
 		return;
 	}
 	throw new Error(`Unknown command: ${command || '(missing)'}`);

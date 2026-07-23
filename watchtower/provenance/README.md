@@ -1,6 +1,6 @@
 # Watchtower provenance records
 
-Reviewed upstream synchronization branches write `upstream-integration.json` here. It records the exact Joplin tag and commit, downstream revision and commit set, and dependency lock hash.
+Reviewed upstream synchronization branches write `upstream-integration.json` here. It records the exact Joplin tag and commit, downstream revision and commit set, maintained logical patch metadata from `watchtower/patches.json`, and dependency lock hash.
 
 An integration ledger may deliberately contain an empty `artifacts` array because no release binaries exist yet. It is not release provenance. Release packaging must run `watchtower/tools/release-ledger.mjs` again with every distributed artifact supplied through a separate `--artifact` argument.
 

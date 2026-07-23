@@ -5,9 +5,9 @@
 ## Control flow
 
 1. `watchtower-upstream-monitor.yml` runs every four hours and on manual dispatch.
-2. The monitor reads official Joplin releases and published repository advisories, then creates one deterministic Watchtower issue per unseen candidate.
+2. The monitor reads official Joplin releases and published repository advisories, resolves each release tag to a full commit SHA, then creates one deterministic Watchtower issue per unseen candidate.
 3. A maintainer triages the issue. For a stable release selected for integration, dispatch `Prepare reviewed Joplin synchronization` with the exact tag and candidate issue number.
-4. The workflow validates the release, fetches only the exact tag, resolves its full commit SHA, and attempts a no-rebase merge on `sync/joplin-vX.Y.Z`.
+4. The workflow validates that the issue marker, tag, and pinned SHA agree with the current release and tag records. A retarget is a hard stop. It fetches only the exact tag and attempts a no-rebase merge from protected `main` on `sync/joplin-vX.Y.Z`.
 5. A clean merge advances `watchtower/upstream-policy.json`, writes `watchtower/provenance/upstream-integration.json`, pushes the branch, and opens a pull request. A conflict stops the workflow without inventing a resolution.
 6. Reviewers inspect high-risk upstream areas and run the required upstream and Watchtower verification before merging.
 
@@ -37,6 +37,7 @@ node watchtower/tools/release-ledger.mjs generate \
   --upstream-sha FULL_40_CHARACTER_SHA \
   --revision HEAD \
   --lockfile yarn.lock \
+  --patch-registry watchtower/patches.json \
   --output watchtower/provenance/upstream-integration.json \
   --allow-no-artifacts
 ```
@@ -45,7 +46,9 @@ node watchtower/tools/release-ledger.mjs generate \
 
 ## Release ledger
 
-After building the exact release revision, omit `--allow-no-artifacts` and pass every distributed file separately:
+Release pipelines must upload one complete artifact bundle and call `.github/workflows/watchtower-release-provenance.yml` with the exact Watchtower revision, upstream tag/SHA, and bundle name. The reusable workflow downloads that bundle, hashes every regular file recursively, and publishes `watchtower-release-provenance`.
+
+For a local equivalent after building the exact release revision, omit `--allow-no-artifacts` and supply either every distributed file separately or their complete directory:
 
 ```text
 node watchtower/tools/release-ledger.mjs generate \
@@ -54,12 +57,14 @@ node watchtower/tools/release-ledger.mjs generate \
   --upstream-sha FULL_40_CHARACTER_SHA \
   --revision WATCHTOWER_RELEASE_COMMIT \
   --lockfile yarn.lock \
-  --artifact dist/Watchtower-One-Setup.exe \
-  --artifact dist/Watchtower-One-Setup.exe.blockmap \
+  --patch-registry watchtower/patches.json \
+  --artifact-directory dist \
   --output dist/watchtower-release-ledger.json
 ```
 
-Generation fails when the tag resolves to a different commit, the upstream commit is not an ancestor of the selected revision, an input escapes the repository, or a release ledger has no artifacts.
+Generation fails when the tag resolves to a different commit, the upstream commit is not an ancestor of the selected revision, patch metadata is malformed or references a commit outside the downstream set, an input escapes the repository, an artifact directory contains a symlink or non-regular file, or a release ledger has no artifacts.
+
+`watchtower/patches.json` is the maintained logical Patch Ledger. Each topic names its owner, commit set, upstream touchpoints, tests, and whether it is a candidate for upstream contribution. Update it whenever a new downstream topic is committed.
 
 ## Repository settings
 

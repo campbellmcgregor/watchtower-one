@@ -22,6 +22,7 @@ test('generate records the exact downstream source and release artifacts', async
 	const repository = await mkdtemp(join(tmpdir(), 'watchtower-release-ledger-'));
 	const artifactDirectory = join(repository, 'dist');
 	const outputPath = join(repository, 'release-ledger.json');
+	const patchRegistryPath = join(repository, 'watchtower-patches.json');
 	await mkdir(artifactDirectory);
 
 	git(repository, ['init', '--initial-branch=main']);
@@ -37,6 +38,18 @@ test('generate records the exact downstream source and release artifacts', async
 	git(repository, ['add', 'watchtower.txt']);
 	git(repository, ['commit', '-m', 'protect the profile']);
 	const downstreamSha = git(repository, ['rev-parse', 'HEAD']);
+	const patch = {
+		id: 'profile-protection',
+		owner: 'Watchtower security',
+		commits: [downstreamSha],
+		upstreamTouchpoints: ['packages/app-desktop'],
+		tests: ['profile storage seam'],
+		upstreamCandidate: false,
+	};
+	await writeFile(patchRegistryPath, `${JSON.stringify({
+		schemaVersion: 1,
+		patches: [patch],
+	}, null, 2)}\n`);
 	await writeFile(join(artifactDirectory, 'watchtower-a.bin'), 'artifact-a\n');
 	await writeFile(join(artifactDirectory, 'watchtower-z.bin'), 'artifact-z\n');
 
@@ -53,10 +66,10 @@ test('generate records the exact downstream source and release artifacts', async
 		'HEAD',
 		'--lockfile',
 		'yarn.lock',
-		'--artifact',
-		'dist/watchtower-z.bin',
-		'--artifact',
-		'dist/watchtower-a.bin',
+		'--patch-registry',
+		'watchtower-patches.json',
+		'--artifact-directory',
+		'dist',
 		'--output',
 		outputPath,
 	], { encoding: 'utf8' });
@@ -78,6 +91,7 @@ test('generate records the exact downstream source and release artifacts', async
 					subject: 'protect the profile',
 				},
 			],
+			patches: [patch],
 		},
 		lockfile: {
 			path: 'yarn.lock',
@@ -100,7 +114,9 @@ test('generate records the exact downstream source and release artifacts', async
 test('generate permits an artifact-free integration ledger only when explicitly allowed', async () => {
 	const repository = await mkdtemp(join(tmpdir(), 'watchtower-integration-ledger-'));
 	const outputPath = join(repository, 'integration-ledger.json');
+	const patchRegistryPath = join(repository, 'watchtower-patches.json');
 	await writeFile(join(repository, 'yarn.lock'), 'lock\n');
+	await writeFile(patchRegistryPath, JSON.stringify({ schemaVersion: 1, patches: [] }));
 	git(repository, ['init', '--initial-branch=main']);
 	git(repository, ['config', 'user.name', 'Watchtower Test']);
 	git(repository, ['config', 'user.email', 'watchtower@example.test']);
@@ -122,6 +138,8 @@ test('generate permits an artifact-free integration ledger only when explicitly 
 		'HEAD',
 		'--lockfile',
 		'yarn.lock',
+		'--patch-registry',
+		'watchtower-patches.json',
 		'--output',
 		outputPath,
 	];

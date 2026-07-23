@@ -1,34 +1,12 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { lstat, opendir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import parseArguments from './cli-arguments.mjs';
 
 const executeFile = promisify(execFile);
-
-const parseArguments = arguments_ => {
-	const [command, ...tokens] = arguments_;
-	const options = { artifact: [] };
-
-	for (let index = 0; index < tokens.length; index += 1) {
-		const token = tokens[index];
-		if (!token?.startsWith('--')) throw new Error(`Invalid argument near ${token || '(end)'}`);
-		const name = token.slice(2);
-		if (name === 'allow-no-artifacts') {
-			options[name] = true;
-			continue;
-		}
-
-		const value = tokens[index + 1];
-		if (!value || value.startsWith('--')) throw new Error(`Missing value for --${name}`);
-		if (name === 'artifact') options.artifact.push(value);
-		else options[name] = value;
-		index += 1;
-	}
-
-	return { command, options };
-};
 
 const requireOption = (options, name) => {
 	if (!options[name]) throw new Error(`--${name} is required`);
@@ -67,6 +45,46 @@ const hashFile = path => new Promise((resolveHash, reject) => {
 	stream.on('end', () => resolveHash(hash.digest('hex')));
 });
 
+const artifactFiles = async (repository, artifactPaths, directoryPaths) => {
+	const files = new Map();
+
+	const addFile = async (path, name) => {
+		const artifact = repositoryPath(repository, path, name);
+		const stats = await lstat(artifact.absolutePath);
+		if (!stats.isFile() || stats.isSymbolicLink()) {
+			throw new Error(`${name} must be a regular file: ${path}`);
+		}
+		files.set(artifact.relativePath, artifact);
+	};
+	const visitDirectory = async directory => {
+		const entries = await opendir(directory.absolutePath);
+		for await (const entry of entries) {
+			const child = repositoryPath(
+				repository,
+				resolve(directory.absolutePath, entry.name),
+				'artifact directory entry',
+			);
+			if (entry.isDirectory()) await visitDirectory(child);
+			else if (entry.isFile()) files.set(child.relativePath, child);
+			else throw new Error(`Artifact directory contains a non-regular file: ${child.relativePath}`);
+		}
+	};
+
+	for (const path of artifactPaths) await addFile(path, 'artifact');
+	for (const path of directoryPaths) {
+		const directory = repositoryPath(repository, path, 'artifact directory');
+		const stats = await lstat(directory.absolutePath);
+		if (!stats.isDirectory() || stats.isSymbolicLink()) {
+			throw new Error(`artifact directory must be a directory: ${path}`);
+		}
+		await visitDirectory(directory);
+	}
+
+	return [...files.values()].sort((left, right) => (
+		left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0
+	));
+};
+
 const downstreamCommits = async (repository, upstreamSha, revision) => {
 	const output = await git(repository, [
 		'log',
@@ -86,16 +104,54 @@ const downstreamCommits = async (repository, upstreamSha, revision) => {
 	});
 };
 
+const readPatchRegistry = async (path, downstream) => {
+	const registry = JSON.parse(await readFile(path, 'utf8'));
+	if (registry.schemaVersion !== 1 || !Array.isArray(registry.patches)) {
+		throw new Error('Patch registry must use schemaVersion 1 and contain a patches array');
+	}
+
+	const downstreamShas = new Set(downstream.map(commit => commit.commit));
+	const identifiers = new Set();
+	for (const patch of registry.patches) {
+		if (
+			typeof patch.id !== 'string'
+			|| !patch.id
+			|| typeof patch.owner !== 'string'
+			|| !patch.owner
+			|| !Array.isArray(patch.commits)
+			|| !patch.commits.length
+			|| !Array.isArray(patch.upstreamTouchpoints)
+			|| !patch.upstreamTouchpoints.length
+			|| !Array.isArray(patch.tests)
+			|| !patch.tests.length
+			|| typeof patch.upstreamCandidate !== 'boolean'
+		) throw new Error(`Invalid patch registry entry: ${patch.id || '(missing id)'}`);
+		if (identifiers.has(patch.id)) throw new Error(`Duplicate patch id: ${patch.id}`);
+		identifiers.add(patch.id);
+		for (const commit of patch.commits) {
+			if (!downstreamShas.has(commit)) {
+				throw new Error(`Patch ${patch.id} references commit outside the downstream set: ${commit}`);
+			}
+		}
+	}
+
+	return [...registry.patches].sort((left, right) => (
+		left.id < right.id ? -1 : left.id > right.id ? 1 : 0
+	));
+};
+
 const generate = async options => {
 	const repository = resolve(requireOption(options, 'repository'));
 	const upstreamTag = requireOption(options, 'upstream-tag');
 	const expectedUpstreamSha = requireOption(options, 'upstream-sha');
 	const revisionName = requireOption(options, 'revision');
 	const lockfile = repositoryPath(repository, requireOption(options, 'lockfile'), 'lockfile');
+	const patchRegistry = repositoryPath(
+		repository,
+		requireOption(options, 'patch-registry'),
+		'patch registry',
+	);
 	const output = repositoryPath(repository, requireOption(options, 'output'), 'output');
-	if (!options.artifact.length && !options['allow-no-artifacts']) {
-		throw new Error('At least one --artifact is required');
-	}
 
 	const upstreamSha = await git(repository, ['rev-parse', '--verify', `${upstreamTag}^{commit}`]);
 	if (upstreamSha !== expectedUpstreamSha) {
@@ -108,13 +164,19 @@ const generate = async options => {
 		throw new Error(`${upstreamSha} is not an ancestor of ${revision}`);
 	}
 
-	const artifacts = options.artifact
-		.map(path => repositoryPath(repository, path, 'artifact'))
-		.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+	const artifacts = await artifactFiles(
+		repository,
+		options.artifact,
+		options['artifact-directory'],
+	);
+	if (!artifacts.length && !options['allow-no-artifacts']) {
+		throw new Error('At least one --artifact or non-empty --artifact-directory is required');
+	}
 	const artifactRecords = await Promise.all(artifacts.map(async artifact => ({
 		path: artifact.relativePath,
 		sha256: await hashFile(artifact.absolutePath),
 	})));
+	const commits = await downstreamCommits(repository, upstreamSha, revision);
 	const ledger = {
 		schemaVersion: 1,
 		upstream: {
@@ -124,7 +186,8 @@ const generate = async options => {
 		},
 		downstream: {
 			revision,
-			commits: await downstreamCommits(repository, upstreamSha, revision),
+			commits,
+			patches: await readPatchRegistry(patchRegistry.absolutePath, commits),
 		},
 		lockfile: {
 			path: lockfile.relativePath,
@@ -138,7 +201,10 @@ const generate = async options => {
 };
 
 const main = async () => {
-	const { command, options } = parseArguments(process.argv.slice(2));
+	const { command, options } = parseArguments(process.argv.slice(2), {
+		boolean: ['allow-no-artifacts'],
+		repeatable: ['artifact', 'artifact-directory'],
+	});
 	if (command !== 'generate') throw new Error(`Unknown command: ${command || '(missing)'}`);
 	await generate(options);
 };
