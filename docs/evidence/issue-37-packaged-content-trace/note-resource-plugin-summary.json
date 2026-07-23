@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "issue": 37,
+  "scenario": {
+    "id": "note-resource-plugin",
+    "maximumBarrierWaitSeconds": 60,
+    "capturedAt": "2026-07-23T14:55:35.7495914Z",
+    "completionBarrierObserved": true,
+    "noteIdRecorded": true,
+    "resourceIdRecorded": true
+  },
+  "baseline": {
+    "upstreamTag": "v3.6.15",
+    "upstreamCommit": "c61572660382863595c6b51ccf2263e3d2c4bfce",
+    "downstreamBuildSourceRevision": "11337aac9f36886d92342825de66bb81030eb96d",
+    "buildCommand": "corepack yarn workspace @joplin/app-desktop dist --win --x64 --dir",
+    "architecture": "x64",
+    "applicationVersion": "3.6.15",
+    "applicationSizeBytes": 213916160,
+    "applicationSha256": "5d505f20737e25d8cc2876d561c442a4b2ebaecbc5bfdf72b81f146d4b20b265",
+    "appAsarSizeBytes": 89439654,
+    "appAsarSha256": "11422068b82165e1de004f6e4055255c5e2ee89d73f7969f6003d2b3230f517f",
+    "qualificationBuildSigned": false
+  },
+  "procmon": {
+    "officialDownloadUrl": "https://download.sysinternals.com/files/ProcessMonitor.zip",
+    "version": "4.04",
+    "executableSha256": "a7ab46fbe97fbc03ab66ceb786ec8c38c6588ccf21bf390f314857d1fd91d608",
+    "authenticodeStatus": "Valid",
+    "signer": "Microsoft Corporation",
+    "productName": "Sysinternals Procmon"
+  },
+  "harness": {
+    "launcherSha256": "6394366e272f044f5937afd54f840c3a7369321e9e210729237069a67dc85928",
+    "guestRunnerSha256": "06ba67497b5ede91951b8bc4d1f60a66a75b24105bd289294a89911a492586b3",
+    "artifactScannerSha256": "a22482ebe31e70306fe7c398f0938fd643f7674a2571bda950897ffe40a90bc0",
+    "fixtureDirectorySha256": "4e9a194196f086b5f9912bcc69449a0db6f0044f41db320579bb54d11767194d",
+    "fixtureFiles": [
+      {
+        "path": "index.js",
+        "sizeBytes": 1740,
+        "sha256": "88c505cea2b1390824f3dd7a6d18fd0c107a63ab20d94de456e02d46f2d10a85"
+      },
+      {
+        "path": "manifest.json",
+        "sizeBytes": 287,
+        "sha256": "401879f9adc3c76d5e80669da41d9218c41e127b0d6b0174f12aebc78a0d1623"
+      }
+    ],
+    "completeCanaryValuesPresentInFixture": false
+  },
+  "sandbox": {
+    "userName": "WDAGUtilityAccount",
+    "memoryGB": 3,
+    "isSandboxUser": true,
+    "inputMappingIsReadOnly": true,
+    "evidenceMappingIsWritable": true,
+    "activeNetworkAdapterCount": 0,
+    "networkingDisabled": true
+  },
+  "trace": {
+    "procmonStartedBeforeApplication": true,
+    "procmonBackingCaptureReadyBeforeApplication": true,
+    "applicationWasRunningBeforeTermination": true,
+    "targetedApplicationProcessCount": 5,
+    "terminationMethod": "taskkill /pid <exact-pid> /f /t",
+    "applicationTerminationExitCode": 0,
+    "remainingApplicationProcessCount": 0,
+    "procmonTerminationExitCode": 0,
+    "pmlSizeBytes": 91049618,
+    "pmlSha256": "73a373c154cd3084db921e467ab5c5d98cf08e10aa28babd4ad4e834d76244b6"
+  },
+  "artifactManifest": {
+    "allocatedRegularFileCount": 72,
+    "scanErrorCount": 0,
+    "sizeBytes": 27454,
+    "sha256": "e9166281cf60fc6db4e8696cf256c1dc1dcd595a68bc76174d99e4079f31bee3",
+    "canaryHitFileCounts": {
+      "note": 1,
+      "resource": 2,
+      "plugin": 2
+    },
+    "canaryLocations": {
+      "note": [
+        "<profile>/database.sqlite"
+      ],
+      "resource": [
+        "<profile>/plugin-data/com.watchtower.packaged-content-trace/resource-input.txt",
+        "<profile>/resources/<resource-id>.txt"
+      ],
+      "plugin": [
+        "<profile>/plugin-data/com.watchtower.packaged-content-trace/plugin-data.txt",
+        "<profile>/settings.json"
+      ]
+    },
+    "canaryHitOutsideSelectedProfileCount": 0
+  },
+  "handoff": {
+    "applicationHostGuestHashAgreement": true,
+    "procmonHostGuestHashAgreement": true,
+    "guestRunnerHostGuestHashAgreement": true,
+    "artifactScannerHostGuestHashAgreement": true,
+    "fixtureHostGuestHashAgreement": true,
+    "pmlHostGuestHashAgreement": true,
+    "artifactManifestHostGuestHashAgreement": true,
+    "observedSandboxClientProcessCount": 2,
+    "sandboxClientClosed": true,
+    "remainingSandboxClientProcessCount": 0
+  },
+  "scope": {
+    "rawPmlCommitted": false,
+    "rawArtifactManifestCommitted": false,
+    "rawHostPathsCommitted": false,
+    "canaryValuesCommitted": false,
+    "pmlEventContentAnalyzed": false,
+    "allocatedClosedProfileArtifactsAnalyzed": true,
+    "deletedOrUnallocatedArtifactsAnalyzed": false,
+    "fullIssue7MatrixCompleted": false
+  }
+}

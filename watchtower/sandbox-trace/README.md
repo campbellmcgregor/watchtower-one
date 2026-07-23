@@ -6,6 +6,8 @@ Status: the containment smoke layer is proven for issue
 [#30](https://github.com/campbellmcgregor/watchtower-one/issues/30), and the
 packaged v3.6.15 clean-start Procmon slice is proven for issue
 [#33](https://github.com/campbellmcgregor/watchtower-one/issues/33). The
+packaged note/resource/plugin persistence slice is proven for issue
+[#37](https://github.com/campbellmcgregor/watchtower-one/issues/37). The
 remaining packaged scenario matrix stays open under issue
 [#30](https://github.com/campbellmcgregor/watchtower-one/issues/30) and parent
 issue [#7](https://github.com/campbellmcgregor/watchtower-one/issues/7).
@@ -23,10 +25,15 @@ Trace mode additionally requires caller-supplied SHA-256 values for both
 inputs and an Authenticode-valid Microsoft Sysinternals Procmon executable.
 Procmon starts and must create a non-empty backing capture before the packaged
 application launches. The application runs against a disposable explicit
-profile for a bounded duration, and only the recorded application PID tree is
-force-terminated. Procmon then stops through its own CLI. The host
-independently verifies the guest input hashes and final PML hash before closing
-the exact new Windows Sandbox client processes.
+profile for a bounded duration. The `NoteResourcePlugin` scenario installs an
+immutable test plugin into that profile; the plugin creates a note, resource,
+setting, and plugin-owned file through public Joplin APIs, then writes a
+completion barrier. Only the recorded application PID tree is force-terminated.
+Procmon then stops through its own CLI. A closed-profile scanner records file
+hashes and UTF-8/UTF-16LE canary locations without copying canary values into
+the manifest. The host independently verifies the guest input, fixture, PML,
+and artifact-manifest hashes before closing the exact new Windows Sandbox
+client processes.
 
 ## Requirements
 
@@ -80,6 +87,18 @@ $procmonSha = (Get-FileHash -LiteralPath $procmon -Algorithm SHA256).Hash
     -ResultTimeoutSeconds 180
 ```
 
+For the bounded content-bearing scenario, add:
+
+```powershell
+    -Scenario NoteResourcePlugin `
+    -TraceDurationSeconds 60
+```
+
+`TraceDurationSeconds` is the maximum completion-barrier wait for this
+scenario. The guest fails closed if the packaged application exits, the
+fixture reports failure, the barrier is absent, any required canary is absent,
+or an allocated file cannot be scanned.
+
 Use a new evidence and lab directory for every run. Trace mode refuses a
 pre-existing result or PML instead of overwriting evidence.
 
@@ -91,7 +110,9 @@ pre-existing result or PML instead of overwriting evidence.
 - `<evidence>\sandbox-result.json`: guest-observed account, mappings,
   networking, memory, independently calculated input hashes, exact process
   termination, Procmon PID/readiness, and capture lifecycle.
-- `<evidence>\clean-startup.pml`: raw native Procmon capture in Trace mode.
+- `<evidence>\<scenario>.pml`: raw native Procmon capture in Trace mode.
+- `<evidence>\note-resource-plugin-artifact-manifest.json`: allocated regular
+  files, sizes, hashes, and canary IDs/encodings for the content scenario.
 - `<lab>\WatchtowerTraceLab.wsb`: the generated disposable configuration.
 
 Raw Procmon logs and canary-bearing evidence must remain outside source
@@ -99,10 +120,12 @@ control. Only reviewed, path-sanitised summaries may be checked in.
 
 ## Current evidence boundary
 
-The checked-in summaries prove Sandbox containment and one bounded packaged
-clean-start capture with exact process-tree termination and evidence handoff.
-They do not analyze the PML, introduce content canaries, cover deleted
-artifacts, or complete issue #7. Those claims remain blocked until the full
-scenario matrix in
+The checked-in summaries prove Sandbox containment, one bounded packaged
+clean-start capture, and one packaged note/resource/plugin capture with a
+durable completion barrier, exact process-tree termination, closed-profile
+allocated-file canary scanning, and evidence handoff. They do not analyze PML
+events, cover deleted/unallocated artifacts, exercise plugin writes outside
+the selected profile, or complete issue #7. Those claims remain blocked until
+the full scenario matrix in
 [`docs/research/joplin-v3.6.15-windows-runtime-plaintext-footprint.md`](../../docs/research/joplin-v3.6.15-windows-runtime-plaintext-footprint.md)
 has run against the pinned packaged baseline.
