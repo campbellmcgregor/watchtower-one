@@ -42,10 +42,11 @@ The first-release states are:
 
 | State | Permitted behavior |
 |---|---|
-| `Locked` | Only the pre-unlock host and reviewed Public Bootstrap State exist. The Canonical Encrypted Store is closed, no Local Vault Key is available, and Joplin, sync, backup, indexing, OCR, and curated plugins do not run. |
+| `Locked` | Only the pre-unlock host runs. The closed Canonical Encrypted Store and other encrypted vault artifacts persist but are unreadable; Public Bootstrap State is the only Watchtower state readable without a Local Vault Key. Joplin, sync, backup, indexing, OCR, and curated plugins do not run. |
 | `Unlocking` | The Vault Lifecycle module derives or unwraps key material in memory, opens and keys the encrypted store before its first schema read, validates version and integrity, configures the Ephemeral Runtime module, and only then issues a Vault Session capability. Failure returns to a visibly failed-closed state. |
 | `Unlocked` | Trusted Watchtower/Joplin processes may hold decrypted user data in memory. Persistent user data continues through encrypted modules; no routine plaintext profile exists. |
-| `Locking` | New profile work is rejected; sync, plugin, editor, preview, OCR, backup, and egress work is drained or cancelled; encrypted stores are closed; the content-bearing process tree exits; ephemeral application state and key buffers are discarded; only then may the pre-unlock host report `Locked`. |
+| `Locking` | New profile work is rejected; sync, plugin, editor, preview, OCR, backup, and egress work is drained or cancelled; encrypted stores are closed; the content-bearing process tree exits; ephemeral application state and key buffers are discarded. The pre-unlock host then reports either fully protected `Locked` or the explicit `LockedWithEgressResidue` result. |
+| `LockedWithEgressResidue` | The encrypted vault is closed and session authority is revoked, but Watchtower could not confirm deletion of one or more temporary Explicit Plaintext Egress paths. The pre-unlock host identifies the paths, explains the residual risk, and does not present the ordinary fully protected `Locked` state until the user resolves or explicitly accepts the residue. |
 | `FailedClosed` | Watchtower does not report a successful unlock or lock, does not fall back to stock plaintext storage, and does not resume profile work. Recovery may relaunch only the pre-unlock host after reporting the failure. |
 
 ### Required encrypted persistence
@@ -159,7 +160,9 @@ The Vault Lifecycle module owns this ordering:
 4. dispose the Ephemeral Runtime module and terminate all content-bearing
    renderer, utility, plugin, and GPU processes;
 5. best-effort zeroise owned native key buffers and revoke the capability; and
-6. report `Locked` only after the preceding outcomes are observed.
+6. report fully protected `Locked` only after the preceding outcomes and
+   temporary-egress cleanup are observed; otherwise report
+   `LockedWithEgressResidue`.
 
 If the ordered transition cannot complete, the application reports a failed
 lock and terminates content-bearing processes. It never leaves the ordinary
@@ -186,8 +189,16 @@ The module distinguishes:
 - a final user-selected destination, whose lifetime becomes the user's
   responsibility; and
 - a temporary handoff to another application, which uses a private,
-  per-operation location, records its lifetime without recording content, and
-  attempts cleanup on completion and the next start.
+  per-operation location and a finite lease deadline recorded without content.
+
+A temporary handoff is closed and deletion is attempted on operation
+completion, cancellation, explicit lock, application close, and lease expiry.
+Recovery startup retries every unfinished handoff before permitting another
+unlock. Cleanup retries are bounded; implementation must define and test a
+finite deadline rather than retaining plaintext indefinitely while another
+application keeps it open. If Watchtower cannot confirm deletion, it enters
+`LockedWithEgressResidue`, shows the surviving path and remediation, and never
+describes that state as fully protected.
 
 Watchtower cannot claim deletion of copies created by another editor, clipboard
 history or cloud clipboard, print spooler, screenshot tool, backup product,
@@ -222,6 +233,27 @@ state, backups, and temporary files are not OS exceptions. They remain subject
 to the encrypted-or-non-content contract and must be disabled, replaced, or
 routed through the selected deep modules.
 
+### User-visible security disclosure
+
+The distinction between Watchtower-controlled persistence and OS-controlled live
+memory artifacts is part of the product interface, not developer-only
+documentation. First-run onboarding and an always-available Security screen
+must state:
+
+- what Watchtower encrypts while locked and while unlocked;
+- that pagefile, hibernation, administrator-enabled dumps, screen capture, and a
+  compromised unlocked session can expose live plaintext;
+- that full-volume operating-system encryption is recommended defence in depth
+  but is not a Watchtower dependency; and
+- that Explicit Plaintext Egress transfers protection responsibility to the
+  selected destination or application.
+
+Where Windows posture can be detected without elevation, the Security screen
+reports volume-encryption, hibernation, and WER-dump status as protected,
+unprotected, or unknown. Unknown is never represented as protected, and
+Watchtower does not silently change machine-wide policy. Packaged acceptance
+evidence verifies both the disclosure and its posture reporting.
+
 ## Verification contract
 
 Implementation and release evidence must exercise the public seams, not private
@@ -236,7 +268,10 @@ helpers:
   plaintext fallback and never infer cleanup merely from a later successful
   startup;
 - Plaintext Egress tests distinguish final user destinations from temporary
-  handoffs and report surviving third-party or cleanup artifacts honestly; and
+  handoffs, exercise completion/cancel/lock/close/expiry/recovery cleanup, and
+  verify `LockedWithEgressResidue` when deletion cannot be confirmed;
+- product-flow tests verify the first-run and Security-screen disclosure,
+  including honest protected/unprotected/unknown Windows posture; and
 - every packaged Windows evidence record states pagefile, hibernation, WER,
   crash-dump, indexing, antivirus, and full-volume-encryption posture.
 

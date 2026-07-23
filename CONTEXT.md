@@ -28,7 +28,7 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 
 ## Invariants
 
-1. Watchtower One does not initialize Joplin's user-data database, resource content, sensitive settings, plugin user data, backups, content-bearing logs, or persistent Electron user state before the Watchtower Profile Vault is unlocked. Only Public Bootstrap State may be read.
+1. Before a Local Vault Key is validated, Watchtower reads only Public Bootstrap State. During `Unlocking`, the Vault Lifecycle module may perform bounded keyed format, configuration, and integrity checks against the Canonical Encrypted Store, but Joplin initialization and user-data queries cannot begin until the Vault Session capability is issued.
 2. During a Vault Session, decrypted user data and raw local key material remain memory-only. Application-managed persistent user data, SQLite sidecars, automatic backups, and sensitive runtime state remain encrypted.
 3. Watchtower never reports a successful lock until new profile work is gated, content-bearing processes are closed, encrypted stores are closed, ephemeral application state is discarded, and session authority is revoked. A failed transition remains visibly failed closed.
 4. When the Vault Session is closed, user-derived data is not persistently recoverable as plaintext from Watchtower-managed profile paths, caches, logs, backups, crash artifacts, or temporary files.

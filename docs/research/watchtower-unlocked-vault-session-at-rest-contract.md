@@ -259,9 +259,10 @@ and label it “OS controlled.” Ownership is determined by who chose to
 materialise the bytes. Only Windows-managed paging, hibernation and dump
 mechanisms belong in this limitation.
 
-## Normative issue #9 decision
+## Decision inputs carried into ADR-0004
 
-The following statements are ready to accept as the issue #9 contract:
+ADR-0004 carries these research conclusions into the normative issue #9
+contract:
 
 1. **Ciphertext on application-controlled storage while unlocked.** The
    SQLCipher database and content-bearing journals/WAL remain encrypted for the
