@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "patches": [
+    {
+      "id": "downstream-foundation",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "d991bbf456e53a749b569283072f30a937fb5771",
+        "48eb43b22e5ba74617ad4f65525dfbf176e47cc3",
+        "cd31b9129ce264267805cdb30cef02ccd3c89584",
+        "4ca6232ccee5a26de2256d93cc528f879fc7e878"
+      ],
+      "upstreamTouchpoints": [
+        "Documentation and downstream policy only"
+      ],
+      "tests": [
+        "Primary-source research review",
+        "Unmodified Windows desktop build, typecheck, and test baseline"
+      ],
+      "upstreamCandidate": false
+    },
+    {
+      "id": "upstream-synchronization-controls",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "3a241449c5412c145bd2a4de4fd18f922053e3e9",
+        "ad43fe46afcc13f34eb58c174498916194abb2c3",
+        "1a8ad892a5edea95999ed8d04888222d5190c7d4"
+      ],
+      "upstreamTouchpoints": [
+        ".github/workflows/watchtower-*.yml",
+        "watchtower/**",
+        "package.json scripts"
+      ],
+      "tests": [
+        "yarn watchtowerVerify",
+        "yarn workspace @joplin/app-desktop tsc",
+        "yarn workspace @joplin/app-desktop test --runInBand"
+      ],
+      "upstreamCandidate": false
+    }
+  ]
+}
