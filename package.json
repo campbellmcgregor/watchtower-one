@@ -66,6 +66,7 @@
     "updatePluginTypes": "./packages/generator-joplin/updateTypes.sh",
     "validateFilenames": "node ./packages/tools/validateFilenames.js",
     "watchtowerMonitor": "node watchtower/tools/upstream-control.mjs monitor --policy watchtower/upstream-policy.json",
+    "watchtowerPrototypeSqlcipher": "node watchtower/prototypes/sqlcipher-joplin/cli.cjs",
     "watchtowerProvenance": "node watchtower/tools/release-ledger.mjs",
     "watchtowerTraceBaseline": "yarn workspace @joplin/app-desktop gulp before-start && yarn workspace @joplin/app-desktop playwright test --config ../../watchtower/runtime-trace/playwright.config.ts",
     "watchtowerVerify": "node --test watchtower/tools/tests/upstream-control.test.mjs watchtower/tools/tests/release-ledger.test.mjs watchtower/tools/tests/plaintext-trace.test.mjs watchtower/tools/tests/sandbox-trace-lab.test.mjs",

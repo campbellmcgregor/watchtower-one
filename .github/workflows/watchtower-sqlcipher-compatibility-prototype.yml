@@ -1,0 +1,85 @@
+name: Watchtower SQLCipher compatibility prototype
+
+on:
+  push:
+    branches:
+      - codex/issue-8-encryption-architecture-prototype
+    paths:
+      - .github/workflows/watchtower-sqlcipher-compatibility-prototype.yml
+      - watchtower/prototypes/sqlcipher-joplin/**
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: Build Joplin-compatible Windows x64 prebuild
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Watchtower prototype
+        uses: actions/checkout@v4
+
+      - name: Check out pinned Signal SQLCipher binding
+        uses: actions/checkout@v4
+        with:
+          repository: signalapp/node-sqlcipher
+          ref: 14e0f5e74e6bcd26d3462b48546473de5fd3a1fc
+          path: node-sqlcipher
+
+      - name: Enable Joplin SQLite compatibility
+        shell: pwsh
+        run: |
+          $gypPath = 'node-sqlcipher/deps/sqlcipher/sqlcipher.gyp'
+          $gyp = Get-Content -Raw -LiteralPath $gypPath
+          $expected = "'SQLITE_DQS=0',"
+          if (-not $gyp.Contains($expected)) {
+            throw 'Pinned Signal source no longer has the expected SQLCipher compile flags'
+          }
+          $replacement = @"
+          'SQLITE_DQS=3',
+          'SQLITE_ENABLE_FTS3',
+          'SQLITE_ENABLE_FTS3_PARENTHESIS',
+          'SQLITE_ENABLE_FTS4',
+          "@
+          $gyp = $gyp.Replace($expected, $replacement.TrimEnd())
+          Set-Content -LiteralPath $gypPath -Value $gyp
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: pnpm
+          cache-dependency-path: node-sqlcipher/pnpm-lock.yaml
+
+      - name: Install and build
+        working-directory: node-sqlcipher
+        run: pnpm install --frozen-lockfile
+
+      - name: Produce N-API prebuild
+        working-directory: node-sqlcipher
+        run: pnpm prebuildify --target 22.14.0 --arch x64
+
+      - name: Verify required compile options
+        working-directory: node-sqlcipher
+        shell: pwsh
+        run: |
+          $verification = node "${{ github.workspace }}/watchtower/prototypes/sqlcipher-joplin/verify-binding.cjs"
+          $verification
+          $verification | Set-Content -LiteralPath sqlcipher-compile-options.json
+
+      - name: Upload prototype prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-sqlcipher-joplin-win32-x64
+          if-no-files-found: error
+          path: |
+            node-sqlcipher/prebuilds/win32-x64/@signalapp+sqlcipher.node
+            node-sqlcipher/sqlcipher-compile-options.json
+          retention-days: 7
