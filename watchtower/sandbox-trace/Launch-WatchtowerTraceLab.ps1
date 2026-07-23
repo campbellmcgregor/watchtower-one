@@ -72,6 +72,24 @@ function Escape-Xml {
 	return [System.Security.SecurityElement]::Escape($Value)
 }
 
+function Write-LaunchRecord {
+	param(
+		[Parameter(Mandatory = $true)]
+		[object] $Record,
+
+		[Parameter(Mandatory = $true)]
+		[string] $EvidenceDirectory
+	)
+
+	$json = $Record | ConvertTo-Json -Depth 8
+	[System.IO.File]::WriteAllText(
+		(Join-Path $EvidenceDirectory 'sandbox-launch.json'),
+		($json + [Environment]::NewLine),
+		[System.Text.UTF8Encoding]::new($false)
+	)
+	return $json
+}
+
 function Quote-WindowsCommandArgument {
 	param([Parameter(Mandatory = $true)][string] $Value)
 	if ($Value.Contains('"')) {
@@ -127,6 +145,17 @@ function Get-TrustedProcmonMetadata {
 		companyName = $version.CompanyName
 		fileVersion = $version.FileVersion
 	}
+}
+
+function Get-WindowsSandboxClientProcesses {
+	$processNames = @(
+		'WindowsSandbox',
+		'WindowsSandboxClient',
+		'WindowsSandboxRemoteSession'
+	)
+	return @(
+		Get-Process -Name $processNames -ErrorAction SilentlyContinue
+	)
 }
 
 function Wait-ForProcessIdsExit {
@@ -278,6 +307,8 @@ $launchRecord = [ordered]@{
 	resultObserved = $false
 	sandboxClientClosed = $false
 	remainingSandboxClientProcessIds = @()
+	observedSandboxClientProcessIds = @()
+	sandboxLaunchProcessId = $null
 	guestHashAgreement = $null
 	traceEvidence = $null
 	configurationPath = $configurationPath
@@ -306,17 +337,13 @@ if (-not $PrepareOnly -and (Test-Path -LiteralPath $resultPath)) {
 
 if (-not $PrepareOnly) {
 	$existingSandboxClientIds = @(
-		Get-Process -Name 'WindowsSandboxRemoteSession' -ErrorAction SilentlyContinue |
+		Get-WindowsSandboxClientProcesses |
 			ForEach-Object Id
 	)
-	Start-Process -FilePath $configurationPath | Out-Null
+	$sandboxLaunchProcess = Start-Process -FilePath $configurationPath -PassThru
+	$launchRecord.sandboxLaunchProcessId = $sandboxLaunchProcess.Id
 	$launchRecord.launched = $true
-	$startedLaunchJson = $launchRecord | ConvertTo-Json -Depth 4
-	[System.IO.File]::WriteAllText(
-		(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-		($startedLaunchJson + [Environment]::NewLine),
-		[System.Text.UTF8Encoding]::new($false)
-	)
+	Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 
 	if (-not $KeepOpen) {
 		$deadline = (Get-Date).AddSeconds($ResultTimeoutSeconds)
@@ -340,21 +367,11 @@ if (-not $PrepareOnly) {
 			$launchRecord.guestHashAgreement.procmon
 		)
 		if (-not $guestContractValid) {
-			$failedLaunchJson = $launchRecord | ConvertTo-Json -Depth 8
-			[System.IO.File]::WriteAllText(
-				(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-				($failedLaunchJson + [Environment]::NewLine),
-				[System.Text.UTF8Encoding]::new($false)
-			)
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 			throw 'Sandbox result contract or host/guest input hash agreement failed; the client remains open for diagnosis'
 		}
 		if ($guestResult.status -ne 'passed') {
-			$failedLaunchJson = $launchRecord | ConvertTo-Json -Depth 8
-			[System.IO.File]::WriteAllText(
-				(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-				($failedLaunchJson + [Environment]::NewLine),
-				[System.Text.UTF8Encoding]::new($false)
-			)
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 			throw "Sandbox reported status '$($guestResult.status)'; the client remains open for diagnosis"
 		}
 
@@ -384,30 +401,41 @@ if (-not $PrepareOnly) {
 		}
 
 		$newSandboxClients = @(
-			Get-Process -Name 'WindowsSandboxRemoteSession' -ErrorAction SilentlyContinue |
+			Get-WindowsSandboxClientProcesses |
 				Where-Object { $_.Id -notin $existingSandboxClientIds }
 		)
-		foreach ($sandboxClient in $newSandboxClients) {
-			Stop-Process -Id $sandboxClient.Id -Force -ErrorAction Stop
+		$newSandboxClientIds = @(
+			@($newSandboxClients | ForEach-Object Id) +
+			@($sandboxLaunchProcess.Id | Where-Object { $_ -notin $existingSandboxClientIds }) |
+				Sort-Object -Unique
+		)
+		$launchRecord.observedSandboxClientProcessIds = $newSandboxClientIds
+		foreach ($sandboxClientId in $newSandboxClientIds) {
+			if ($null -ne (Get-Process -Id $sandboxClientId -ErrorAction SilentlyContinue)) {
+				Stop-Process -Id $sandboxClientId -Force -ErrorAction Stop
+			}
 		}
-		$newSandboxClientIds = @($newSandboxClients | ForEach-Object Id)
 		$remainingSandboxClientProcessIds = if ($newSandboxClientIds.Count -gt 0) {
 			Wait-ForProcessIdsExit -ProcessIds $newSandboxClientIds
 		} else {
 			$null
 		}
-		$launchRecord.remainingSandboxClientProcessIds = @($remainingSandboxClientProcessIds)
+		$lateSandboxClientProcessIds = @(
+			Get-WindowsSandboxClientProcesses |
+				Where-Object { $_.Id -notin $existingSandboxClientIds } |
+				ForEach-Object Id
+		)
+		$launchRecord.remainingSandboxClientProcessIds = @(
+			@($remainingSandboxClientProcessIds) + $lateSandboxClientProcessIds |
+				Sort-Object -Unique
+		)
 		$launchRecord.sandboxClientClosed = $launchRecord.remainingSandboxClientProcessIds.Count -eq 0
 		if (-not $launchRecord.sandboxClientClosed) {
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 			throw 'One or more Sandbox client processes remained after exact session cleanup'
 		}
 	}
 }
 
-$launchJson = $launchRecord | ConvertTo-Json -Depth 8
-[System.IO.File]::WriteAllText(
-	(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-	($launchJson + [Environment]::NewLine),
-	[System.Text.UTF8Encoding]::new($false)
-)
+$launchJson = Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence
 $launchJson

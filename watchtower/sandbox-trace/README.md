@@ -21,11 +21,12 @@ a packaged trace.
 
 Trace mode additionally requires caller-supplied SHA-256 values for both
 inputs and an Authenticode-valid Microsoft Sysinternals Procmon executable.
-Procmon starts before the packaged application, the application runs against a
-disposable explicit profile for a bounded duration, and only the recorded
-application PID tree is force-terminated. Procmon then stops through its own
-CLI. The host independently verifies the guest input hashes and final PML hash
-before closing the exact new Sandbox client.
+Procmon starts and must create a non-empty backing capture before the packaged
+application launches. The application runs against a disposable explicit
+profile for a bounded duration, and only the recorded application PID tree is
+force-terminated. Procmon then stops through its own CLI. The host
+independently verifies the guest input hashes and final PML hash before closing
+the exact new Windows Sandbox client processes.
 
 ## Requirements
 
@@ -89,7 +90,7 @@ pre-existing result or PML instead of overwriting evidence.
   configuration path, mode, and launch/closure state.
 - `<evidence>\sandbox-result.json`: guest-observed account, mappings,
   networking, memory, independently calculated input hashes, exact process
-  termination, and Procmon lifecycle.
+  termination, Procmon PID/readiness, and capture lifecycle.
 - `<evidence>\clean-startup.pml`: raw native Procmon capture in Trace mode.
 - `<lab>\WatchtowerTraceLab.wsb`: the generated disposable configuration.
 

@@ -5,7 +5,7 @@
   "scenario": {
     "id": "clean-startup",
     "traceDurationSeconds": 30,
-    "capturedAt": "2026-07-23T13:56:18.8053277Z"
+    "capturedAt": "2026-07-23T14:18:23.3257795Z"
   },
   "baseline": {
     "upstreamTag": "v3.6.15",
@@ -40,19 +40,23 @@
   },
   "trace": {
     "procmonStartedBeforeApplication": true,
+    "procmonProcessIdRecorded": true,
+    "procmonBackingCaptureReadyBeforeApplication": true,
     "applicationWasRunningBeforeTermination": true,
     "targetedApplicationProcessCount": 5,
     "terminationMethod": "taskkill /pid <exact-pid> /f /t",
     "applicationTerminationExitCode": 0,
     "remainingApplicationProcessCount": 0,
     "procmonTerminationExitCode": 0,
-    "pmlSizeBytes": 97575064,
-    "pmlSha256": "8c956517cbde0376a081c99260e3e7c08213c6925e56a988172767818d3aa251"
+    "pmlSizeBytes": 86786739,
+    "pmlSha256": "f32ebf0359e98cf57b96aa0f6e96a52516b1e9eef8e3482468f877d14f27ac66"
   },
   "handoff": {
     "applicationHostGuestHashAgreement": true,
     "procmonHostGuestHashAgreement": true,
     "pmlHostGuestHashAgreement": true,
+    "sandboxLaunchProcessIdRecorded": true,
+    "observedSandboxClientProcessCount": 2,
     "sandboxClientClosed": true,
     "remainingSandboxClientProcessCount": 0
   },

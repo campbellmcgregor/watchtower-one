@@ -160,6 +160,34 @@ test('host launcher prepares a bounded packaged trace command', {
 	assert.match(configuration, /-TraceDurationSeconds 20/);
 });
 
+test('host launcher rejects an out-of-range trace duration before resolving inputs', {
+	skip: process.platform !== 'win32',
+}, () => {
+	const result = spawnSync('powershell.exe', [
+		'-NoProfile',
+		'-ExecutionPolicy',
+		'Bypass',
+		'-File',
+		launcherPath,
+		'-ApplicationPath',
+		'missing-application.exe',
+		'-ProcmonPath',
+		'missing-procmon.exe',
+		'-EvidencePath',
+		'missing-evidence',
+		'-LabPath',
+		'missing-lab',
+		'-Mode',
+		'Trace',
+		'-TraceDurationSeconds',
+		'5',
+	], { encoding: 'utf8' });
+
+	assert.notEqual(result.status, 0);
+	assert.match(result.stderr, /ValidateRange|TraceDurationSeconds/);
+	assert.doesNotMatch(result.stderr, /Cannot find path/);
+});
+
 test('host launcher rejects an untrusted Procmon before launching Trace mode', {
 	skip: process.platform !== 'win32',
 }, async () => {

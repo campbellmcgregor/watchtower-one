@@ -103,7 +103,13 @@ function Invoke-ExactProcessTreeTermination {
 }
 
 function Stop-ProcmonCapture {
-	param([Parameter(Mandatory = $true)][string] $LiteralPath)
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $LiteralPath,
+
+		[Parameter(Mandatory = $true)]
+		[int] $CaptureProcessId
+	)
 
 	$stoppedAt = (Get-Date).ToUniversalTime().ToString('o')
 	$output = @(
@@ -112,11 +118,41 @@ function Stop-ProcmonCapture {
 	)
 	$exitCode = $LASTEXITCODE
 	return [ordered]@{
+		captureProcessId = $CaptureProcessId
 		method = 'Procmon -terminate -quiet'
 		stoppedAt = $stoppedAt
 		exitCode = $exitCode
 		output = $output
 	}
+}
+
+function Wait-ForProcmonBackingFile {
+	param(
+		[Parameter(Mandatory = $true)]
+		[System.Diagnostics.Process] $Process,
+
+		[Parameter(Mandatory = $true)]
+		[string] $LiteralPath,
+
+		[ValidateRange(1, 30)]
+		[int] $TimeoutSeconds = 15
+	)
+
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	do {
+		$Process.Refresh()
+		if ($Process.HasExited) {
+			throw 'Procmon exited before its backing capture became ready'
+		}
+		if (Test-Path -LiteralPath $LiteralPath) {
+			$pmlItem = Get-Item -LiteralPath $LiteralPath -ErrorAction Stop
+			if ($pmlItem.Length -gt 0) {
+				return (Get-Date).ToUniversalTime()
+			}
+		}
+		Start-Sleep -Milliseconds 250
+	} while ((Get-Date) -lt $deadline)
+	throw 'Procmon did not create a non-empty backing capture before the application launch deadline'
 }
 
 function Wait-ForProcessExit {
@@ -180,6 +216,7 @@ $procmonProcess = $null
 $applicationTermination = $null
 $procmonStop = $null
 $procmonStartedAt = $null
+$procmonBackingFileReadyAt = $null
 $applicationStartedAt = $null
 $applicationWasRunningBeforeTermination = $false
 $observationRoot = 'C:\WatchtowerObservation'
@@ -197,7 +234,6 @@ if ($Mode -eq 'Trace') {
 		}
 
 		New-Item -ItemType Directory -Path $profileRoot -Force -ErrorAction Stop | Out-Null
-		$procmonStartedAt = (Get-Date).ToUniversalTime()
 		$procmonProcess = Start-Process `
 			-FilePath $procmon `
 			-ArgumentList @(
@@ -208,11 +244,11 @@ if ($Mode -eq 'Trace') {
 				'-minimized'
 			) `
 			-PassThru
-		Start-Sleep -Seconds 2
 		$procmonProcess.Refresh()
-		if ($procmonProcess.HasExited) {
-			throw 'Procmon exited before the packaged application started'
-		}
+		$procmonStartedAt = $procmonProcess.StartTime.ToUniversalTime()
+		$procmonBackingFileReadyAt = Wait-ForProcmonBackingFile `
+			-Process $procmonProcess `
+			-LiteralPath $pmlPath
 
 		$applicationStartedAt = (Get-Date).ToUniversalTime()
 		$applicationProcess = Start-Process `
@@ -234,7 +270,9 @@ if ($Mode -eq 'Trace') {
 			throw "Exact application process-tree termination failed or left processes running (exit code $($applicationTermination.exitCode))"
 		}
 
-		$procmonStop = Stop-ProcmonCapture -LiteralPath $procmon
+		$procmonStop = Stop-ProcmonCapture `
+			-LiteralPath $procmon `
+			-CaptureProcessId $procmonProcess.Id
 		if ($procmonStop.exitCode -ne 0) {
 			throw "Procmon termination failed with exit code $($procmonStop.exitCode)"
 		}
@@ -249,7 +287,10 @@ if ($Mode -eq 'Trace') {
 		if ($pmlItem.Length -le 0) {
 			throw "Procmon produced an empty $pmlFileName"
 		}
-		$tracePassed = $procmonStartedAt -lt $applicationStartedAt
+		$tracePassed = (
+			$procmonStartedAt -lt $applicationStartedAt -and
+			$procmonBackingFileReadyAt -le $applicationStartedAt
+		)
 	} catch {
 		$traceFailure = $_.Exception.Message
 	} finally {
@@ -263,7 +304,9 @@ if ($Mode -eq 'Trace') {
 			$procmonProcess.Refresh()
 			if (-not $procmonProcess.HasExited) {
 				if ($null -eq $procmonStop) {
-					$procmonStop = Stop-ProcmonCapture -LiteralPath $procmon
+					$procmonStop = Stop-ProcmonCapture `
+						-LiteralPath $procmon `
+						-CaptureProcessId $procmonProcess.Id
 				}
 				if (-not (Wait-ForProcessExit -Process $procmonProcess)) {
 					Stop-Process -Id $procmonProcess.Id -Force -ErrorAction SilentlyContinue
@@ -285,11 +328,22 @@ if ($Mode -eq 'Trace') {
 		scenarioId = 'clean-startup'
 		requestedDurationSeconds = $TraceDurationSeconds
 		procmonStartedAt = if ($null -ne $procmonStartedAt) { $procmonStartedAt.ToString('o') } else { $null }
+		procmonProcessId = if ($null -ne $procmonProcess) { $procmonProcess.Id } else { $null }
+		procmonBackingFileReadyAt = if ($null -ne $procmonBackingFileReadyAt) {
+			$procmonBackingFileReadyAt.ToString('o')
+		} else {
+			$null
+		}
 		applicationStartedAt = if ($null -ne $applicationStartedAt) { $applicationStartedAt.ToString('o') } else { $null }
 		procmonStartedBeforeApplication = (
 			$null -ne $procmonStartedAt -and
 			$null -ne $applicationStartedAt -and
 			$procmonStartedAt -lt $applicationStartedAt
+		)
+		procmonCaptureReadyBeforeApplication = (
+			$null -ne $procmonBackingFileReadyAt -and
+			$null -ne $applicationStartedAt -and
+			$procmonBackingFileReadyAt -le $applicationStartedAt
 		)
 		applicationProcessId = if ($null -ne $applicationProcess) { $applicationProcess.Id } else { $null }
 		applicationWasRunningBeforeTermination = $applicationWasRunningBeforeTermination
