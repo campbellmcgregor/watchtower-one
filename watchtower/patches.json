@@ -65,7 +65,8 @@
       "owner": "Watchtower maintainers",
       "commits": [
         "b74af7eaee65afd482b1b55ff6285b273da12500",
-        "89baa9022fb590c639043bc641e4664f2a742f1d"
+        "89baa9022fb590c639043bc641e4664f2a742f1d",
+        "c7ec1d086f06d6bdaf965b0a0f2be12f5fb023e8"
       ],
       "upstreamTouchpoints": [
         "watchtower/sandbox-trace/**",
