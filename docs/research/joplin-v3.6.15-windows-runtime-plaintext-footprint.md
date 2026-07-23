@@ -2,7 +2,7 @@
 
 # Joplin v3.6.15 Windows runtime plaintext footprint
 
-Status: exact-source development runtime trace complete; packaged-build release qualification remains
+Status: partial exact-source development trace; complete Windows qualification remains
 
 Issue: [#7 — Re-trace the v3.6.15 plaintext footprint at runtime](https://github.com/campbellmcgregor/watchtower-one/issues/7)
 
@@ -14,7 +14,7 @@ What persistent plaintext does the pinned Joplin v3.6.15 desktop baseline produc
 
 The answer is broader than `database.sqlite`. The controlled runtime trace found note content in SQLite and `log.txt`, exact resource bytes in `resources`, plugin state in settings and logs, a complete external-edit Markdown copy, and a stock Backup JEX containing both note and resource canaries. The forced process-tree kill preserved every one of those copies. Recovery restored the note, removed the external-edit and unpacked test-plugin temporary files, and retained the database, resource, settings, log and Backup copies.
 
-The trace found no unexpected content canary outside the selected profile within its controlled observation root. That is not a Windows-wide zero-plaintext claim: the run used the exact v3.6.15 source in the development Electron harness, redirected the selected profile and Electron session/temp paths, and did not scan the host account's existing home/app-data trees. Stable source still proves that normal installed Backup and crash paths can leave the selected profile. Those paths must be brought inside the Watchtower Profile Vault, replaced with encrypted equivalents, or treated as disclosed Explicit Plaintext Egress.
+The trace found no unexpected content canary outside the selected profile within its controlled observation root. That is not a complete answer to issue #7 or a Windows-wide zero-plaintext claim: the run used the exact v3.6.15 source in the development Electron harness, redirected the selected profile and Electron session/temp paths, and did not scan the host account's existing home/app-data trees. Stable source still proves that normal installed Backup and crash paths can leave the selected profile. Those paths must be brought inside the Watchtower Profile Vault, replaced with encrypted equivalents, or treated as disclosed Explicit Plaintext Egress.
 
 ## Evidence language
 
@@ -217,7 +217,7 @@ Also run targeted main-, renderer- and plugin-process kills where the scenario c
 
 ## Extended packaged-build qualification matrix
 
-The development trace above answers issue #7 at the public profile-storage seam. The following broader Procmon/VM matrix remains the release-qualification protocol for a packaged binary; its `PENDING` rows are not claims about the completed development run.
+The development trace above partially answers issue #7 at the public profile-storage seam. The following broader Procmon/VM matrix is required to complete the issue and remains the release-qualification protocol for a packaged binary; its `PENDING` rows are not claims about the completed development run.
 
 | ID | Scenario and action | Required termination/checkpoints | Primary expected locations | Runtime status |
 | --- | --- | --- | --- | --- |
@@ -305,4 +305,4 @@ Watchtower One should not make a release-level zero-undisclosed-plaintext claim 
 - The allowed-egress list is reviewed against Watchtower's invariants.
 - The report states tool blind spots, VM/OS policy assumptions and whether deleted/free-space, pagefile, hibernation, antivirus, indexing, thumbnails and editor recovery were examined.
 
-Only then can packaged-build evidence support a Windows-wide zero-**undisclosed**-persistent-plaintext assertion. The completed issue #7 development trace already constrains the whole-profile encryption prototype, but it does not replace this release gate.
+Only then can packaged-build evidence support a Windows-wide zero-**undisclosed**-persistent-plaintext assertion. The checked-in partial development trace already constrains the whole-profile encryption prototype, but it does not replace this release gate.
