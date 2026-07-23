@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "tag": "v3.6.15",
+    "commit": "c61572660382863595c6b51ccf2263e3d2c4bfce"
+  },
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.14.0",
+  "observationRoot": "<trace-root>",
+  "profileDirectory": "<trace-root>/home/.config/joplindev-desktop",
+  "electronPaths": {
+    "home": "<host-home>",
+    "appData": "<host-app-data>",
+    "userData": "<trace-root>/electron-user-data",
+    "sessionData": "<trace-root>/electron-user-data",
+    "temp": "<trace-root>/temp",
+    "logs": "<trace-root>/electron-user-data/logs",
+    "crashDumps": "<trace-root>/electron-user-data/Crashpad"
+  },
+  "hostPathsNotScanned": [
+    "home",
+    "appData"
+  ]
+}

@@ -1975,4 +1975,6 @@ packages/tools/website/utils/supportedLocales.js
 packages/tools/website/utils/types.js
 packages/whisper-voice-typing/src/index.js
 packages/whisper-voice-typing/src/specs/Whisper.nitro.js
+watchtower/runtime-trace/joplin-v3.6.15.spec.js
+watchtower/runtime-trace/playwright.config.js
 # AUTO-GENERATED - EXCLUDED TYPESCRIPT BUILD

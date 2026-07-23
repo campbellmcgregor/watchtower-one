@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "scenario": "clean-startup-live",
+      "manifest": "01-clean-startup-live.json",
+      "fileCount": 100,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 0,
+        "resource": 0,
+        "plugin": 0
+      }
+    },
+    {
+      "scenario": "clean-startup-closed",
+      "manifest": "02-clean-startup-closed.json",
+      "fileCount": 110,
+      "errorCount": 0,
+      "canaryFileCounts": {
+        "note": 0,
+        "resource": 0,
+        "plugin": 0
+      }
+    },
+    {
+      "scenario": "note-resource-plugin-live",
+      "manifest": "03-note-resource-plugin-live.json",
+      "fileCount": 131,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 2,
+        "resource": 1,
+        "plugin": 3
+      }
+    },
+    {
+      "scenario": "external-edit-live",
+      "manifest": "04-external-edit-live.json",
+      "fileCount": 132,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 3,
+        "resource": 1,
+        "plugin": 3
+      }
+    },
+    {
+      "scenario": "backup-live",
+      "manifest": "05-backup-live.json",
+      "fileCount": 136,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 4,
+        "resource": 2,
+        "plugin": 4
+      }
+    },
+    {
+      "scenario": "update-check-live",
+      "manifest": "06-update-check-live.json",
+      "fileCount": 136,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 4,
+        "resource": 2,
+        "plugin": 4
+      }
+    },
+    {
+      "scenario": "renderer-crash-live",
+      "manifest": "07-renderer-crash-live.json",
+      "fileCount": 136,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 4,
+        "resource": 2,
+        "plugin": 4
+      }
+    },
+    {
+      "scenario": "forced-termination-closed",
+      "manifest": "08-forced-termination-closed.json",
+      "fileCount": 132,
+      "errorCount": 0,
+      "canaryFileCounts": {
+        "note": 4,
+        "resource": 2,
+        "plugin": 4
+      }
+    },
+    {
+      "scenario": "recovery-restart-live",
+      "manifest": "09-recovery-restart-live.json",
+      "fileCount": 132,
+      "errorCount": 2,
+      "canaryFileCounts": {
+        "note": 3,
+        "resource": 2,
+        "plugin": 3
+      }
+    },
+    {
+      "scenario": "recovery-restart-closed",
+      "manifest": "10-recovery-restart-closed.json",
+      "fileCount": 130,
+      "errorCount": 0,
+      "canaryFileCounts": {
+        "note": 3,
+        "resource": 2,
+        "plugin": 3
+      }
+    }
+  ],
+  "externalEditPath": "home/.config/joplindev-desktop/edit-ed51b493719e407088f1dac4523b40e3.md"
+}
