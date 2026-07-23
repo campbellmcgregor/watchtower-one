@@ -1,6 +1,6 @@
 # SQLCipher/Joplin architecture prototype
 
-<!-- cspell:ignore Sqlcipher -->
+<!-- cspell:ignore signalapp Sqlcipher -->
 
 > Disposable prototype. Do not merge this directory into a production branch.
 
@@ -12,6 +12,15 @@ logical vault?
 Run it from the repository root:
 
 ```powershell
+corepack yarn watchtowerPrototypeSqlcipher
+```
+
+To exercise a compatibility artifact without replacing the installed stock
+package, point the command at an artifact root containing
+`prebuilds/win32-x64/@signalapp+sqlcipher.node`:
+
+```powershell
+$env:WATCHTOWER_SQLCIPHER_PREBUILD_ROOT = 'C:\path\to\artifact'
 corepack yarn watchtowerPrototypeSqlcipher
 ```
 
@@ -28,10 +37,19 @@ The proof passes only when:
 - a rolled-back value is absent;
 - no plaintext canary occurs in the database, WAL, SHM, or journal files.
 
-The prototype intentionally does not yet prove application UI integration,
-streaming large BLOB reads, keychain-backed key wrapping, crash recovery,
-backup/restore, packaging, or upstream upgrades. Those measurements belong to
-the next evidence slices if this seam passes.
+The prototype proves the storage seam, bounded BLOB persistence, forced
+termination recovery, encrypted export/restore, the latest Joplin schema
+upgrade, Electron runtime loading, and a directory-packaged Windows launch. It
+does not prove full application UI integration, streaming resource call sites,
+keychain-backed key wrapping, an installer, arbitrary upstream-tag upgrades, or
+macOS/Linux packaging.
+
+Build the disposable directory package with:
+
+```powershell
+.\watchtower\prototypes\sqlcipher-joplin\Build-PackagedProof.ps1 `
+  -CompatibilityArtifactRoot 'C:\path\to\verified-artifact'
+```
 
 ## Binding compatibility discovered by the prototype
 

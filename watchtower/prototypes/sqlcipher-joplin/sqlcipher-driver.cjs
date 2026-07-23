@@ -1,18 +1,24 @@
 const path = require('node:path');
 const { createRequire } = require('node:module');
 
+if (process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT) {
+	process.env['@SIGNALAPP/SQLCIPHER_PREBUILD'] = path.resolve(process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT);
+}
+
 const desktopRequire = createRequire(path.resolve(__dirname, '../../../packages/app-desktop/package.json'));
 const { default: SqlCipherDatabase, setLogger } = desktopRequire('@signalapp/sqlcipher');
 
 setLogger(() => {});
 
-const rawKeyPragma = key => {
+const rawKeyLiteral = key => {
 	if (!Buffer.isBuffer(key) || key.byteLength !== 32) {
 		throw new Error('The SQLCipher prototype requires a 32-byte Buffer key');
 	}
 
-	return `key = "x'${key.toString('hex')}'"`;
+	return `"x'${key.toString('hex')}'"`;
 };
+
+const rawKeyPragma = key => `key = ${rawKeyLiteral(key)}`;
 
 class SqlCipherDriver {
 
@@ -66,9 +72,28 @@ class SqlCipherDriver {
 		return this.db_.prepare('SELECT sqlite_version() AS version').get().version;
 	}
 
+	compileOptions() {
+		return this.db_.prepare('PRAGMA compile_options').all()
+			.map(row => Object.values(row)[0]);
+	}
+
+	exportTo(targetPath, key) {
+		const escapedTargetPath = targetPath.replaceAll('\'', '\'\'');
+		this.db_.exec(`ATTACH DATABASE '${escapedTargetPath}' AS watchtower_backup KEY ${rawKeyLiteral(key)}`);
+		try {
+			this.db_.prepare('SELECT sqlcipher_export(?) AS result').get(['watchtower_backup']);
+		} finally {
+			this.db_.exec('DETACH DATABASE watchtower_backup');
+		}
+	}
+
+	integrityCheck() {
+		return this.db_.pragma('integrity_check', { simple: true });
+	}
+
 	checkpoint() {
 		return this.db_.pragma('wal_checkpoint(TRUNCATE)');
 	}
 }
 
-module.exports = { SqlCipherDriver, rawKeyPragma };
+module.exports = { SqlCipherDriver, rawKeyLiteral, rawKeyPragma };

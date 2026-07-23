@@ -16,6 +16,7 @@ const render = result => {
 	console.log('==================================================');
 	line('Joplin migrations', `${mark(result.joplinMigration)} schema ${result.joplinSchemaVersion}`);
 	line('SQLCipher runtime', `${mark(Boolean(result.cipherVersion))} ${result.cipherVersion}`);
+	line('Joplin SQLite compile options', `${mark(result.missingCompileOptions.length === 0)} ${result.requiredCompileOptions.join(', ')}`);
 	line('Wrong key rejected', mark(result.wrongKeyRejected));
 	line('Note persisted', mark(result.persistence.note));
 	line('Sensitive setting persisted', mark(result.persistence.setting));
@@ -23,6 +24,20 @@ const render = result => {
 	line('Resource BLOB persisted', `${mark(result.persistence.resource)} ${result.resource.bytes} bytes`);
 	line('Rollback atomic', mark(result.rollbackAtomic));
 	line('Plaintext canary matches', `${mark(result.canaryScan.matches.length === 0)} ${result.canaryScan.matches.length}`);
+	line('Encrypted backup + restore', mark(
+		result.backup.integrity
+		&& result.backup.wrongKeyRejected
+		&& Object.values(result.backup.persistence).every(Boolean),
+	));
+	line('Backup plaintext matches', `${mark(result.backup.canaryScan.matches.length === 0)} ${result.backup.canaryScan.matches.length}`);
+	line('Committed write after kill', mark(result.crash.committedWriteSurvived));
+	line('In-flight rollback after kill', mark(result.crash.inflightWriteRolledBack));
+	line('Crash recovery integrity', mark(
+		result.crash.integrityAfterCommittedKill
+		&& result.crash.integrityAfterInflightKill,
+	));
+	line('Crash plaintext matches', `${mark(result.crash.canaryScan.matches.length === 0)} ${result.crash.canaryScan.matches.length}`);
+	line('Schema 48 → current upgrade', `${mark(result.upgrade.newColumnPresent && result.upgrade.integrity)} ${result.upgrade.toVersion}`);
 	line('Prototype key persisted', `${mark(result.keyPersisted === false)} no`);
 	line('Migration time', `${result.timingsMs.migration} ms`);
 	line('Insert time', `${result.timingsMs.insert} ms`);

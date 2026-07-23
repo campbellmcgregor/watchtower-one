@@ -1,0 +1,6 @@
+{
+  "name": "watchtower-sqlcipher-packaged-proof",
+  "version": "0.0.0",
+  "private": true,
+  "main": "main.cjs"
+}
