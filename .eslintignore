@@ -646,6 +646,8 @@ packages/app-desktop/utils/restartInSafeModeFromMain.test.js
 packages/app-desktop/utils/restartInSafeModeFromMain.js
 packages/app-desktop/utils/sourceMapSetup.js
 packages/app-desktop/utils/window/types.js
+packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.test.js
+packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.js
 packages/app-mobile/PluginAssetsLoader.js
 packages/app-mobile/commands/dismissPluginPanels.js
 packages/app-mobile/commands/index.js
