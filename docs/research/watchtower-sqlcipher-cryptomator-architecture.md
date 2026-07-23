@@ -2,7 +2,7 @@
 
 <!-- cspell:ignore cryptofs Cryptomator databasesqlite minidumps signalapp SQLCipher WinFsp Zetetic -->
 
-Status: SQLCipher direction accepted; issue #8 compatibility prototype in progress
+Status: accepted by ADR-0003
 
 Research date: 2026-07-23
 
@@ -16,8 +16,7 @@ desktop application?
 
 ## Executive conclusion
 
-Yes, a **SQLCipher-led logical vault** is credible and should be the leading
-issue #8 prototype.
+Yes. ADR-0003 selects a **SQLCipher-led logical vault**.
 
 This is not “SQLCipher only” in the narrow sense of encrypting Joplin's existing
 `database.sqlite` while leaving every other path unchanged. The proposed
@@ -34,6 +33,14 @@ this approach on packaged Windows Electron:
   integrity-check an encrypted database; and
 - SQLCipher BLOB attachments up to 100 MiB met the accepted performance and
   memory budgets with zero plaintext-canary matches in the controlled root.
+
+The Joplin-specific issue #8 prototype then passed the current schema 49
+migration, 100 MiB BLOB persistence, wrong-key rejection, encrypted
+export/restore, committed and in-flight forced-termination cases, schema 48 to
+49 upgrade, Electron 40.8.3 loading, and directory packaging. Its controlled
+database, WAL, SHM, journal, backup, and crash-recovery scans found zero
+plaintext canary matches. The evidence is recorded in
+[the issue #8 proof](../evidence/issue-8-sqlcipher-joplin-architecture-proof.md).
 
 Cryptomator is actively maintained and is the strongest transparent-filesystem
 alternative examined. It does not, however, remove the product-integration
@@ -250,21 +257,17 @@ Keep Cryptomator as the fallback prototype only if Joplin's resource and plugin
 file assumptions cannot be isolated behind deep modules without pervasive
 downstream patching.
 
-## Decision blockers
+## Production follow-ups
 
-Issue #8 cannot close until the prototype answers:
+The architecture is selected. Production implementation must still resolve:
 
-- whether `@signalapp/sqlcipher` can run the complete Joplin v3.6.15 migration
-  and query suite on packaged Windows;
-- whether its bundled SQLCipher lag from the current Zetetic core is acceptable,
-  can be upgraded reproducibly, or should be replaced by a supported commercial
-  distribution;
+- upgrading the proven SQLCipher 4.10.0 core or making a separately reviewed
+  supported-package decision;
 - whether attachment BLOB access can remain responsive at Joplin's real preview,
   OCR and sync seams with a 100 MiB limit;
 - whether v1 disables multi-profile support or introduces encrypted root
   metadata;
 - whether curated-plugin persistence can be constrained to encrypted interfaces;
   and
-- whether changing “complete physical profile” to the proposed logical
-  user-data promise is accepted and then reflected in `CONTEXT.md`, the
-  foundation ADR and downstream issue acceptance criteria.
+- carrying the accepted logical user-data promise into implementation and
+  release acceptance criteria.
