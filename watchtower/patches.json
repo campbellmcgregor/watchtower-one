@@ -87,6 +87,31 @@
         "Package metadata, spelling, filename, ESLint, and diff checks"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "pre-profile-vault-bootstrap",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "b61bcc5d1e7350ff0d746c996d157f6355a59124",
+        "ffa556c4caeea3776d6472f52cdbc440eb123d6f",
+        "24d0700072c1c88aa3d27eb554bf99b2a2ece09e",
+        "098d4c018c3a396498e124687521d3d2e62e8cad"
+      ],
+      "upstreamTouchpoints": [
+        "packages/app-desktop/main.ts",
+        "packages/app-desktop/joplinMain.ts",
+        "packages/app-desktop/watchtower/desktop/**",
+        "packages/app-desktop/watchtower/vault/**",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "yarn workspace @joplin/app-desktop build",
+        "yarn workspace @joplin/app-desktop test --runInBand",
+        "yarn workspace @joplin/app-desktop tsc",
+        "yarn watchtowerVerify",
+        "Lint, spelling, and filename checks"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
