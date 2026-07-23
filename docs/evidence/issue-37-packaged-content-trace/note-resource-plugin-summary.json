@@ -5,7 +5,7 @@
   "scenario": {
     "id": "note-resource-plugin",
     "maximumBarrierWaitSeconds": 60,
-    "capturedAt": "2026-07-23T14:55:35.7495914Z",
+    "capturedAt": "2026-07-23T15:10:53.9194367Z",
     "completionBarrierObserved": true,
     "noteIdRecorded": true,
     "resourceIdRecorded": true
@@ -32,20 +32,20 @@
     "productName": "Sysinternals Procmon"
   },
   "harness": {
-    "launcherSha256": "6394366e272f044f5937afd54f840c3a7369321e9e210729237069a67dc85928",
-    "guestRunnerSha256": "06ba67497b5ede91951b8bc4d1f60a66a75b24105bd289294a89911a492586b3",
-    "artifactScannerSha256": "a22482ebe31e70306fe7c398f0938fd643f7674a2571bda950897ffe40a90bc0",
-    "fixtureDirectorySha256": "4e9a194196f086b5f9912bcc69449a0db6f0044f41db320579bb54d11767194d",
+    "launcherSha256": "362c124f43b72b7f8bcd9230254d5400193c464e812b29df98fd2c8cd3b52a7c",
+    "guestRunnerSha256": "6ccd0a79b66714198dab8a01ea9349e97604529d5346f4341987b7d3c210264b",
+    "artifactScannerSha256": "debfd96147c8d2923a9ddb11bda278ee708f01c3530c9cfadea91a0b044f92ca",
+    "fixtureDirectorySha256": "e7aace033ab4f9311fc913e4edd558cf336c4630d81665e2f00364d0eb9751b6",
     "fixtureFiles": [
       {
         "path": "index.js",
-        "sizeBytes": 1740,
-        "sha256": "88c505cea2b1390824f3dd7a6d18fd0c107a63ab20d94de456e02d46f2d10a85"
+        "sizeBytes": 1741,
+        "sha256": "8f3d57c84bd3eb165bc4bb05093b02b4490f42ab2e7f74c482033066a1eb8af2"
       },
       {
         "path": "manifest.json",
-        "sizeBytes": 287,
-        "sha256": "401879f9adc3c76d5e80669da41d9218c41e127b0d6b0174f12aebc78a0d1623"
+        "sizeBytes": 296,
+        "sha256": "6b5960258d2a4255422859df1744731dc4c20d74a213e9475d7ad361f78292ae"
       }
     ],
     "completeCanaryValuesPresentInFixture": false
@@ -68,14 +68,14 @@
     "applicationTerminationExitCode": 0,
     "remainingApplicationProcessCount": 0,
     "procmonTerminationExitCode": 0,
-    "pmlSizeBytes": 91049618,
-    "pmlSha256": "73a373c154cd3084db921e467ab5c5d98cf08e10aa28babd4ad4e834d76244b6"
+    "pmlSizeBytes": 88135314,
+    "pmlSha256": "07b02240b8e1141beadcf6d8a07947eafb6ac30e1ba78096f4f47418718db45a"
   },
   "artifactManifest": {
     "allocatedRegularFileCount": 72,
     "scanErrorCount": 0,
-    "sizeBytes": 27454,
-    "sha256": "e9166281cf60fc6db4e8696cf256c1dc1dcd595a68bc76174d99e4079f31bee3",
+    "sizeBytes": 27794,
+    "sha256": "ba3b2dd6b4036e73379157158694c310e92225b1550c56a657af1f1c68897901",
     "canaryHitFileCounts": {
       "note": 1,
       "resource": 2,
@@ -94,7 +94,14 @@
         "<profile>/settings.json"
       ]
     },
-    "canaryHitOutsideSelectedProfileCount": 0
+    "canaryHitOutsideSelectedProfileCount": 0,
+    "requiredPersistence": {
+      "noteDatabase": true,
+      "resourceStore": true,
+      "pluginSetting": true,
+      "pluginData": true,
+      "allPassed": true
+    }
   },
   "handoff": {
     "applicationHostGuestHashAgreement": true,

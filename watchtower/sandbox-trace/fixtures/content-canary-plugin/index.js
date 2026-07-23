@@ -12,7 +12,6 @@ joplin.plugins.register({
 	onStart: async () => {
 		const fs = joplin.plugins.require('fs-extra');
 		const dataDirectory = await joplin.plugins.dataDir();
-		const completionPath = `${dataDirectory}/trace-complete.json`;
 
 		try {
 			await joplin.settings.registerSettings({
@@ -44,6 +43,7 @@ joplin.plugins.register({
 
 			await joplin.settings.setValue('traceCanary', pluginCanary);
 			await fs.outputFile(`${dataDirectory}/plugin-data.txt`, pluginCanary, 'utf8');
+			const completionPath = `${dataDirectory}/trace-complete.json`;
 			await fs.writeJson(completionPath, {
 				schemaVersion: 1,
 				noteId: note.id,

@@ -10,6 +10,11 @@ param(
 	[ValidatePattern('^[a-z0-9][a-z0-9-]*$')]
 	[string] $ScenarioId,
 
+	[switch] $RequireContentPersistence,
+
+	[ValidatePattern('^[a-fA-F0-9]{32}$')]
+	[string] $ExpectedResourceId,
+
 	[Parameter(Mandatory = $true)]
 	[ValidateNotNullOrEmpty()]
 	[string] $NoteCanary,
@@ -83,6 +88,9 @@ function Get-RelativeManifestPath {
 
 $root = (Get-Item -LiteralPath $RootPath -ErrorAction Stop).FullName.TrimEnd('\', '/')
 $output = [System.IO.Path]::GetFullPath($OutputPath)
+if ($RequireContentPersistence -and [string]::IsNullOrWhiteSpace($ExpectedResourceId)) {
+	throw 'ExpectedResourceId is required with RequireContentPersistence'
+}
 $outputDirectory = Split-Path -Parent $output
 if (-not (Test-Path -LiteralPath $outputDirectory)) {
 	New-Item -ItemType Directory -Path $outputDirectory -Force -ErrorAction Stop | Out-Null
@@ -155,6 +163,36 @@ foreach ($fileItem in $fileItems) {
 	}
 }
 
+$requiredPersistence = $null
+if ($RequireContentPersistence) {
+	$canaryPaths = [ordered]@{}
+	foreach ($canaryId in @('note', 'resource', 'plugin')) {
+		$canaryPaths[$canaryId] = @(
+			$files |
+				Where-Object { @($_.canaries | ForEach-Object id) -contains $canaryId } |
+				ForEach-Object path
+		)
+	}
+	$requiredPersistence = [ordered]@{
+		noteDatabase = $canaryPaths.note -contains 'profile/database.sqlite'
+		resourceStore = @(
+			$canaryPaths.resource |
+				Where-Object { $_ -like "profile/resources/$ExpectedResourceId.*" }
+		).Count -gt 0
+		pluginSetting = $canaryPaths.plugin -contains 'profile/settings.json'
+		pluginData = (
+			$canaryPaths.plugin -contains
+			'profile/plugin-data/com.watchtower.packaged-content-trace/plugin-data.txt'
+		)
+	}
+	$requiredPersistence['allPassed'] = @(
+		$requiredPersistence.noteDatabase,
+		$requiredPersistence.resourceStore,
+		$requiredPersistence.pluginSetting,
+		$requiredPersistence.pluginData
+	) -notcontains $false
+}
+
 $manifest = [ordered]@{
 	schemaVersion = 1
 	scenarioId = $ScenarioId
@@ -163,10 +201,14 @@ $manifest = [ordered]@{
 	canaryIds = @($canaries | ForEach-Object id)
 	files = @($files)
 	errors = @($errors)
+	requiredPersistence = $requiredPersistence
 }
 [System.IO.File]::WriteAllText(
 	$output,
 	(($manifest | ConvertTo-Json -Depth 8) + [Environment]::NewLine),
 	[System.Text.UTF8Encoding]::new($false)
 )
+if ($RequireContentPersistence -and -not $requiredPersistence.allPassed) {
+	throw 'Artifact manifest is missing one or more required content persistence locations'
+}
 $output

@@ -241,8 +241,8 @@ function Wait-ForApplicationBarrier {
 			$completion = Get-Content -Raw -LiteralPath $CompletionPath | ConvertFrom-Json
 			if (
 				$completion.schemaVersion -ne 1 -or
-				[string]::IsNullOrWhiteSpace([string] $completion.noteId) -or
-				[string]::IsNullOrWhiteSpace([string] $completion.resourceId)
+				[string] $completion.noteId -notmatch '^[a-f0-9]{32}$' -or
+				[string] $completion.resourceId -notmatch '^[a-f0-9]{32}$'
 			) {
 				throw 'Packaged content fixture wrote an invalid completion barrier'
 			}
@@ -310,6 +310,7 @@ $completionBarrier = $null
 $fixtureEvidence = $null
 $artifactManifestEvidence = $null
 $canaryHitFileCounts = $null
+$requiredPersistence = $null
 $observationRoot = 'C:\WatchtowerObservation'
 $profileRoot = Join-Path $observationRoot 'profile'
 $scenarioId = if ($Scenario -eq 'NoteResourcePlugin') { 'note-resource-plugin' } else { 'clean-startup' }
@@ -417,6 +418,8 @@ if ($Mode -eq 'Trace') {
 				-RootPath $observationRoot `
 				-OutputPath $artifactManifestPath `
 				-ScenarioId $scenarioId `
+				-RequireContentPersistence `
+				-ExpectedResourceId $completionBarrier.resourceId `
 				-NoteCanary (Get-Canary -Kind 'NOTE') `
 				-ResourceCanary (Get-Canary -Kind 'RESOURCE') `
 				-PluginCanary (Get-Canary -Kind 'PLUGIN') | Out-Null
@@ -425,6 +428,7 @@ if ($Mode -eq 'Trace') {
 				throw 'Artifact manifest reported one or more scan errors'
 			}
 			$canaryHitFileCounts = [ordered]@{}
+			$requiredPersistence = $artifactManifest.requiredPersistence
 			foreach ($canaryId in @('note', 'resource', 'plugin')) {
 				$hitCount = @(
 					$artifactManifest.files |
@@ -518,6 +522,7 @@ if ($Mode -eq 'Trace') {
 		fixture = $fixtureEvidence
 		completionBarrier = $completionBarrier
 		canaryHitFileCounts = $canaryHitFileCounts
+		requiredPersistence = $requiredPersistence
 		artifactManifest = $artifactManifestEvidence
 		pml = $pmlEvidence
 		failure = $traceFailure

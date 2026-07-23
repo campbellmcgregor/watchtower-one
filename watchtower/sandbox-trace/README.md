@@ -97,7 +97,9 @@ For the bounded content-bearing scenario, add:
 `TraceDurationSeconds` is the maximum completion-barrier wait for this
 scenario. The guest fails closed if the packaged application exits, the
 fixture reports failure, the barrier is absent, any required canary is absent,
-or an allocated file cannot be scanned.
+the note is absent from SQLite, the barrier-named resource is absent from the
+resource store, the plugin canary is absent from either settings or its
+plugin-owned file, or an allocated file cannot be scanned.
 
 Use a new evidence and lab directory for every run. Trace mode refuses a
 pre-existing result or PML instead of overwriting evidence.

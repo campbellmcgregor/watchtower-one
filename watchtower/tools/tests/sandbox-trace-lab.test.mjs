@@ -9,9 +9,6 @@ import { fileURLToPath } from 'node:url';
 const launcherPath = fileURLToPath(
 	new URL('../../sandbox-trace/Launch-WatchtowerTraceLab.ps1', import.meta.url),
 );
-const artifactScannerPath = fileURLToPath(
-	new URL('../../sandbox-trace/Get-WatchtowerSandboxArtifactManifest.ps1', import.meta.url),
-);
 
 test('host launcher prepares an isolated Sandbox with immutable inputs and writable evidence', {
 	skip: process.platform !== 'win32',
@@ -222,21 +219,32 @@ test('host launcher prepares the packaged note-resource-plugin scenario', {
 test('artifact scanner records UTF-8 and UTF-16 canary locations without copying canary values', {
 	skip: process.platform !== 'win32',
 }, async () => {
+	const artifactScannerPath = fileURLToPath(
+		new URL('../../sandbox-trace/Get-WatchtowerSandboxArtifactManifest.ps1', import.meta.url),
+	);
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'watchtower-sandbox-artifacts-'));
 	const profileDirectory = join(temporaryDirectory, 'profile');
-	const nestedDirectory = join(profileDirectory, 'nested');
+	const resourceDirectory = join(profileDirectory, 'resources');
+	const pluginDataDirectory = join(
+		profileDirectory,
+		'plugin-data',
+		'com.watchtower.packaged-content-trace',
+	);
 	const outputPath = join(temporaryDirectory, 'artifact-manifest.json');
+	const resourceId = '12345678123456781234567812345678';
 	const noteCanary = 'WT1-TEST-NOTE-CANARY';
 	const resourceCanary = 'WT1-TEST-RESOURCE-CANARY';
 	const pluginCanary = 'WT1-TEST-PLUGIN-CANARY';
-	await mkdir(nestedDirectory, { recursive: true });
+	await mkdir(resourceDirectory, { recursive: true });
+	await mkdir(pluginDataDirectory, { recursive: true });
 	await writeFile(join(profileDirectory, 'database.sqlite'), `prefix ${noteCanary} suffix`, 'utf8');
 	await writeFile(
-		join(nestedDirectory, 'resource.bin'),
+		join(resourceDirectory, `${resourceId}.txt`),
 		Buffer.from(resourceCanary, 'utf16le'),
 	);
-	await writeFile(join(nestedDirectory, 'plugin.txt'), pluginCanary, 'utf8');
-	await writeFile(join(nestedDirectory, 'empty.lock'), Buffer.alloc(0));
+	await writeFile(join(profileDirectory, 'settings.json'), pluginCanary, 'utf8');
+	await writeFile(join(pluginDataDirectory, 'plugin-data.txt'), pluginCanary, 'utf8');
+	await writeFile(join(profileDirectory, 'empty.lock'), Buffer.alloc(0));
 
 	const result = spawnSync('powershell.exe', [
 		'-NoProfile',
@@ -245,11 +253,14 @@ test('artifact scanner records UTF-8 and UTF-16 canary locations without copying
 		'-File',
 		artifactScannerPath,
 		'-RootPath',
-		profileDirectory,
+		temporaryDirectory,
 		'-OutputPath',
 		outputPath,
 		'-ScenarioId',
 		'note-resource-plugin',
+		'-RequireContentPersistence',
+		'-ExpectedResourceId',
+		resourceId,
 		'-NoteCanary',
 		noteCanary,
 		'-ResourceCanary',
@@ -273,20 +284,94 @@ test('artifact scanner records UTF-8 and UTF-16 canary locations without copying
 		})),
 		[
 			{
-				path: 'database.sqlite',
+				path: 'profile/database.sqlite',
 				canaries: [{ id: 'note', encodings: ['utf8'] }],
 			},
 			{
-				path: 'nested/plugin.txt',
+				path: 'profile/plugin-data/com.watchtower.packaged-content-trace/plugin-data.txt',
 				canaries: [{ id: 'plugin', encodings: ['utf8'] }],
 			},
 			{
-				path: 'nested/resource.bin',
+				path: `profile/resources/${resourceId}.txt`,
 				canaries: [{ id: 'resource', encodings: ['utf16le'] }],
+			},
+			{
+				path: 'profile/settings.json',
+				canaries: [{ id: 'plugin', encodings: ['utf8'] }],
 			},
 		],
 	);
+	assert.deepEqual(manifest.requiredPersistence, {
+		noteDatabase: true,
+		resourceStore: true,
+		pluginSetting: true,
+		pluginData: true,
+		allPassed: true,
+	});
 	assert.deepEqual(manifest.errors, []);
+});
+
+test('artifact scanner rejects canary aliases when required persisted locations are missing', {
+	skip: process.platform !== 'win32',
+}, async () => {
+	const artifactScannerPath = fileURLToPath(
+		new URL('../../sandbox-trace/Get-WatchtowerSandboxArtifactManifest.ps1', import.meta.url),
+	);
+	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'watchtower-sandbox-artifact-alias-'));
+	const profileDirectory = join(temporaryDirectory, 'profile');
+	const pluginDataDirectory = join(
+		profileDirectory,
+		'plugin-data',
+		'com.watchtower.packaged-content-trace',
+	);
+	const outputPath = join(temporaryDirectory, 'artifact-manifest.json');
+	const resourceId = '12345678123456781234567812345678';
+	await mkdir(pluginDataDirectory, { recursive: true });
+	await writeFile(join(profileDirectory, 'database.sqlite'), 'WT1-TEST-NOTE-CANARY', 'utf8');
+	await writeFile(
+		join(pluginDataDirectory, 'resource-input.txt'),
+		'WT1-TEST-RESOURCE-CANARY',
+		'utf8',
+	);
+	await writeFile(
+		join(pluginDataDirectory, 'plugin-data.txt'),
+		'WT1-TEST-PLUGIN-CANARY',
+		'utf8',
+	);
+
+	const result = spawnSync('powershell.exe', [
+		'-NoProfile',
+		'-ExecutionPolicy',
+		'Bypass',
+		'-File',
+		artifactScannerPath,
+		'-RootPath',
+		temporaryDirectory,
+		'-OutputPath',
+		outputPath,
+		'-ScenarioId',
+		'note-resource-plugin',
+		'-RequireContentPersistence',
+		'-ExpectedResourceId',
+		resourceId,
+		'-NoteCanary',
+		'WT1-TEST-NOTE-CANARY',
+		'-ResourceCanary',
+		'WT1-TEST-RESOURCE-CANARY',
+		'-PluginCanary',
+		'WT1-TEST-PLUGIN-CANARY',
+	], { encoding: 'utf8' });
+
+	assert.notEqual(result.status, 0);
+	assert.match(result.stderr, /required content persistence locations/);
+	const manifest = JSON.parse(await readFile(outputPath, 'utf8'));
+	assert.deepEqual(manifest.requiredPersistence, {
+		noteDatabase: true,
+		resourceStore: false,
+		pluginSetting: false,
+		pluginData: true,
+		allPassed: false,
+	});
 });
 
 test('host launcher rejects an out-of-range trace duration before resolving inputs', {
