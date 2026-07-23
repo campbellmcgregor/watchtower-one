@@ -47,7 +47,7 @@ test('host launcher prepares an isolated Sandbox with immutable inputs and writa
 
 	assert.equal(result.status, 0, result.stderr);
 	const launch = JSON.parse(result.stdout);
-	assert.equal(launch.schemaVersion, 1);
+	assert.equal(launch.schemaVersion, 2);
 	assert.equal(launch.mode, 'Smoke');
 	assert.equal(launch.launched, false);
 	assert.equal(launch.application.sha256, 'bbdd26890973472bbeec0ec33240dbafc18b5bf058c51de9d6b0471a56feb528');
@@ -108,7 +108,7 @@ test('host launcher rejects evidence that overlaps a read-only input', {
 	assert.match(result.stderr, /EvidencePath must not overlap a read-only input/);
 });
 
-test('host launcher rejects the unimplemented packaged trace mode', {
+test('host launcher prepares a bounded packaged trace command', {
 	skip: process.platform !== 'win32',
 }, async () => {
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'watchtower-sandbox-mode-'));
@@ -139,11 +139,112 @@ test('host launcher rejects the unimplemented packaged trace mode', {
 		join(temporaryDirectory, 'Lab'),
 		'-Mode',
 		'Trace',
+		'-TraceDurationSeconds',
+		'20',
+		'-ExpectedApplicationSha256',
+		'bbdd26890973472bbeec0ec33240dbafc18b5bf058c51de9d6b0471a56feb528',
+		'-ExpectedProcmonSha256',
+		'd86580392e249926e944c40917377c0428bb1afc300fe31d4d321900da973495',
+		'-PrepareOnly',
+	], { encoding: 'utf8' });
+
+	assert.equal(result.status, 0, result.stderr);
+	const launch = JSON.parse(result.stdout);
+	assert.equal(launch.schemaVersion, 2);
+	assert.equal(launch.mode, 'Trace');
+	assert.equal(launch.traceDurationSeconds, 20);
+	assert.equal(launch.application.verifiedAgainstExpectedHash, true);
+	assert.equal(launch.procmon.verifiedAgainstExpectedHash, true);
+	const configuration = await readFile(launch.configurationPath, 'utf8');
+	assert.match(configuration, /-Mode &quot;Trace&quot;/);
+	assert.match(configuration, /-TraceDurationSeconds 20/);
+});
+
+test('host launcher rejects an untrusted Procmon before launching Trace mode', {
+	skip: process.platform !== 'win32',
+}, async () => {
+	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'watchtower-sandbox-procmon-'));
+	const applicationDirectory = join(temporaryDirectory, 'Application');
+	const toolsDirectory = join(temporaryDirectory, 'Sysinternals');
+	const evidenceDirectory = join(temporaryDirectory, 'Evidence');
+	const labDirectory = join(temporaryDirectory, 'Lab');
+	const applicationPath = join(applicationDirectory, 'Watchtower One.exe');
+	const procmonPath = join(toolsDirectory, 'Procmon64.exe');
+	await mkdir(applicationDirectory);
+	await mkdir(toolsDirectory);
+	await mkdir(evidenceDirectory);
+	await writeFile(applicationPath, 'packaged-application');
+	await writeFile(procmonPath, 'procmon');
+
+	const result = spawnSync('powershell.exe', [
+		'-NoProfile',
+		'-ExecutionPolicy',
+		'Bypass',
+		'-File',
+		launcherPath,
+		'-ApplicationPath',
+		applicationPath,
+		'-ProcmonPath',
+		procmonPath,
+		'-EvidencePath',
+		evidenceDirectory,
+		'-LabPath',
+		labDirectory,
+		'-Mode',
+		'Trace',
+		'-ExpectedApplicationSha256',
+		'bbdd26890973472bbeec0ec33240dbafc18b5bf058c51de9d6b0471a56feb528',
+		'-ExpectedProcmonSha256',
+		'd86580392e249926e944c40917377c0428bb1afc300fe31d4d321900da973495',
+	], { encoding: 'utf8' });
+
+	assert.notEqual(result.status, 0);
+	assert.match(result.stderr, /Authenticode-valid Microsoft Sysinternals Procmon/);
+	await assert.rejects(access(labDirectory), { code: 'ENOENT' });
+});
+
+test('host launcher rejects a Trace input that does not match its expected hash', {
+	skip: process.platform !== 'win32',
+}, async () => {
+	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'watchtower-sandbox-hash-'));
+	const applicationDirectory = join(temporaryDirectory, 'Application');
+	const toolsDirectory = join(temporaryDirectory, 'Sysinternals');
+	const evidenceDirectory = join(temporaryDirectory, 'Evidence');
+	const labDirectory = join(temporaryDirectory, 'Lab');
+	const applicationPath = join(applicationDirectory, 'Watchtower One.exe');
+	const procmonPath = join(toolsDirectory, 'Procmon64.exe');
+	await mkdir(applicationDirectory);
+	await mkdir(toolsDirectory);
+	await mkdir(evidenceDirectory);
+	await writeFile(applicationPath, 'packaged-application');
+	await writeFile(procmonPath, 'procmon');
+
+	const result = spawnSync('powershell.exe', [
+		'-NoProfile',
+		'-ExecutionPolicy',
+		'Bypass',
+		'-File',
+		launcherPath,
+		'-ApplicationPath',
+		applicationPath,
+		'-ProcmonPath',
+		procmonPath,
+		'-EvidencePath',
+		evidenceDirectory,
+		'-LabPath',
+		labDirectory,
+		'-Mode',
+		'Trace',
+		'-ExpectedApplicationSha256',
+		'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+		'-ExpectedProcmonSha256',
+		'd86580392e249926e944c40917377c0428bb1afc300fe31d4d321900da973495',
 		'-PrepareOnly',
 	], { encoding: 'utf8' });
 
 	assert.notEqual(result.status, 0);
-	assert.match(result.stderr, /ValidateSet|Trace/);
+	assert.match(result.stderr, /ApplicationPath SHA-256 does not match/);
+	await assert.rejects(access(labDirectory), { code: 'ENOENT' });
 });
 
 test('host launcher rejects a lab directory inside an input without creating it', {
