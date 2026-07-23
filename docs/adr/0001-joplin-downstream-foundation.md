@@ -1,8 +1,11 @@
 # ADR-0001: Build Watchtower One as a thin downstream of stable Joplin
 
+<!-- cspell:ignore campbellmcgregor -->
+
 - Status: Accepted
 - Date: 2026-07-22
 - Scope: Repository foundation and first-release product boundary
+- Superseded in part by: ADR-0003's SQLCipher-led logical profile vault
 
 ## Context
 
