@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "https://github.com/laurent22/joplin.git",
+    "tag": "v3.6.15",
+    "commit": "c61572660382863595c6b51ccf2263e3d2c4bfce"
+  },
+  "downstream": {
+    "revision": "d0f5bc46d2eb750825c5263215b0914c11754a68",
+    "commits": [
+      {
+        "commit": "d991bbf456e53a749b569283072f30a937fb5771",
+        "subject": "docs: select Joplin upstream baseline"
+      },
+      {
+        "commit": "48eb43b22e5ba74617ad4f65525dfbf176e47cc3",
+        "subject": "docs: research Joplin downstream licensing"
+      },
+      {
+        "commit": "cd31b9129ce264267805cdb30cef02ccd3c89584",
+        "subject": "docs: map Joplin local plaintext storage"
+      },
+      {
+        "commit": "4ca6232ccee5a26de2256d93cc528f879fc7e878",
+        "subject": "docs: establish Watchtower downstream foundation"
+      },
+      {
+        "commit": "c05c20866147a64347881fb00f0bdbcc5b7782e2",
+        "subject": "Merge pull request #26 from campbellmcgregor/codex/watchtower-bootstrap"
+      },
+      {
+        "commit": "3a241449c5412c145bd2a4de4fd18f922053e3e9",
+        "subject": "Chore: Resolves #6: automate upstream synchronization"
+      },
+      {
+        "commit": "ad43fe46afcc13f34eb58c174498916194abb2c3",
+        "subject": "chore: record initial upstream integration ledger"
+      },
+      {
+        "commit": "1a8ad892a5edea95999ed8d04888222d5190c7d4",
+        "subject": "fix: harden upstream synchronization controls"
+      },
+      {
+        "commit": "0f0a1a09ca3b894d6df351cf9dc57435c86c9cb8",
+        "subject": "chore: publish maintained downstream patch ledger"
+      },
+      {
+        "commit": "d0f5bc46d2eb750825c5263215b0914c11754a68",
+        "subject": "fix: bind release provenance to pinned baseline"
+      }
+    ],
+    "patches": [
+      {
+        "id": "downstream-foundation",
+        "owner": "Watchtower maintainers",
+        "commits": [
+          "d991bbf456e53a749b569283072f30a937fb5771",
+          "48eb43b22e5ba74617ad4f65525dfbf176e47cc3",
+          "cd31b9129ce264267805cdb30cef02ccd3c89584",
+          "4ca6232ccee5a26de2256d93cc528f879fc7e878"
+        ],
+        "upstreamTouchpoints": [
+          "Documentation and downstream policy only"
+        ],
+        "tests": [
+          "Primary-source research review",
+          "Unmodified Windows desktop build, typecheck, and test baseline"
+        ],
+        "upstreamCandidate": false
+      },
+      {
+        "id": "upstream-synchronization-controls",
+        "owner": "Watchtower maintainers",
+        "commits": [
+          "3a241449c5412c145bd2a4de4fd18f922053e3e9",
+          "ad43fe46afcc13f34eb58c174498916194abb2c3",
+          "1a8ad892a5edea95999ed8d04888222d5190c7d4",
+          "d0f5bc46d2eb750825c5263215b0914c11754a68"
+        ],
+        "upstreamTouchpoints": [
+          ".github/workflows/watchtower-*.yml",
+          "watchtower/**",
+          "package.json scripts"
+        ],
+        "tests": [
+          "yarn watchtowerVerify",
+          "yarn workspace @joplin/app-desktop tsc",
+          "yarn workspace @joplin/app-desktop test --runInBand"
+        ],
+        "upstreamCandidate": false
+      }
+    ]
+  },
+  "lockfile": {
+    "path": "yarn.lock",
+    "sha256": "208e51a5661a366a223a624eef9e5739a39a5a462ea404db1fac7198f6f93988"
+  },
+  "artifacts": []
+}

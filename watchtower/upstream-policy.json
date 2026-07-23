@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "owner": "laurent22",
+    "repository": "joplin",
+    "baselineTag": "v3.6.15",
+    "baselineCommit": "c61572660382863595c6b51ccf2263e3d2c4bfce"
+  },
+  "monitoring": {
+    "advisoriesPublishedAfter": "2026-07-22T00:00:00.000Z"
+  },
+  "target": {
+    "repository": "campbellmcgregor/watchtower-one"
+  }
+}

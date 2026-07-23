@@ -1,0 +1,41 @@
+name: Watchtower downstream controls
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/watchtower-*.yml'
+      - 'watchtower/**'
+      - 'package.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/watchtower-*.yml'
+      - 'watchtower/**'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify controls (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Use supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test downstream controls
+        run: node --test watchtower/tools/tests/upstream-control.test.mjs watchtower/tools/tests/release-ledger.test.mjs

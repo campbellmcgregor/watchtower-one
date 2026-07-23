@@ -1,0 +1,165 @@
+name: Prepare reviewed Joplin synchronization
+
+run-name: Prepare ${{ inputs.upstream_tag }} from issue #${{ inputs.candidate_issue }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: Published stable Joplin tag, for example v3.6.16
+        required: true
+        type: string
+      candidate_issue:
+        description: Watchtower upstream-candidate issue number
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: watchtower-sync-${{ inputs.upstream_tag }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Merge exact tag into a review branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out protected main history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: main
+
+      - name: Use supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate the release and issue inputs
+        id: candidate
+        env:
+          CANDIDATE_ISSUE_INPUT: ${{ inputs.candidate_issue }}
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG_INPUT: ${{ inputs.upstream_tag }}
+        shell: bash
+        run: |
+          if [[ ! "$CANDIDATE_ISSUE_INPUT" =~ ^[0-9]+$ ]]; then
+            echo "candidate_issue must be an issue number" >&2
+            exit 1
+          fi
+          gh issue view "$CANDIDATE_ISSUE_INPUT" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json body \
+            --jq .body > "$RUNNER_TEMP/watchtower-candidate-issue.md"
+          node watchtower/tools/upstream-control.mjs verify-candidate-issue \
+            --tag "$UPSTREAM_TAG_INPUT" \
+            --issue-body "$RUNNER_TEMP/watchtower-candidate-issue.md" \
+            > "$RUNNER_TEMP/watchtower-candidate-binding.json"
+          expected_sha="$(jq -r .expectedCommit "$RUNNER_TEMP/watchtower-candidate-binding.json")"
+          node watchtower/tools/upstream-control.mjs verify-release \
+            --policy watchtower/upstream-policy.json \
+            --tag "$UPSTREAM_TAG_INPUT" \
+            --expected-sha "$expected_sha" \
+            > "$RUNNER_TEMP/watchtower-candidate.json"
+          echo "tag=$(jq -r .upstreamTag "$RUNNER_TEMP/watchtower-candidate.json")" >> "$GITHUB_OUTPUT"
+          echo "branch=$(jq -r .syncBranch "$RUNNER_TEMP/watchtower-candidate.json")" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r .upstreamCommit "$RUNNER_TEMP/watchtower-candidate.json")" >> "$GITHUB_OUTPUT"
+          echo "issue=$CANDIDATE_ISSUE_INPUT" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch and resolve only the exact upstream tag
+        id: upstream
+        env:
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          UPSTREAM_TAG: ${{ steps.candidate.outputs.tag }}
+        shell: bash
+        run: |
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream https://github.com/laurent22/joplin.git
+          git fetch --no-tags upstream "refs/tags/${UPSTREAM_TAG}:refs/tags/${UPSTREAM_TAG}"
+          upstream_sha="$(git rev-parse --verify "${UPSTREAM_TAG}^{commit}")"
+          if [[ "$upstream_sha" != "$EXPECTED_SHA" ]]; then
+            echo "Unexpected tag retarget: expected $EXPECTED_SHA, fetched $upstream_sha" >&2
+            exit 1
+          fi
+          echo "sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Merge into a temporary synchronization branch
+        env:
+          SYNC_BRANCH: ${{ steps.candidate.outputs.branch }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+        shell: bash
+        run: |
+          git config user.name "Watchtower Upstream Bot"
+          git config user.email "watchtower-upstream-bot@users.noreply.github.com"
+          git switch -c "$SYNC_BRANCH"
+          git merge --no-ff --no-edit "$UPSTREAM_SHA"
+
+      - name: Record the advanced baseline and patch ledger
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_TAG: ${{ steps.candidate.outputs.tag }}
+        shell: bash
+        run: |
+          node watchtower/tools/upstream-control.mjs record-baseline \
+            --policy watchtower/upstream-policy.json \
+            --tag "$UPSTREAM_TAG" \
+            --sha "$UPSTREAM_SHA"
+          node watchtower/tools/release-ledger.mjs generate \
+            --repository "$GITHUB_WORKSPACE" \
+            --upstream-tag "$UPSTREAM_TAG" \
+            --upstream-sha "$UPSTREAM_SHA" \
+            --revision HEAD \
+            --lockfile yarn.lock \
+            --policy watchtower/upstream-policy.json \
+            --patch-registry watchtower/patches.json \
+            --output watchtower/provenance/upstream-integration.json \
+            --allow-no-artifacts
+          git add watchtower/upstream-policy.json watchtower/provenance/upstream-integration.json
+          git commit -m "chore: record Joplin ${UPSTREAM_TAG} integration"
+
+      - name: Push the review branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: ${{ steps.candidate.outputs.branch }}
+        shell: bash
+        run: |
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/${SYNC_BRANCH}"
+
+      - name: Open the synchronization pull request
+        env:
+          CANDIDATE_ISSUE: ${{ steps.candidate.outputs.issue }}
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: ${{ steps.candidate.outputs.branch }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_TAG: ${{ steps.candidate.outputs.tag }}
+        shell: bash
+        run: |
+          pr_body="$(printf '%s\n' \
+            "## Upstream synchronization" \
+            "" \
+            "- Exact stable tag: \`${UPSTREAM_TAG}\`" \
+            "- Exact upstream commit: \`${UPSTREAM_SHA}\`" \
+            "- Candidate task: #${CANDIDATE_ISSUE}" \
+            "- Integration ledger: \`watchtower/provenance/upstream-integration.json\`" \
+            "" \
+            "## Required review" \
+            "" \
+            "- [ ] Review storage, migrations, encryption, sync, import/export, plugins, Electron, React Native, and packaging changes." \
+            "- [ ] Run affected upstream suites and all Watchtower security/compatibility verification." \
+            "- [ ] Confirm the integration ledger matches the tested source." \
+            "- [ ] Regenerate release provenance with hashes for every distributed artifact before release." \
+            "" \
+            "Resolves #${CANDIDATE_ISSUE}.")"
+          pr_url="$(gh pr create \
+            --base main \
+            --head "$SYNC_BRANCH" \
+            --title "Chore: Resolves #${CANDIDATE_ISSUE}: synchronize Joplin ${UPSTREAM_TAG}" \
+            --body "$pr_body")"
+          gh issue comment "$CANDIDATE_ISSUE" --body "Prepared reviewed synchronization PR: ${pr_url}"
