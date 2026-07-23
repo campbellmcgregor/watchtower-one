@@ -64,7 +64,7 @@ jobs:
 
       - name: Produce N-API prebuild
         working-directory: node-sqlcipher
-        run: pnpm prebuildify --target 22.14.0 --arch x64
+        run: pnpm exec prebuildify --napi --target 22.14.0 --arch x64
 
       - name: Verify required compile options
         working-directory: node-sqlcipher
