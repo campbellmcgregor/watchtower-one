@@ -12,8 +12,17 @@ param(
 	[Parameter(Mandatory = $true)]
 	[string] $LabPath,
 
-	[ValidateSet('Smoke')]
+	[ValidateSet('Smoke', 'Trace')]
 	[string] $Mode = 'Smoke',
+
+	[ValidateRange(10, 120)]
+	[int] $TraceDurationSeconds = 30,
+
+	[ValidatePattern('^[0-9a-fA-F]{64}$')]
+	[string] $ExpectedApplicationSha256,
+
+	[ValidatePattern('^[0-9a-fA-F]{64}$')]
+	[string] $ExpectedProcmonSha256,
 
 	[ValidateRange(10, 600)]
 	[int] $ResultTimeoutSeconds = 120,
@@ -63,6 +72,24 @@ function Escape-Xml {
 	return [System.Security.SecurityElement]::Escape($Value)
 }
 
+function Write-LaunchRecord {
+	param(
+		[Parameter(Mandatory = $true)]
+		[object] $Record,
+
+		[Parameter(Mandatory = $true)]
+		[string] $EvidenceDirectory
+	)
+
+	$json = $Record | ConvertTo-Json -Depth 8
+	[System.IO.File]::WriteAllText(
+		(Join-Path $EvidenceDirectory 'sandbox-launch.json'),
+		($json + [Environment]::NewLine),
+		[System.Text.UTF8Encoding]::new($false)
+	)
+	return $json
+}
+
 function Quote-WindowsCommandArgument {
 	param([Parameter(Mandatory = $true)][string] $Value)
 	if ($Value.Contains('"')) {
@@ -90,9 +117,96 @@ function Test-PathOverlap {
 	)
 }
 
+function Get-TrustedProcmonMetadata {
+	param([Parameter(Mandatory = $true)][string] $LiteralPath)
+
+	$item = Get-Item -LiteralPath $LiteralPath -ErrorAction Stop
+	$signature = Get-AuthenticodeSignature -LiteralPath $item.FullName
+	$signer = $signature.SignerCertificate
+	$version = $item.VersionInfo
+	$trusted = (
+		$signature.Status -eq [System.Management.Automation.SignatureStatus]::Valid -and
+		$null -ne $signer -and
+		$signer.Subject -match '(^|, )O=Microsoft Corporation(,|$)' -and
+		$version.ProductName -eq 'Sysinternals Procmon' -and
+		$version.CompanyName -eq 'Sysinternals - www.sysinternals.com' -and
+		-not [string]::IsNullOrWhiteSpace($version.FileVersion)
+	)
+	if (-not $trusted) {
+		throw 'Trace mode requires an Authenticode-valid Microsoft Sysinternals Procmon executable'
+	}
+
+	return [ordered]@{
+		verified = $true
+		signatureStatus = $signature.Status.ToString()
+		signerSubject = $signer.Subject
+		signerThumbprint = $signer.Thumbprint
+		productName = $version.ProductName
+		companyName = $version.CompanyName
+		fileVersion = $version.FileVersion
+	}
+}
+
+function Get-WindowsSandboxClientProcesses {
+	$processNames = @(
+		'WindowsSandbox',
+		'WindowsSandboxClient',
+		'WindowsSandboxRemoteSession'
+	)
+	return @(
+		Get-Process -Name $processNames -ErrorAction SilentlyContinue
+	)
+}
+
+function Wait-ForProcessIdsExit {
+	param(
+		[Parameter(Mandatory = $true)]
+		[int[]] $ProcessIds,
+
+		[ValidateRange(1, 30)]
+		[int] $TimeoutSeconds = 10
+	)
+
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	do {
+		$remainingProcessIds = @(
+			$ProcessIds |
+				Where-Object { $null -ne (Get-Process -Id $_ -ErrorAction SilentlyContinue) }
+		)
+		if ($remainingProcessIds.Count -eq 0) {
+			break
+		}
+		Start-Sleep -Milliseconds 250
+	} while ((Get-Date) -lt $deadline)
+	return @($remainingProcessIds)
+}
+
 $resolvedApplication = Resolve-LeafPath -LiteralPath $ApplicationPath -Description 'ApplicationPath'
 $resolvedProcmon = Resolve-LeafPath -LiteralPath $ProcmonPath -Description 'ProcmonPath'
 $resolvedEvidence = Resolve-DirectoryPath -LiteralPath $EvidencePath -Description 'EvidencePath'
+$applicationSha256 = (Get-FileHash -LiteralPath $resolvedApplication -Algorithm SHA256).Hash.ToLowerInvariant()
+$procmonSha256 = (Get-FileHash -LiteralPath $resolvedProcmon -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($Mode -eq 'Trace') {
+	if ([string]::IsNullOrWhiteSpace($ExpectedApplicationSha256)) {
+		throw 'ExpectedApplicationSha256 is required in Trace mode'
+	}
+	if ([string]::IsNullOrWhiteSpace($ExpectedProcmonSha256)) {
+		throw 'ExpectedProcmonSha256 is required in Trace mode'
+	}
+	if ($applicationSha256 -ne $ExpectedApplicationSha256.ToLowerInvariant()) {
+		throw "ApplicationPath SHA-256 does not match ExpectedApplicationSha256: $applicationSha256"
+	}
+	if ($procmonSha256 -ne $ExpectedProcmonSha256.ToLowerInvariant()) {
+		throw "ProcmonPath SHA-256 does not match ExpectedProcmonSha256: $procmonSha256"
+	}
+}
+$procmonTrust = $null
+if ($Mode -eq 'Trace' -and -not $PrepareOnly) {
+	$procmonTrust = Get-TrustedProcmonMetadata -LiteralPath $resolvedProcmon
+}
+if ($Mode -eq 'Trace' -and -not $KeepOpen -and $ResultTimeoutSeconds -le ($TraceDurationSeconds + 60)) {
+	throw 'ResultTimeoutSeconds must allow more than 60 seconds beyond TraceDurationSeconds'
+}
 $guestRunnerPath = Resolve-LeafPath `
 	-LiteralPath (Join-Path $PSScriptRoot 'Invoke-WatchtowerSandboxTrace.ps1') `
 	-Description 'Sandbox guest runner'
@@ -134,6 +248,7 @@ $guestCommand = @(
 	'-ProcmonPath ' + (Quote-WindowsCommandArgument $procmonSandboxPath)
 	'-EvidencePath ' + (Quote-WindowsCommandArgument 'C:\WatchtowerEvidence')
 	'-Mode ' + (Quote-WindowsCommandArgument $Mode)
+	'-TraceDurationSeconds ' + $TraceDurationSeconds
 ) -join ' '
 if (-not $KeepOpen) {
 	$guestCommand += ' -CloseWhenFinished'
@@ -185,20 +300,29 @@ $configurationPath = Join-Path $resolvedLab 'WatchtowerTraceLab.wsb'
 )
 
 $launchRecord = [ordered]@{
-	schemaVersion = 1
+	schemaVersion = 2
 	mode = $Mode
+	traceDurationSeconds = $TraceDurationSeconds
 	launched = $false
 	resultObserved = $false
 	sandboxClientClosed = $false
+	remainingSandboxClientProcessIds = @()
+	observedSandboxClientProcessIds = @()
+	sandboxLaunchProcessId = $null
+	guestHashAgreement = $null
+	traceEvidence = $null
 	configurationPath = $configurationPath
 	evidencePath = $resolvedEvidence
 	application = [ordered]@{
 		path = $resolvedApplication
-		sha256 = (Get-FileHash -LiteralPath $resolvedApplication -Algorithm SHA256).Hash.ToLowerInvariant()
+		sha256 = $applicationSha256
+		verifiedAgainstExpectedHash = $Mode -eq 'Trace'
 	}
 	procmon = [ordered]@{
 		path = $resolvedProcmon
-		sha256 = (Get-FileHash -LiteralPath $resolvedProcmon -Algorithm SHA256).Hash.ToLowerInvariant()
+		sha256 = $procmonSha256
+		verifiedAgainstExpectedHash = $Mode -eq 'Trace'
+		publisherTrust = $procmonTrust
 	}
 	harness = [ordered]@{
 		path = $PSScriptRoot
@@ -213,17 +337,13 @@ if (-not $PrepareOnly -and (Test-Path -LiteralPath $resultPath)) {
 
 if (-not $PrepareOnly) {
 	$existingSandboxClientIds = @(
-		Get-Process -Name 'WindowsSandboxRemoteSession' -ErrorAction SilentlyContinue |
+		Get-WindowsSandboxClientProcesses |
 			ForEach-Object Id
 	)
-	Start-Process -FilePath $configurationPath | Out-Null
+	$sandboxLaunchProcess = Start-Process -FilePath $configurationPath -PassThru
+	$launchRecord.sandboxLaunchProcessId = $sandboxLaunchProcess.Id
 	$launchRecord.launched = $true
-	$startedLaunchJson = $launchRecord | ConvertTo-Json -Depth 4
-	[System.IO.File]::WriteAllText(
-		(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-		($startedLaunchJson + [Environment]::NewLine),
-		[System.Text.UTF8Encoding]::new($false)
-	)
+	Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 
 	if (-not $KeepOpen) {
 		$deadline = (Get-Date).AddSeconds($ResultTimeoutSeconds)
@@ -236,31 +356,86 @@ if (-not $PrepareOnly) {
 
 		$guestResult = Get-Content -Raw -LiteralPath $resultPath | ConvertFrom-Json
 		$launchRecord.resultObserved = $true
+		$launchRecord.guestHashAgreement = [ordered]@{
+			application = $guestResult.application.sha256 -eq $launchRecord.application.sha256
+			procmon = $guestResult.procmon.sha256 -eq $launchRecord.procmon.sha256
+		}
+		$guestContractValid = (
+			$guestResult.schemaVersion -eq 2 -and
+			$guestResult.mode -eq $Mode -and
+			$launchRecord.guestHashAgreement.application -and
+			$launchRecord.guestHashAgreement.procmon
+		)
+		if (-not $guestContractValid) {
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
+			throw 'Sandbox result contract or host/guest input hash agreement failed; the client remains open for diagnosis'
+		}
 		if ($guestResult.status -ne 'passed') {
-			$failedLaunchJson = $launchRecord | ConvertTo-Json -Depth 4
-			[System.IO.File]::WriteAllText(
-				(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-				($failedLaunchJson + [Environment]::NewLine),
-				[System.Text.UTF8Encoding]::new($false)
-			)
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
 			throw "Sandbox reported status '$($guestResult.status)'; the client remains open for diagnosis"
 		}
 
+		if ($Mode -eq 'Trace') {
+			$pmlFileName = [string] $guestResult.trace.pml.fileName
+			if (
+				[string]::IsNullOrWhiteSpace($pmlFileName) -or
+				[System.IO.Path]::GetFileName($pmlFileName) -ne $pmlFileName
+			) {
+				throw 'Sandbox Trace result did not provide a safe PML file name'
+			}
+			$hostPmlPath = Join-Path $resolvedEvidence $pmlFileName
+			$hostPml = Get-Item -LiteralPath $hostPmlPath -ErrorAction Stop
+			$hostPmlSha256 = (Get-FileHash -LiteralPath $hostPml.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+			$launchRecord.traceEvidence = [ordered]@{
+				pmlPath = $hostPml.FullName
+				sizeBytes = $hostPml.Length
+				sha256 = $hostPmlSha256
+				guestHashAgreement = (
+					$hostPmlSha256 -eq $guestResult.trace.pml.sha256 -and
+					$hostPml.Length -eq $guestResult.trace.pml.sizeBytes
+				)
+			}
+			if (-not $launchRecord.traceEvidence.guestHashAgreement) {
+				throw 'Host and guest PML evidence hashes or sizes do not agree'
+			}
+		}
+
 		$newSandboxClients = @(
-			Get-Process -Name 'WindowsSandboxRemoteSession' -ErrorAction SilentlyContinue |
+			Get-WindowsSandboxClientProcesses |
 				Where-Object { $_.Id -notin $existingSandboxClientIds }
 		)
-		foreach ($sandboxClient in $newSandboxClients) {
-			Stop-Process -Id $sandboxClient.Id -Force -ErrorAction Stop
+		$newSandboxClientIds = @(
+			@($newSandboxClients | ForEach-Object Id) +
+			@($sandboxLaunchProcess.Id | Where-Object { $_ -notin $existingSandboxClientIds }) |
+				Sort-Object -Unique
+		)
+		$launchRecord.observedSandboxClientProcessIds = $newSandboxClientIds
+		foreach ($sandboxClientId in $newSandboxClientIds) {
+			if ($null -ne (Get-Process -Id $sandboxClientId -ErrorAction SilentlyContinue)) {
+				Stop-Process -Id $sandboxClientId -Force -ErrorAction Stop
+			}
 		}
-		$launchRecord.sandboxClientClosed = $true
+		$remainingSandboxClientProcessIds = if ($newSandboxClientIds.Count -gt 0) {
+			Wait-ForProcessIdsExit -ProcessIds $newSandboxClientIds
+		} else {
+			$null
+		}
+		$lateSandboxClientProcessIds = @(
+			Get-WindowsSandboxClientProcesses |
+				Where-Object { $_.Id -notin $existingSandboxClientIds } |
+				ForEach-Object Id
+		)
+		$launchRecord.remainingSandboxClientProcessIds = @(
+			@($remainingSandboxClientProcessIds) + $lateSandboxClientProcessIds |
+				Sort-Object -Unique
+		)
+		$launchRecord.sandboxClientClosed = $launchRecord.remainingSandboxClientProcessIds.Count -eq 0
+		if (-not $launchRecord.sandboxClientClosed) {
+			Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence | Out-Null
+			throw 'One or more Sandbox client processes remained after exact session cleanup'
+		}
 	}
 }
 
-$launchJson = $launchRecord | ConvertTo-Json -Depth 4
-[System.IO.File]::WriteAllText(
-	(Join-Path $resolvedEvidence 'sandbox-launch.json'),
-	($launchJson + [Environment]::NewLine),
-	[System.Text.UTF8Encoding]::new($false)
-)
+$launchJson = Write-LaunchRecord -Record $launchRecord -EvidenceDirectory $resolvedEvidence
 $launchJson

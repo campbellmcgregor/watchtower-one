@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "issue": 33,
+  "scenario": {
+    "id": "clean-startup",
+    "traceDurationSeconds": 30,
+    "capturedAt": "2026-07-23T14:18:23.3257795Z"
+  },
+  "baseline": {
+    "upstreamTag": "v3.6.15",
+    "upstreamCommit": "c61572660382863595c6b51ccf2263e3d2c4bfce",
+    "downstreamSourceRevision": "11337aac9f36886d92342825de66bb81030eb96d",
+    "buildCommand": "corepack yarn workspace @joplin/app-desktop dist --win --x64 --dir",
+    "architecture": "x64",
+    "applicationVersion": "3.6.15",
+    "applicationSizeBytes": 213916160,
+    "applicationSha256": "5d505f20737e25d8cc2876d561c442a4b2ebaecbc5bfdf72b81f146d4b20b265",
+    "appAsarSizeBytes": 89439654,
+    "appAsarSha256": "11422068b82165e1de004f6e4055255c5e2ee89d73f7969f6003d2b3230f517f",
+    "qualificationBuildSigned": false
+  },
+  "procmon": {
+    "officialDownloadUrl": "https://download.sysinternals.com/files/ProcessMonitor.zip",
+    "version": "4.04",
+    "archiveSha256": "dc2ccfa360e5f94ac535f3fa14ba27578049b16290cbbfe5d2f11debf29efe8c",
+    "executableSha256": "a7ab46fbe97fbc03ab66ceb786ec8c38c6588ccf21bf390f314857d1fd91d608",
+    "authenticodeStatus": "Valid",
+    "signer": "Microsoft Corporation",
+    "productName": "Sysinternals Procmon"
+  },
+  "sandbox": {
+    "userName": "WDAGUtilityAccount",
+    "memoryGB": 3,
+    "isSandboxUser": true,
+    "inputMappingIsReadOnly": true,
+    "evidenceMappingIsWritable": true,
+    "activeNetworkAdapterCount": 0,
+    "networkingDisabled": true
+  },
+  "trace": {
+    "procmonStartedBeforeApplication": true,
+    "procmonProcessIdRecorded": true,
+    "procmonBackingCaptureReadyBeforeApplication": true,
+    "applicationWasRunningBeforeTermination": true,
+    "targetedApplicationProcessCount": 5,
+    "terminationMethod": "taskkill /pid <exact-pid> /f /t",
+    "applicationTerminationExitCode": 0,
+    "remainingApplicationProcessCount": 0,
+    "procmonTerminationExitCode": 0,
+    "pmlSizeBytes": 86786739,
+    "pmlSha256": "f32ebf0359e98cf57b96aa0f6e96a52516b1e9eef8e3482468f877d14f27ac66"
+  },
+  "handoff": {
+    "applicationHostGuestHashAgreement": true,
+    "procmonHostGuestHashAgreement": true,
+    "pmlHostGuestHashAgreement": true,
+    "sandboxLaunchProcessIdRecorded": true,
+    "observedSandboxClientProcessCount": 2,
+    "sandboxClientClosed": true,
+    "remainingSandboxClientProcessCount": 0
+  },
+  "scope": {
+    "rawPmlCommitted": false,
+    "rawHostPathsCommitted": false,
+    "pmlContentAnalyzed": false,
+    "canaryScenariosExecuted": false,
+    "fullIssue7MatrixCompleted": false
+  }
+}

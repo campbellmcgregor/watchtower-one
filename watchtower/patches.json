@@ -64,17 +64,21 @@
       "id": "windows-sandbox-trace-lab",
       "owner": "Watchtower maintainers",
       "commits": [
-        "b74af7eaee65afd482b1b55ff6285b273da12500"
+        "b74af7eaee65afd482b1b55ff6285b273da12500",
+        "89baa9022fb590c639043bc641e4664f2a742f1d",
+        "c7ec1d086f06d6bdaf965b0a0f2be12f5fb023e8"
       ],
       "upstreamTouchpoints": [
         "watchtower/sandbox-trace/**",
         "watchtower/tools/tests/sandbox-trace-lab.test.mjs",
         "docs/evidence/issue-30-sandbox-trace-lab/**",
+        "docs/evidence/issue-33-packaged-procmon-trace/**",
         "package.json scripts"
       ],
       "tests": [
         "yarn watchtowerVerify",
         "Windows Sandbox containment smoke with host and guest evidence",
+        "Pinned v3.6.15 x64 clean-start trace with official Procmon and host/guest evidence",
         "PowerShell syntax parsing",
         "Package metadata, spelling, filename, ESLint, and diff checks"
       ],
