@@ -1,6 +1,8 @@
 # Joplin local plaintext profile and storage paths
 
-Status: source-backed research for [Map Joplin's complete local plaintext profile and storage access paths](https://github.com/campbellmcgregor/watchtower-one/issues/30)
+<!-- cspell:ignore cleanup disfavor DPAPI favors minidumps patchability Procmon subprofile -->
+
+Status: source-backed research for [Map Joplin's complete local plaintext profile and storage access paths](https://github.com/campbellmcgregor/watchtower-one/issues/3)
 
 Research date: 2026-07-22
 
