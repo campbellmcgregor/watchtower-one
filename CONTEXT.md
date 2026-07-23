@@ -10,6 +10,7 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 
 - **Upstream Baseline**: the exact stable Joplin tag and commit from which the current Watchtower release line descends.
 - **Downstream Patch**: a focused Watchtower-only commit or module carried on top of the Upstream Baseline.
+- **Downstream Patch Registry**: the maintained mapping from each logical Downstream Patch to its owner, commits, upstream touchpoints, tests, and upstream-contribution candidacy.
 - **Synchronization Candidate**: a published stable Joplin release or published advisory represented by one idempotent Watchtower triage issue.
 - **Patch Ledger**: a machine-readable record of the exact Upstream Baseline, downstream revision and commits, dependency lock hash, and—at release time—distributed artifact hashes.
 - **Watchtower Profile Vault**: the encrypted boundary containing the complete Joplin root profile and all app-created user-derived local state that would otherwise persist as plaintext.

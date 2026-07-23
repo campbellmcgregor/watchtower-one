@@ -140,12 +140,29 @@ const readPatchRegistry = async (path, downstream) => {
 	));
 };
 
+const readUpstreamBaseline = async path => {
+	const policy = JSON.parse(await readFile(path, 'utf8'));
+	if (
+		policy.schemaVersion !== 1
+		|| typeof policy.upstream?.baselineTag !== 'string'
+		|| !policy.upstream.baselineTag
+		|| typeof policy.upstream?.baselineCommit !== 'string'
+		|| !/^[0-9a-f]{40}$/.test(policy.upstream.baselineCommit)
+	) throw new Error('Upstream policy must contain a schemaVersion 1 baseline tag and full commit SHA');
+
+	return {
+		tag: policy.upstream.baselineTag,
+		commit: policy.upstream.baselineCommit,
+	};
+};
+
 const generate = async options => {
 	const repository = resolve(requireOption(options, 'repository'));
 	const upstreamTag = requireOption(options, 'upstream-tag');
 	const expectedUpstreamSha = requireOption(options, 'upstream-sha');
 	const revisionName = requireOption(options, 'revision');
 	const lockfile = repositoryPath(repository, requireOption(options, 'lockfile'), 'lockfile');
+	const policy = repositoryPath(repository, requireOption(options, 'policy'), 'policy');
 	const patchRegistry = repositoryPath(
 		repository,
 		requireOption(options, 'patch-registry'),
@@ -153,6 +170,13 @@ const generate = async options => {
 	);
 	const output = repositoryPath(repository, requireOption(options, 'output'), 'output');
 
+	const baseline = await readUpstreamBaseline(policy.absolutePath);
+	if (baseline.tag !== upstreamTag || baseline.commit !== expectedUpstreamSha) {
+		throw new Error(
+			`Requested upstream ${upstreamTag}@${expectedUpstreamSha} `
+			+ `does not match the checked-out upstream policy ${baseline.tag}@${baseline.commit}`,
+		);
+	}
 	const upstreamSha = await git(repository, ['rev-parse', '--verify', `${upstreamTag}^{commit}`]);
 	if (upstreamSha !== expectedUpstreamSha) {
 		throw new Error(`Tag ${upstreamTag} resolves to ${upstreamSha}, not ${expectedUpstreamSha}`);

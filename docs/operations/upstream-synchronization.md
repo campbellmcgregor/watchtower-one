@@ -37,6 +37,7 @@ node watchtower/tools/release-ledger.mjs generate \
   --upstream-sha FULL_40_CHARACTER_SHA \
   --revision HEAD \
   --lockfile yarn.lock \
+  --policy watchtower/upstream-policy.json \
   --patch-registry watchtower/patches.json \
   --output watchtower/provenance/upstream-integration.json \
   --allow-no-artifacts
@@ -57,6 +58,7 @@ node watchtower/tools/release-ledger.mjs generate \
   --upstream-sha FULL_40_CHARACTER_SHA \
   --revision WATCHTOWER_RELEASE_COMMIT \
   --lockfile yarn.lock \
+  --policy watchtower/upstream-policy.json \
   --patch-registry watchtower/patches.json \
   --artifact-directory dist \
   --output dist/watchtower-release-ledger.json
@@ -64,7 +66,7 @@ node watchtower/tools/release-ledger.mjs generate \
 
 Generation fails when the tag resolves to a different commit, the upstream commit is not an ancestor of the selected revision, patch metadata is malformed or references a commit outside the downstream set, an input escapes the repository, an artifact directory contains a symlink or non-regular file, or a release ledger has no artifacts.
 
-`watchtower/patches.json` is the maintained logical Patch Ledger. Each topic names its owner, commit set, upstream touchpoints, tests, and whether it is a candidate for upstream contribution. Update it whenever a new downstream topic is committed.
+`watchtower/patches.json` is the maintained Downstream Patch Registry. Each topic names its owner, commit set, upstream touchpoints, tests, and whether it is a candidate for upstream contribution. Update it whenever a new downstream topic is committed.
 
 ## Repository settings
 

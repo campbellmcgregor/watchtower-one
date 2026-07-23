@@ -18,11 +18,20 @@ const git = (repository, arguments_) => execFileSync('git', arguments_, {
 	},
 }).trim();
 
+const writePolicy = (path, tag, commit) => writeFile(path, `${JSON.stringify({
+	schemaVersion: 1,
+	upstream: {
+		baselineTag: tag,
+		baselineCommit: commit,
+	},
+}, null, 2)}\n`);
+
 test('generate records the exact downstream source and release artifacts', async () => {
 	const repository = await mkdtemp(join(tmpdir(), 'watchtower-release-ledger-'));
 	const artifactDirectory = join(repository, 'dist');
 	const outputPath = join(repository, 'release-ledger.json');
 	const patchRegistryPath = join(repository, 'watchtower-patches.json');
+	const policyPath = join(repository, 'upstream-policy.json');
 	await mkdir(artifactDirectory);
 
 	git(repository, ['init', '--initial-branch=main']);
@@ -33,6 +42,7 @@ test('generate records the exact downstream source and release artifacts', async
 	git(repository, ['commit', '-m', 'upstream baseline']);
 	const upstreamSha = git(repository, ['rev-parse', 'HEAD']);
 	git(repository, ['tag', 'v3.6.15']);
+	await writePolicy(policyPath, 'v3.6.15', upstreamSha);
 
 	await writeFile(join(repository, 'watchtower.txt'), 'downstream patch\n');
 	git(repository, ['add', 'watchtower.txt']);
@@ -66,6 +76,8 @@ test('generate records the exact downstream source and release artifacts', async
 		'HEAD',
 		'--lockfile',
 		'yarn.lock',
+		'--policy',
+		'upstream-policy.json',
 		'--patch-registry',
 		'watchtower-patches.json',
 		'--artifact-directory',
@@ -115,6 +127,7 @@ test('generate permits an artifact-free integration ledger only when explicitly 
 	const repository = await mkdtemp(join(tmpdir(), 'watchtower-integration-ledger-'));
 	const outputPath = join(repository, 'integration-ledger.json');
 	const patchRegistryPath = join(repository, 'watchtower-patches.json');
+	const policyPath = join(repository, 'upstream-policy.json');
 	await writeFile(join(repository, 'yarn.lock'), 'lock\n');
 	await writeFile(patchRegistryPath, JSON.stringify({ schemaVersion: 1, patches: [] }));
 	git(repository, ['init', '--initial-branch=main']);
@@ -124,6 +137,7 @@ test('generate permits an artifact-free integration ledger only when explicitly 
 	git(repository, ['commit', '-m', 'upstream baseline']);
 	const upstreamSha = git(repository, ['rev-parse', 'HEAD']);
 	git(repository, ['tag', 'v3.6.15']);
+	await writePolicy(policyPath, 'v3.6.15', upstreamSha);
 
 	const baseArguments = [
 		commandPath,
@@ -138,6 +152,8 @@ test('generate permits an artifact-free integration ledger only when explicitly 
 		'HEAD',
 		'--lockfile',
 		'yarn.lock',
+		'--policy',
+		'upstream-policy.json',
 		'--patch-registry',
 		'watchtower-patches.json',
 		'--output',
@@ -154,4 +170,52 @@ test('generate permits an artifact-free integration ledger only when explicitly 
 	assert.equal(integrationAttempt.status, 0, integrationAttempt.stderr);
 	const ledger = JSON.parse(await readFile(outputPath, 'utf8'));
 	assert.deepEqual(ledger.artifacts, []);
+});
+
+test('generate rejects an upstream base that differs from the checked-out policy', async () => {
+	const repository = await mkdtemp(join(tmpdir(), 'watchtower-policy-binding-'));
+	const outputPath = join(repository, 'release-ledger.json');
+	await writeFile(join(repository, 'yarn.lock'), 'lock\n');
+	await writeFile(
+		join(repository, 'watchtower-patches.json'),
+		JSON.stringify({ schemaVersion: 1, patches: [] }),
+	);
+	git(repository, ['init', '--initial-branch=main']);
+	git(repository, ['config', 'user.name', 'Watchtower Test']);
+	git(repository, ['config', 'user.email', 'watchtower@example.test']);
+	git(repository, ['add', 'yarn.lock']);
+	git(repository, ['commit', '-m', 'older upstream baseline']);
+	const olderSha = git(repository, ['rev-parse', 'HEAD']);
+	git(repository, ['tag', 'v3.6.14']);
+	await writeFile(join(repository, 'newer.txt'), 'newer baseline\n');
+	git(repository, ['add', 'newer.txt']);
+	git(repository, ['commit', '-m', 'current upstream baseline']);
+	const currentSha = git(repository, ['rev-parse', 'HEAD']);
+	git(repository, ['tag', 'v3.6.15']);
+	await writePolicy(join(repository, 'upstream-policy.json'), 'v3.6.15', currentSha);
+
+	const result = spawnSync(process.execPath, [
+		commandPath,
+		'generate',
+		'--repository',
+		repository,
+		'--upstream-tag',
+		'v3.6.14',
+		'--upstream-sha',
+		olderSha,
+		'--revision',
+		'HEAD',
+		'--lockfile',
+		'yarn.lock',
+		'--policy',
+		'upstream-policy.json',
+		'--patch-registry',
+		'watchtower-patches.json',
+		'--output',
+		outputPath,
+		'--allow-no-artifacts',
+	], { encoding: 'utf8' });
+
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /does not match the checked-out upstream policy/i);
 });

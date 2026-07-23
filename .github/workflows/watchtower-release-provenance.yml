@@ -60,6 +60,7 @@ jobs:
             --upstream-sha "$UPSTREAM_SHA" \
             --revision "$WATCHTOWER_REVISION" \
             --lockfile yarn.lock \
+            --policy watchtower/upstream-policy.json \
             --patch-registry watchtower/patches.json \
             --artifact-directory release-artifacts \
             --output watchtower-release-ledger.json

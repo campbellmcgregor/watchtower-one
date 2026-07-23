@@ -116,6 +116,7 @@ jobs:
             --upstream-sha "$UPSTREAM_SHA" \
             --revision HEAD \
             --lockfile yarn.lock \
+            --policy watchtower/upstream-policy.json \
             --patch-registry watchtower/patches.json \
             --output watchtower/provenance/upstream-integration.json \
             --allow-no-artifacts
