@@ -79,20 +79,35 @@ export type VaultEndResult =
 	{ kind: 'locked' }|
 	{ kind: 'lockedWithEgressResidue'; paths: string[] }|
 	{ kind: 'rejected'; reason: 'alreadyLocked'|'busy'|'egressResiduePresent'|'failedClosed' }|
-	{ kind: 'failedClosed'; stage: 'profileStop'|'profileTerminate'|'vaultClose'|'vaultTerminate'; timedOut?: true };
+	{ kind: 'failedClosed'; stage: 'sessionDrain'|'profileStop'|'profileTerminate'|'vaultClose'|'vaultTerminate'; timedOut?: true };
 
 const issueVaultSessionCapability = () => {
 	let state: 'active'|'closing'|'revoked' = 'active';
+	const activeLeases = new Set<symbol>();
+	let resolveDrain: (()=> void)|null = null;
+	let drainPromise: Promise<void>|null = null;
+
+	const completeDrainIfPossible = () => {
+		if (state !== 'closing' || activeLeases.size || !resolveDrain) return;
+		resolveDrain();
+		resolveDrain = null;
+	};
+
 	const capability = (() => {
 		if (state === 'revoked') throw new Error('Vault Session is not active');
 		if (state === 'closing') throw new Error('Vault Session is not accepting new work');
 
+		const leaseId = Symbol('WatchtowerVaultSessionLease');
+		activeLeases.add(leaseId);
 		let released = false;
 		const lease = (() => {
 			if (released || state === 'revoked') throw new Error('Vault Session is not active');
 		}) as VaultSessionLease;
 		lease.release = () => {
+			if (released) return;
 			released = true;
+			activeLeases.delete(leaseId);
+			completeDrainIfPossible();
 		};
 		return lease;
 	}) as VaultSessionCapability;
@@ -101,9 +116,19 @@ const issueVaultSessionCapability = () => {
 		capability,
 		beginClosing: () => {
 			if (state === 'active') state = 'closing';
+			if (!activeLeases.size) return Promise.resolve();
+			if (!drainPromise) {
+				drainPromise = new Promise(resolve => {
+					resolveDrain = resolve;
+				});
+			}
+			return drainPromise;
 		},
 		revoke: () => {
 			state = 'revoked';
+			activeLeases.clear();
+			resolveDrain?.();
+			resolveDrain = null;
 		},
 	};
 };
@@ -123,7 +148,7 @@ export default class PreProfileVaultBootstrap {
 	private state_: VaultLifecycleState = 'locked';
 	private openHandle_: VaultOpenHandle|null = null;
 	private profileHost_: ProfileHost|null = null;
-	private beginClosingSession_: (()=> void)|null = null;
+	private beginClosingSession_: (()=> Promise<void>)|null = null;
 	private revokeSession_: (()=> void)|null = null;
 
 	public constructor(
@@ -281,15 +306,20 @@ export default class PreProfileVaultBootstrap {
 		}
 
 		this.state_ = 'locking';
-		this.beginClosingSession_!();
+		const sessionDrainPromise = this.beginClosingSession_!();
 		this.beginClosingSession_ = null;
 		let profileStopResult: ProfileStopResult|undefined;
 		let profileTerminated = true;
+		let sessionDrainOperation: BoundedOperationResult<void>|undefined;
 		const profileStopOperation = await this.runBounded_(
 			signal => this.profileHost_!.stop(reason, signal),
 		);
 		if (profileStopOperation.kind === 'completed') {
 			profileStopResult = profileStopOperation.value;
+			sessionDrainOperation = await this.runBounded_(async () => await sessionDrainPromise);
+			if (sessionDrainOperation.kind !== 'completed') {
+				profileTerminated = this.terminateProfile_(this.profileHost_!);
+			}
 		} else {
 			// Closing the vault is still mandatory when profile teardown reports
 			// failure. The result below must not claim an ordinary locked state.
@@ -312,6 +342,15 @@ export default class PreProfileVaultBootstrap {
 				kind: 'failedClosed',
 				stage: vaultCloseResult.terminated ? 'vaultClose' : 'vaultTerminate',
 				...(vaultCloseResult.timedOut ? { timedOut: true as const } : {}),
+			};
+		}
+
+		if (sessionDrainOperation && sessionDrainOperation.kind !== 'completed') {
+			this.state_ = 'failedClosed';
+			return {
+				kind: 'failedClosed',
+				stage: 'sessionDrain',
+				...(sessionDrainOperation.kind === 'timedOut' ? { timedOut: true as const } : {}),
 			};
 		}
 

@@ -289,6 +289,7 @@ describe('PreProfileVaultBootstrap', () => {
 			stop: async () => {
 				expect(() => retainedCapability!()).toThrow('Vault Session is not accepting new work');
 				expect(() => retainedLease!()).not.toThrow();
+				retainedLease!.release();
 				return { kind: 'stopped' };
 			},
 		});
@@ -300,6 +301,67 @@ describe('PreProfileVaultBootstrap', () => {
 		await bootstrap.end('lock');
 
 		expect(() => retainedCapability!()).toThrow('Vault Session is not active');
+		expect(() => retainedLease!()).toThrow('Vault Session is not active');
+	});
+
+	test('waits for active session leases before closing the vault', async () => {
+		const closeVault = jest.fn(async () => {});
+		let retainedLease: VaultSessionLease|null = null;
+		const bootstrap = new PreProfileVaultBootstrap(makeAccessAdapter({
+			create: async () => ({
+				kind: 'opened',
+				handle: makeOpenHandle({ close: closeVault }),
+			}),
+		}));
+		await bootstrap.start('create', makeProfileHost({
+			start: async capability => {
+				retainedLease = capability();
+			},
+		}));
+
+		const endPromise = bootstrap.end('lock');
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		expect(bootstrap.state()).toBe('locking');
+		expect(closeVault).not.toHaveBeenCalled();
+		retainedLease!.release();
+		await expect(endPromise).resolves.toEqual({ kind: 'locked' });
+		expect(closeVault).toHaveBeenCalledTimes(1);
+	});
+
+	test('terminates the profile when active session leases do not drain', async () => {
+		jest.useFakeTimers();
+		const events: string[] = [];
+		let retainedLease: VaultSessionLease|null = null;
+		const bootstrap = new PreProfileVaultBootstrap(makeAccessAdapter({
+			create: async () => ({
+				kind: 'opened',
+				handle: makeOpenHandle({
+					close: async () => {
+						events.push('vault:close');
+					},
+				}),
+			}),
+		}), { operationTimeoutMs: 100 });
+		await bootstrap.start('create', makeProfileHost({
+			start: async capability => {
+				retainedLease = capability();
+			},
+			terminate: () => {
+				events.push('profile:terminate');
+				return true;
+			},
+		}));
+
+		const endPromise = bootstrap.end('lock');
+		await jest.advanceTimersByTimeAsync(100);
+
+		await expect(endPromise).resolves.toEqual({
+			kind: 'failedClosed',
+			stage: 'sessionDrain',
+			timedOut: true,
+		});
+		expect(events).toEqual(['profile:terminate', 'vault:close']);
 		expect(() => retainedLease!()).toThrow('Vault Session is not active');
 	});
 
