@@ -1,5 +1,7 @@
 # Watchtower One domain context
 
+<!-- cspell:ignore campbellmcgregor -->
+
 Watchtower One is a security-focused, Windows-first downstream distribution of Joplin. It retains Joplin's mature note-taking, mobile-capable shared backend, plugin APIs, and end-to-end encrypted synchronization while adding an always-encrypted local profile, independent local recovery, Watchtower-owned identity, and a curated plugin trust boundary.
 
 The first release has no Watchtower account, Watchtower Sync, Instant Response, analytics transport, or proprietary server dependency.
@@ -8,6 +10,8 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 
 - **Upstream Baseline**: the exact stable Joplin tag and commit from which the current Watchtower release line descends.
 - **Downstream Patch**: a focused Watchtower-only commit or module carried on top of the Upstream Baseline.
+- **Synchronization Candidate**: a published stable Joplin release or published advisory represented by one idempotent Watchtower triage issue.
+- **Patch Ledger**: a machine-readable record of the exact Upstream Baseline, downstream revision and commits, dependency lock hash, and—at release time—distributed artifact hashes.
 - **Watchtower Profile Vault**: the encrypted boundary containing the complete Joplin root profile and all app-created user-derived local state that would otherwise persist as plaintext.
 - **Vault Session**: the unlocked application lifetime during which profile storage may be decrypted for Joplin to use. Joplin profile initialization cannot precede it.
 - **Local Vault Key**: the random key material protecting the Watchtower Profile Vault. It is independent of all Joplin sync E2EE keys.

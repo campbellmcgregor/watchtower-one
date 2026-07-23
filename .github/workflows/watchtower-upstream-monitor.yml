@@ -1,0 +1,33 @@
+name: Watchtower upstream monitor
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: watchtower-upstream-monitor
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile stable releases and advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out Watchtower controls
+        uses: actions/checkout@v4
+
+      - name: Use supported Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Open missing upstream candidate tasks
+        env:
+          WATCHTOWER_GITHUB_TOKEN: ${{ github.token }}
+        run: node watchtower/tools/upstream-control.mjs monitor --policy watchtower/upstream-policy.json
