@@ -3,6 +3,7 @@ import PreProfileVaultBootstrap, {
 	VaultAccessAdapter,
 	VaultOpenHandle,
 	VaultSessionCapability,
+	VaultSessionLease,
 } from './PreProfileVaultBootstrap';
 
 const makeOpenHandle = (overrides: Partial<VaultOpenHandle> = {}): VaultOpenHandle => ({
@@ -277,14 +278,17 @@ describe('PreProfileVaultBootstrap', () => {
 		expect(bootstrap.state()).toBe('locked');
 	});
 
-	test('revokes retained session authority before profile teardown', async () => {
+	test('gates new work while an existing lease drains, then revokes the lease', async () => {
 		let retainedCapability: VaultSessionCapability|null = null;
+		let retainedLease: VaultSessionLease|null = null;
 		const profileHost = makeProfileHost({
 			start: async capability => {
 				retainedCapability = capability;
+				retainedLease = capability();
 			},
 			stop: async () => {
-				expect(() => retainedCapability!()).toThrow('Vault Session is not active');
+				expect(() => retainedCapability!()).toThrow('Vault Session is not accepting new work');
+				expect(() => retainedLease!()).not.toThrow();
 				return { kind: 'stopped' };
 			},
 		});
@@ -296,6 +300,7 @@ describe('PreProfileVaultBootstrap', () => {
 		await bootstrap.end('lock');
 
 		expect(() => retainedCapability!()).toThrow('Vault Session is not active');
+		expect(() => retainedLease!()).toThrow('Vault Session is not active');
 	});
 
 	test('hard-terminates partial profile startup before closing the vault', async () => {

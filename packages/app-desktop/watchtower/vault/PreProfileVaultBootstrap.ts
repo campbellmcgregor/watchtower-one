@@ -45,8 +45,14 @@ export type ProfileStopResult =
 	{ kind: 'stopped' }|
 	{ kind: 'egressResidue'; paths: string[] };
 
+declare const vaultSessionLeaseBrand: unique symbol;
+export type VaultSessionLease = (()=> void) & {
+	release(): void;
+	readonly [vaultSessionLeaseBrand]: true;
+};
+
 declare const vaultSessionCapabilityBrand: unique symbol;
-export type VaultSessionCapability = (()=> void) & {
+export type VaultSessionCapability = (()=> VaultSessionLease) & {
 	readonly [vaultSessionCapabilityBrand]: true;
 };
 
@@ -76,15 +82,28 @@ export type VaultEndResult =
 	{ kind: 'failedClosed'; stage: 'profileStop'|'profileTerminate'|'vaultClose'|'vaultTerminate'; timedOut?: true };
 
 const issueVaultSessionCapability = () => {
-	let active = true;
+	let state: 'active'|'closing'|'revoked' = 'active';
 	const capability = (() => {
-		if (!active) throw new Error('Vault Session is not active');
+		if (state === 'revoked') throw new Error('Vault Session is not active');
+		if (state === 'closing') throw new Error('Vault Session is not accepting new work');
+
+		let released = false;
+		const lease = (() => {
+			if (released || state === 'revoked') throw new Error('Vault Session is not active');
+		}) as VaultSessionLease;
+		lease.release = () => {
+			released = true;
+		};
+		return lease;
 	}) as VaultSessionCapability;
 
 	return {
 		capability,
+		beginClosing: () => {
+			if (state === 'active') state = 'closing';
+		},
 		revoke: () => {
-			active = false;
+			state = 'revoked';
 		},
 	};
 };
@@ -104,6 +123,7 @@ export default class PreProfileVaultBootstrap {
 	private state_: VaultLifecycleState = 'locked';
 	private openHandle_: VaultOpenHandle|null = null;
 	private profileHost_: ProfileHost|null = null;
+	private beginClosingSession_: (()=> void)|null = null;
 	private revokeSession_: (()=> void)|null = null;
 
 	public constructor(
@@ -222,6 +242,7 @@ export default class PreProfileVaultBootstrap {
 		if (profileStartResult.kind === 'completed') {
 			this.openHandle_ = openResult.handle;
 			this.profileHost_ = profileHost;
+			this.beginClosingSession_ = sessionAuthority.beginClosing;
 			this.revokeSession_ = sessionAuthority.revoke;
 		} else {
 			sessionAuthority.revoke();
@@ -260,8 +281,8 @@ export default class PreProfileVaultBootstrap {
 		}
 
 		this.state_ = 'locking';
-		this.revokeSession_!();
-		this.revokeSession_ = null;
+		this.beginClosingSession_!();
+		this.beginClosingSession_ = null;
 		let profileStopResult: ProfileStopResult|undefined;
 		let profileTerminated = true;
 		const profileStopOperation = await this.runBounded_(
@@ -275,6 +296,8 @@ export default class PreProfileVaultBootstrap {
 			profileTerminated = this.terminateProfile_(this.profileHost_!);
 		}
 		const vaultCloseResult = await this.closeVault_(this.openHandle_!);
+		this.revokeSession_!();
+		this.revokeSession_ = null;
 		this.profileHost_ = null;
 		this.openHandle_ = null;
 
