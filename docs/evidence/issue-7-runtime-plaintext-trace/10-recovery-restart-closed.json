@@ -1,0 +1,983 @@
+{
+  "schemaVersion": 1,
+  "scenario": "recovery-restart-closed",
+  "capturedAt": "2026-07-23T10:06:12.954Z",
+  "roots": [
+    {
+      "id": "sandbox",
+      "path": "<trace-root>"
+    }
+  ],
+  "canaryIds": [
+    "note",
+    "plugin",
+    "resource"
+  ],
+  "files": [
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Code Cache/js/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Code Cache/js/index-dir/the-real-index",
+      "size": 48,
+      "sha256": "eaad6be52ace410295ed90a1845a7c08fd437aef90f69f163090ccdbfc13ee06",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Code Cache/wasm/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Code Cache/wasm/index-dir/the-real-index",
+      "size": 48,
+      "sha256": "eaad6be52ace410295ed90a1845a7c08fd437aef90f69f163090ccdbfc13ee06",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnGraphiteCache/data_0",
+      "size": 8192,
+      "sha256": "d6a5fe39cd672781b256e0e3102f7022635f1d4bb7cfcc90a80fffe4d0f3877e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnGraphiteCache/data_1",
+      "size": 270336,
+      "sha256": "b1e963d702392fb7224786e7d56d43973e9b9efd1b89c17814d7c558ffc0cdec",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnGraphiteCache/data_2",
+      "size": 8192,
+      "sha256": "ec1702806f4cc7c42a82fc2b38e89835fde7c64bb32060e0823c9077ca92efb7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnGraphiteCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnGraphiteCache/index",
+      "size": 262512,
+      "sha256": "0b251eb041fab0e1cdabfa48b6715269443a244ec94ba101377173ef223812da",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnWebGPUCache/data_0",
+      "size": 8192,
+      "sha256": "d6a5fe39cd672781b256e0e3102f7022635f1d4bb7cfcc90a80fffe4d0f3877e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnWebGPUCache/data_1",
+      "size": 270336,
+      "sha256": "b1e963d702392fb7224786e7d56d43973e9b9efd1b89c17814d7c558ffc0cdec",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnWebGPUCache/data_2",
+      "size": 8192,
+      "sha256": "ec1702806f4cc7c42a82fc2b38e89835fde7c64bb32060e0823c9077ca92efb7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnWebGPUCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DawnWebGPUCache/index",
+      "size": 262512,
+      "sha256": "89415238e777f6c9fa03269e6b4384aaf5b1270592f85061785d7a5a9d14edb9",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DevToolsActivePort",
+      "size": 60,
+      "sha256": "49427a20e13c4201d673a8c6eeac1493508ed939e8665c55c7cbc5680520af7b",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/DIPS",
+      "size": 36864,
+      "sha256": "93284f3b14426bd9376c98534fe5fd43d4d3e1b12efc5a2ed9b37a71d56d2c72",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/GPUCache/data_0",
+      "size": 8192,
+      "sha256": "d6a5fe39cd672781b256e0e3102f7022635f1d4bb7cfcc90a80fffe4d0f3877e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/GPUCache/data_1",
+      "size": 270336,
+      "sha256": "b1e963d702392fb7224786e7d56d43973e9b9efd1b89c17814d7c558ffc0cdec",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/GPUCache/data_2",
+      "size": 8192,
+      "sha256": "ec1702806f4cc7c42a82fc2b38e89835fde7c64bb32060e0823c9077ca92efb7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/GPUCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/GPUCache/index",
+      "size": 262512,
+      "sha256": "e02827b06819bcff3e29a4f6a2dbb8b632c7422a95fa64946152efa2cb96de0c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local State",
+      "size": 434,
+      "sha256": "5a7edaf4fd189834abcd5332480c1c470b5780000e9442609c4c2cc35bc2fd52",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/000003.log",
+      "size": 217,
+      "sha256": "3f37f36cb4bda2dd114a8e54b79b6f83ea89ba6985ff08081bfda0070f0e5e6b",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/CURRENT",
+      "size": 16,
+      "sha256": "0f1bad70c7bd1e0a69562853ec529355462fcd0423263a3d39d6d0d70b780443",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/LOCK",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/LOG",
+      "size": 342,
+      "sha256": "3da8b8dbd185bec5af4bd5b62dc5f1269d4424559e1df53ae825d04eca87732f",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/LOG.old",
+      "size": 342,
+      "sha256": "75412239fe49d107d7f6a0caf542f5ddbe7ac4c928069120505827058246ac27",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Local Storage/leveldb/MANIFEST-000001",
+      "size": 41,
+      "sha256": "f9d31b278e215eb0d0e9cd709edfa037e828f36214ab7906f612160fead4b2b4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Network/Network Persistent State",
+      "size": 111,
+      "sha256": "88c9590388d22bb0bd8da3f7d50389311957024ee5c2dfe562e2649ad427fd7d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Network/NetworkDataMigrated",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Network/Trust Tokens",
+      "size": 36864,
+      "sha256": "fe03fb82cfe74a64c7094c810f9e8167c3b61c254c27569cc6b7db5ed84b0b18",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Network/Trust Tokens-journal",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Preferences",
+      "size": 1206,
+      "sha256": "409744aa94faed3f7c6913e6d4280f20567e11f1ae1e2faf0ddf755b2d59482e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/000003.log",
+      "size": 106,
+      "sha256": "153b8849b572d53cea73a6fe4cc6565cc7a1d6f51d65bf1f2584d6de2c5dc62b",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/CURRENT",
+      "size": 16,
+      "sha256": "0f1bad70c7bd1e0a69562853ec529355462fcd0423263a3d39d6d0d70b780443",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/LOCK",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/LOG",
+      "size": 330,
+      "sha256": "437aeec739c27b557ac1e6c7e27e5040efde8cc21f27b10f5d85ef0c2fe0cec0",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/LOG.old",
+      "size": 289,
+      "sha256": "abaf3f41f10179d326193809065e96a4177e88cb1ee2a092e863251ce50aa944",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Session Storage/MANIFEST-000001",
+      "size": 41,
+      "sha256": "f9d31b278e215eb0d0e9cd709edfa037e828f36214ab7906f612160fead4b2b4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Shared Dictionary/cache/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Shared Dictionary/cache/index-dir/the-real-index",
+      "size": 48,
+      "sha256": "ee79c1b6229805006642e2da02e4635f467979e9975a04b09f6e26737c6c99fa",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Shared Dictionary/db",
+      "size": 45056,
+      "sha256": "9dfba1d139c9933668e58e9c7777804c8ae01b2942dcc2dfaaa65ac139853a59",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "electron-user-data/Shared Dictionary/db-journal",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/index.js",
+      "size": 520754,
+      "sha256": "082fafd32719d3b08c1363820475f71b4db4038d5d683d0b4dcbec31d190615d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/index.js.LICENSE.txt",
+      "size": 520,
+      "sha256": "c12b75bd52a9172a697e25c46854b3c417aed4f7dc6a669e60c5a09418043b0a",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/de_DE.json",
+      "size": 6225,
+      "sha256": "b0c34c7297634b1500b1ae022501d98a24bc817acf28cb12755078d08a795cf4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/en_US.json",
+      "size": 5585,
+      "sha256": "15af02681f37fa7de2e3a60ede9de18f0d3234d9879a869dc8e5a21d0c2c3fd4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/hr_HR.json",
+      "size": 5986,
+      "sha256": "d2d1b1d248114daa7fbcf87f78e9f442b404f12ba663e4b6924a4d498fed596c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/ro_MD.json",
+      "size": 6218,
+      "sha256": "887b44b81e65fd847902fdf5fc1af597ce5e04a863b83541417e73021ba5a1eb",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/ro_RO.json",
+      "size": 6216,
+      "sha256": "263901a4fe4779271da7a196b01f5beb0982608a47c4101a6c2bef30aa3f7def",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/sk_SK.json",
+      "size": 5784,
+      "sha256": "78b3678b1eb150a53d72d7e0a0fd522314ae908ff4d46fa453623b39ecc7888c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/locales/zh_CN.json",
+      "size": 3261,
+      "sha256": "8da34d259665c2508fb90dd4119e6bb79955758262574e911100bccd6c05f24e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/manifest.json",
+      "size": 840,
+      "sha256": "d29478cd2588df14ecde32c6ca17083608413d99db40d44411ca013792066422",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.jackgruber.backup/webview.css",
+      "size": 359,
+      "sha256": "d8fdcd1d8cfb44f0eb964c9c18a890d4d4d68cd02ed3fc7274fbfe27a334d5f4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/contentScripts/markdownIt-content.js",
+      "size": 23670,
+      "sha256": "cf6d8d3483ffec4a7b56749090f446b1417601e6a37be34c17f835080ac9a781",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/contentScripts/markdownIt.cjs",
+      "size": 182,
+      "sha256": "f01cdab3424f66d8d0460781e3f66623bb4b46a69f672df7c699864ff5b3d88e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/contentScripts/markdownIt.css",
+      "size": 381,
+      "sha256": "70f6b013a5cdd88851f1e9dc5feb594b8c064c83bbd6708d30d3eabdf20f5afa",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/userchromeStyles/dialogFullscreen.css",
+      "size": 321,
+      "sha256": "774c2a43d5de1fcbdabb222ffbeb1f5533e662c145e27c2a6821d6a986e27558",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/userchromeStyles/dialogNonfullscreen.css",
+      "size": 308,
+      "sha256": "6d4493aa0911e0fa5bac370dddb3e5dedbf65cc2d26a274a33e87ea30f5e39a2",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/webview/webview.css",
+      "size": 3260,
+      "sha256": "83fcb630a7e5b6fc465a325eb0e632f5eba5ab3de3b9f2dc5b29ba09add5cff4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/webview/webview.js",
+      "size": 1122702,
+      "sha256": "ecd1a9c2aeaffc77772af2f8fe086842a184079d87a3d40c0057302422c4588a",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/window/index.html",
+      "size": 896,
+      "sha256": "4a57934dc7adb2d5fdb59a470ca04a69d0c0553fe7a14d8ff3d6da6144d798dd",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/dialog/window/window.js",
+      "size": 2954,
+      "sha256": "cba296be252f771e031e89e55515f0c7a8877d696d879eabf7d3cd2e76f87ff5",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/index.js",
+      "size": 52660,
+      "sha256": "322de9e37757813848393b9e73ea5820d1612786b62015a7e2affd195be276da",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/cache/io.github.personalizedrefrigerator.js-draw/manifest.json",
+      "size": 1046,
+      "sha256": "974d18c13b2b16e352fcf2798b58bccab3dbfb05ce167e2d3bbce4a95424f651",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/database.sqlite",
+      "size": 401408,
+      "sha256": "4aca0be83faf0650f23d8be27a5211ca02be859282d486b32fa9fc73b189f648",
+      "canaries": [
+        {
+          "id": "note",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/database.sqlite-journal",
+      "size": 37448,
+      "sha256": "1e1961de255a55078195b60c52b1f69b0a0d65bcf8c2c529b165a7fe4978981b",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/js/25b22af8af961175_0",
+      "size": 407,
+      "sha256": "fccd544391c15a2a18d14ed17550cfc66773e1740c4df220017af51503802f42",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/js/3911324024c3a013_0",
+      "size": 1629,
+      "sha256": "9acdf93f165254f77248ad0a2a0a86627fbb2fd20ea877eb816cc20108f51462",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/js/f0592c3db7af19d8_0",
+      "size": 2391,
+      "sha256": "8d78eeeb9f431b8d80938be499e63419765c65c2be6485297d66659529827036",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/js/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/js/index-dir/the-real-index",
+      "size": 120,
+      "sha256": "cf4d2aeb60718157f51c4b8fcc220bd43038e1ff2f5138cc0c1e489da25e4331",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/wasm/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Code Cache/wasm/index-dir/the-real-index",
+      "size": 48,
+      "sha256": "9b4993e9662724f034a10d3d2edfa99343697b63ccdb76daeff3d0f3fedf100a",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnGraphiteCache/data_0",
+      "size": 8192,
+      "sha256": "d6a5fe39cd672781b256e0e3102f7022635f1d4bb7cfcc90a80fffe4d0f3877e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnGraphiteCache/data_1",
+      "size": 270336,
+      "sha256": "b1e963d702392fb7224786e7d56d43973e9b9efd1b89c17814d7c558ffc0cdec",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnGraphiteCache/data_2",
+      "size": 8192,
+      "sha256": "ec1702806f4cc7c42a82fc2b38e89835fde7c64bb32060e0823c9077ca92efb7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnGraphiteCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnGraphiteCache/index",
+      "size": 262512,
+      "sha256": "07186b1c8b95c6d67414eb5bf4f9c1b84d915c35ae50fea3ec6d1e8b47dc890f",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnWebGPUCache/data_0",
+      "size": 8192,
+      "sha256": "d6a5fe39cd672781b256e0e3102f7022635f1d4bb7cfcc90a80fffe4d0f3877e",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnWebGPUCache/data_1",
+      "size": 270336,
+      "sha256": "b1e963d702392fb7224786e7d56d43973e9b9efd1b89c17814d7c558ffc0cdec",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnWebGPUCache/data_2",
+      "size": 8192,
+      "sha256": "ec1702806f4cc7c42a82fc2b38e89835fde7c64bb32060e0823c9077ca92efb7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnWebGPUCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DawnWebGPUCache/index",
+      "size": 262512,
+      "sha256": "16691d677a24da281195b3387159fe942071542c7cf2d2037594f76f1c6981aa",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/DIPS",
+      "size": 36864,
+      "sha256": "4746acaa168a3cbd317f096a5cf8f8c0d325891e7b2a7ef25e7ba3d0a6ab90d0",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/GPUCache/data_0",
+      "size": 45056,
+      "sha256": "c57c289be8325c4761be9b8daa71399150402edf21698a8c9b6939bfbb14db50",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/GPUCache/data_1",
+      "size": 270336,
+      "sha256": "5acfa52c9e49bb9d530a015532b8322734dc2172d842e652d4dd7cc7591dc672",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/GPUCache/data_2",
+      "size": 1056768,
+      "sha256": "f999209e7fdb8ac1409c961d7c52720e348bc255db9e4ab0b3b5aa459eff9371",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/GPUCache/data_3",
+      "size": 8192,
+      "sha256": "e09f42c398d688dce168570291f1f92d079987deda3099a34adb9e8c0522b30c",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/GPUCache/index",
+      "size": 262512,
+      "sha256": "d3d2aa84e201a5dd403416d7a82d455556bcd4745de4292f0b27ebc02531cbda",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/000003.log",
+      "size": 30,
+      "sha256": "8bd2ea70a0b70c91de138a5b87c7936c6a6fa7c4275c54b97f4ef0ccc5b79bb4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/CURRENT",
+      "size": 16,
+      "sha256": "0f1bad70c7bd1e0a69562853ec529355462fcd0423263a3d39d6d0d70b780443",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/LOCK",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/LOG",
+      "size": 384,
+      "sha256": "a9f35916e4fe9ebe05bd5e6cce3b3dd7f4c0f3b9e6b77c1256bc56e3ed3d77c3",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/LOG.old",
+      "size": 384,
+      "sha256": "53bc3db29339ece28ca9163589fb573cc2d47661d4cbafb8005347e0311c79aa",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Local Storage/leveldb/MANIFEST-000001",
+      "size": 41,
+      "sha256": "f9d31b278e215eb0d0e9cd709edfa037e828f36214ab7906f612160fead4b2b4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Network/Network Persistent State",
+      "size": 111,
+      "sha256": "88c9590388d22bb0bd8da3f7d50389311957024ee5c2dfe562e2649ad427fd7d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Network/NetworkDataMigrated",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Network/Trust Tokens",
+      "size": 36864,
+      "sha256": "fe03fb82cfe74a64c7094c810f9e8167c3b61c254c27569cc6b7db5ed84b0b18",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Network/Trust Tokens-journal",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Preferences",
+      "size": 197,
+      "sha256": "8f76ecd9c28e38e0551fa49d98cb13b46da99212cf94a99d958fbd9cfa811672",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/000003.log",
+      "size": 68,
+      "sha256": "bd25adf5d7bb8fa202eb194c0a1258f3f27d745f1cc562472baeb908ffc57f63",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/CURRENT",
+      "size": 16,
+      "sha256": "0f1bad70c7bd1e0a69562853ec529355462fcd0423263a3d39d6d0d70b780443",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/LOCK",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/LOG",
+      "size": 372,
+      "sha256": "e5115384c57999bd43f500ae50af9f483858a418b0be9f6aa039214bcb558b78",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/LOG.old",
+      "size": 331,
+      "sha256": "4b3a99809b7f97075a455ed374cabf63eab8b36c43105a20dde6f90a179d89c7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Session Storage/MANIFEST-000001",
+      "size": 41,
+      "sha256": "f9d31b278e215eb0d0e9cd709edfa037e828f36214ab7906f612160fead4b2b4",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Shared Dictionary/cache/index",
+      "size": 24,
+      "sha256": "fbcfe23a2ecb82b7100c50811691dde0a33aa3da8d176be9882a9db485dc0f2d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Shared Dictionary/cache/index-dir/the-real-index",
+      "size": 48,
+      "sha256": "b71b20ccd7235bd282f86a006df3bc5ea74ed71dbcc648e117155628942d847d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Shared Dictionary/db",
+      "size": 45056,
+      "sha256": "9dfba1d139c9933668e58e9c7777804c8ae01b2942dcc2dfaaa65ac139853a59",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/internal/Shared Dictionary/db-journal",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/JoplinBackup/default-dev/202607231105/all_notebooks.jex",
+      "size": 6144,
+      "sha256": "b89e274135bbcc4ebaa1f6492c6f4e21a7c4c7ea8870cd742fd7c7d86b892438",
+      "canaries": [
+        {
+          "id": "note",
+          "encodings": [
+            "utf8"
+          ]
+        },
+        {
+          "id": "resource",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/JoplinBackup/default-dev/202607231105/profile/settings.json",
+      "size": 878,
+      "sha256": "dc565a9a935c0176c677c6e1812f24727772e4586811abe571cfdb2c0d3e76ce",
+      "canaries": [
+        {
+          "id": "plugin",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/JoplinBackup/README.md",
+      "size": 268,
+      "sha256": "4d8716745e8d6dcbfba34e6fc377dd7257a427f2b594c0d7b78f9daf30893197",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/log-main-process.txt",
+      "size": 484,
+      "sha256": "ec0c463fa159793aaabaca0901a723c516e6e860e28e372b19eb5c7f39ca0549",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/log.txt",
+      "size": 74044,
+      "sha256": "a5cdf295634fcf3c355e3c62bfacee87cf627a1ae4ef49c3c6959737971b9baf",
+      "canaries": [
+        {
+          "id": "note",
+          "encodings": [
+            "utf8"
+          ]
+        },
+        {
+          "id": "plugin",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/resources/49e16255f3dc4e329bbb07282a775d9c.txt",
+      "size": 36,
+      "sha256": "cf74bb3a143045c3551ed21e47911f84ef13bf6fc34af72f57f469b41910ae36",
+      "canaries": [
+        {
+          "id": "resource",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/settings.json",
+      "size": 878,
+      "sha256": "dc565a9a935c0176c677c6e1812f24727772e4586811abe571cfdb2c0d3e76ce",
+      "canaries": [
+        {
+          "id": "plugin",
+          "encodings": [
+            "utf8"
+          ]
+        }
+      ]
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/spell-checker-migration-done",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/1f25be597d18df37a220f5e33549f590.css",
+      "size": 184,
+      "sha256": "d16a7e09444ae1c63702533be2d05a94d4ce587601762c941131bad392cc56f7",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/4a3f692748d863d778325a5ea94e7698.css",
+      "size": 390,
+      "sha256": "6dc50803ef59459261724aeb79e04e9245fe4723045a41af0ffb6fe88f592d83",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/4a4859b4a6cb8b1d27910df2f6cc33ad.css",
+      "size": 26,
+      "sha256": "2e3c59f4a55c19998af14c7bd7276c423a9db462a728fc775f4697d7a7c91490",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/4b45f679ea7fa94171e5ecfa859cf16d.css",
+      "size": 335,
+      "sha256": "82d17e9b263bd7c74cae4b5448389ebefbc5e0dcf8e42e9d77e38caad005270a",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/7e6adfee4651f6cbddb7c85d738b10f8.css",
+      "size": 56,
+      "sha256": "ba37c8cffaf56bfdb7edb5cadcf7bacf98dbc9ef8d300bb6e781761db8841ef9",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/e58de432d2a92a424f851d7d44ba22e4.css",
+      "size": 18148,
+      "sha256": "20508c1f4c6294a1851640c8d159bef93efb0b723788ab9423753791b2198bea",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/e72f1d0940ddf7b5607d777ca8ee6cff.css",
+      "size": 352,
+      "sha256": "4a64bf9de597703b3cc61a9f02bca1188e9d4cd93a40494409ce0bc1439d25ae",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/e947c32e9a7998401467175b23e5bf59.css",
+      "size": 947,
+      "sha256": "a4655860c508227e36f55cf7e5bbfc2f63bd74faaf081e9f6e06785737672653",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/plugin_io.github.jackgruber.backup.js",
+      "size": 520754,
+      "sha256": "082fafd32719d3b08c1363820475f71b4db4038d5d683d0b4dcbec31d190615d",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/tmp/plugin_io.github.personalizedrefrigerator.js-draw.js",
+      "size": 52660,
+      "sha256": "322de9e37757813848393b9e73ea5820d1612786b62015a7e2affd195be276da",
+      "canaries": []
+    },
+    {
+      "root": "sandbox",
+      "path": "home/.config/joplindev-desktop/window-state-dev.json",
+      "size": 140,
+      "sha256": "8e51d0762a78258c78ee03d06eba897090097208d7ff01849b2d851a585592a2",
+      "canaries": []
+    }
+  ],
+  "errors": []
+}

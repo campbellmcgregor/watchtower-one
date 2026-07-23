@@ -67,7 +67,8 @@
     "validateFilenames": "node ./packages/tools/validateFilenames.js",
     "watchtowerMonitor": "node watchtower/tools/upstream-control.mjs monitor --policy watchtower/upstream-policy.json",
     "watchtowerProvenance": "node watchtower/tools/release-ledger.mjs",
-    "watchtowerVerify": "node --test watchtower/tools/tests/upstream-control.test.mjs watchtower/tools/tests/release-ledger.test.mjs",
+    "watchtowerTraceBaseline": "yarn workspace @joplin/app-desktop gulp before-start && yarn workspace @joplin/app-desktop playwright test --config ../../watchtower/runtime-trace/playwright.config.ts",
+    "watchtowerVerify": "node --test watchtower/tools/tests/upstream-control.test.mjs watchtower/tools/tests/release-ledger.test.mjs watchtower/tools/tests/plaintext-trace.test.mjs",
     "watch": "yarn workspaces foreach --worktree --parallel --verbose --interlaced --jobs 999 run watch",
     "watchWebsite": "nodemon --delay 1 --watch Assets/WebsiteAssets --watch packages/tools/website --watch packages/tools/website/utils --watch packages/doc-builder/build --ext md,ts,js,mustache,css,tsx,gif,png,svg --exec \"node packages/tools/website/build.js && http-server --port 8077 ../joplin-website/docs -a localhost\""
   },

@@ -39,6 +39,28 @@
         "yarn workspace @joplin/app-desktop test --runInBand"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "runtime-plaintext-trace",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "e599e5257121860e3e66dc78320ab6c26d156857",
+        "155faa0d2a0f02c5c67925f79a464d3c281800ea",
+        "0fffb16db5c9d387c6e4aa093748d08176ea87d5"
+      ],
+      "upstreamTouchpoints": [
+        "watchtower/runtime-trace/**",
+        "watchtower/tools/plaintext-trace.mjs",
+        "docs/evidence/issue-7-runtime-plaintext-trace/**",
+        "package.json scripts"
+      ],
+      "tests": [
+        "yarn watchtowerVerify",
+        "yarn watchtowerTraceBaseline with clean trace and evidence roots",
+        "yarn workspace @joplin/app-desktop tsc",
+        "yarn workspace @joplin/app-desktop test --runInBand"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
