@@ -6,6 +6,7 @@
 - Date: 2026-07-23
 - Scope: Local-at-rest storage architecture
 - Supersedes: ADR-0001's requirement for a transparent whole-root-profile layer
+- Extended by: ADR-0004's unlocked Vault Session at-rest contract
 
 ## Context
 

@@ -14,11 +14,12 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 - **Synchronization Candidate**: a published stable Joplin release or published advisory represented by one idempotent Watchtower triage issue.
 - **Patch Ledger**: a machine-readable record of the exact Upstream Baseline, downstream revision and commits, dependency lock hash, and—at release time—distributed artifact hashes.
 - **Watchtower Profile Vault**: the logical encrypted boundary containing app-managed notes, metadata, histories, search data, attachments, sensitive settings, credentials, Curated Plugin user data, and automatic backups. It is implemented through encrypted modules rather than a mounted root-profile container.
-- **Vault Session**: the unlocked application lifetime during which profile storage may be decrypted for Joplin to use. Joplin profile initialization cannot precede it.
+- **Vault Session**: the capability-scoped, unlocked lifetime of the content-bearing application process tree. Decrypted user data may exist in trusted process memory during this lifetime, but application-managed persistence remains encrypted. Joplin profile initialization cannot precede it.
 - **Local Vault Key**: the random key material protecting the Watchtower Profile Vault. It is independent of all Joplin sync E2EE keys.
 - **Canonical Encrypted Store**: the SQLCipher database that owns persistent user-derived data unless an accepted ADR assigns a specific artifact to Public Bootstrap State, a reconstructible non-content cache, or Explicit Plaintext Egress.
 - **Public Bootstrap State**: the minimal reviewed, non-content state required to locate and identify a vault before unlock. It contains no note, resource, credential, sensitive setting, profile name, or Curated Plugin user data.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.
+- **Ephemeral Runtime module**: the deep module that configures content-bearing Electron sessions, renderer caches, preview material, and temporary working state so they remain memory-only or reconstructible and non-content-bearing.
 - **Sync E2EE**: Joplin's existing item-level encryption used while synchronizing through Joplin Cloud, WebDAV, Dropbox, OneDrive, or filesystem targets. It does not provide local-at-rest protection.
 - **Recovery Secret**: a user-held credential that can independently recover the Local Vault Key without a Watchtower account.
 - **Curated Plugin**: a plugin admitted by Watchtower's signing, review, update, and revocation policy. Signing proves admission; it does not sandbox the plugin.
@@ -28,13 +29,15 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 ## Invariants
 
 1. Watchtower One does not initialize Joplin's user-data database, resource content, sensitive settings, plugin user data, backups, content-bearing logs, or persistent Electron user state before the Watchtower Profile Vault is unlocked. Only Public Bootstrap State may be read.
-2. When the Vault Session is closed, user-derived data is not persistently recoverable as plaintext from Watchtower-managed profile paths, caches, logs, backups, crash artifacts, or temporary files.
-3. The Local Vault Key and Joplin sync E2EE keys are generated, wrapped, rotated, recovered, and erased as separate key domains.
-4. Local encryption failure is fail-closed. Watchtower One never silently opens or creates an unencrypted profile.
-5. Explicit Plaintext Egress requires a bounded user action and clear warning; background backup, diagnostics, crash reporting, or plugin behavior cannot create an undisclosed plaintext copy.
-6. Only Curated Plugins load in Watchtower One. Plugin admission does not weaken the logical user-data encryption guarantee.
-7. Stock Joplin sync formats and supported sync targets remain compatible unless an accepted ADR explicitly changes them.
-8. Watchtower client modifications and bundled client plugins comply with AGPL-3.0-or-later source and notice obligations.
+2. During a Vault Session, decrypted user data and raw local key material remain memory-only. Application-managed persistent user data, SQLite sidecars, automatic backups, and sensitive runtime state remain encrypted.
+3. Watchtower never reports a successful lock until new profile work is gated, content-bearing processes are closed, encrypted stores are closed, ephemeral application state is discarded, and session authority is revoked. A failed transition remains visibly failed closed.
+4. When the Vault Session is closed, user-derived data is not persistently recoverable as plaintext from Watchtower-managed profile paths, caches, logs, backups, crash artifacts, or temporary files.
+5. The Local Vault Key and Joplin sync E2EE keys are generated, wrapped, rotated, recovered, and erased as separate key domains.
+6. Local encryption failure is fail-closed. Watchtower One never silently opens or creates an unencrypted profile.
+7. Explicit Plaintext Egress requires a bounded user action and clear warning; background backup, diagnostics, crash reporting, clipboard behavior, or plugin behavior cannot create an undisclosed plaintext copy.
+8. Only Curated Plugins load in Watchtower One. Plugin admission does not weaken the logical user-data encryption guarantee.
+9. Stock Joplin sync formats and supported sync targets remain compatible unless an accepted ADR explicitly changes them.
+10. Watchtower client modifications and bundled client plugins comply with AGPL-3.0-or-later source and notice obligations.
 
 ## Context boundaries
 
@@ -42,6 +45,7 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 - **Vault lifecycle**: creates, unlocks, wraps, recovers, rotates, locks, and closes the Watchtower Profile Vault.
 - **Joplin application**: runs substantially upstream behavior inside an established Vault Session.
 - **Profile storage**: uses SQLCipher as the Canonical Encrypted Store and routes resources, settings, plugin data, caches, logs, backups, crash artifacts, and temporary/editor artifacts through encrypted deep modules, reviewed public state, or Explicit Plaintext Egress.
+- **Ephemeral runtime**: permits decrypted user data only in the content-bearing process tree and configures Electron/Chromium state so it does not become application-managed persistent plaintext.
 - **Sync boundary**: uses Joplin-native E2EE and sync targets; it is independent from local profile encryption.
 - **Plugin trust boundary**: admits only reviewed signed code and treats every admitted plugin as profile-capable code requiring audit and runtime tracing.
 - **User-selected external locations**: may receive Explicit Plaintext Egress or encrypted recovery artifacts, never silent background plaintext.
@@ -50,6 +54,6 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 
 ADR-0003 selects the SQLCipher-led logical profile vault. The implementation
 must still decide the Local Vault Key hierarchy and recovery interface, the
-protected/unprotected state while a Vault Session is open, the exact Public
-Bootstrap State, and macOS/Linux qualification. Those decisions must not be
-guessed in feature code.
+exact Public Bootstrap State, and macOS/Linux qualification. ADR-0004 defines
+the unlocked Vault Session at-rest contract. The remaining decisions must not
+be guessed in feature code.
