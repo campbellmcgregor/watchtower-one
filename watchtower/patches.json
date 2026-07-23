@@ -92,13 +92,18 @@
       "id": "pre-profile-vault-bootstrap",
       "owner": "Watchtower maintainers",
       "commits": [
-        "b61bcc5d1e7350ff0d746c996d157f6355a59124"
+        "b61bcc5d1e7350ff0d746c996d157f6355a59124",
+        "ffa556c4caeea3776d6472f52cdbc440eb123d6f"
       ],
       "upstreamTouchpoints": [
+        "packages/app-desktop/main.ts",
+        "packages/app-desktop/joplinMain.ts",
+        "packages/app-desktop/watchtower/desktop/**",
         "packages/app-desktop/watchtower/vault/**",
         ".gitignore and .eslintignore generated entries"
       ],
       "tests": [
+        "yarn workspace @joplin/app-desktop build",
         "yarn workspace @joplin/app-desktop test --runInBand",
         "yarn workspace @joplin/app-desktop tsc",
         "yarn watchtowerVerify",
