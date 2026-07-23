@@ -33,6 +33,18 @@ const delay = (milliseconds: number) => new Promise(resolveDelay => {
 	setTimeout(resolveDelay, milliseconds);
 });
 
+const relativePathWithin = (root: string, path: string) => {
+	const pathRelativeToRoot = relative(root, path);
+	if (
+		pathRelativeToRoot === '..'
+		|| pathRelativeToRoot.startsWith(`..${sep}`)
+		|| isAbsolute(pathRelativeToRoot)
+	) {
+		return null;
+	}
+	return pathRelativeToRoot;
+};
+
 test('records the pinned baseline plaintext footprint across runtime scenarios', async () => {
 	const runRoot = requiredEnvironmentPath('WATCHTOWER_TRACE_ROOT');
 	const evidenceDirectory = requiredEnvironmentPath('WATCHTOWER_TRACE_EVIDENCE');
@@ -144,11 +156,10 @@ test('records the pinned baseline plaintext footprint across runtime scenarios',
 	for (const [name, path] of Object.entries(electronPaths).filter(
 		([name]) => !['appData', 'home'].includes(name),
 	)) {
-		const pathRelativeToRun = relative(runRoot, path);
 		expect(
-			!pathRelativeToRun.startsWith('..') && !isAbsolute(pathRelativeToRun),
+			relativePathWithin(runRoot, path),
 			`Electron ${name} path escaped the controlled trace root: ${path}`,
-		).toBe(true);
+		).not.toBeNull();
 	}
 	await writeFile(join(evidenceDirectory, 'environment.json'), `${JSON.stringify({
 		schemaVersion: 1,
@@ -162,8 +173,8 @@ test('records the pinned baseline plaintext footprint across runtime scenarios',
 		observationRoot: '<trace-root>',
 		profileDirectory: '<trace-root>/home/.config/joplindev-desktop',
 		electronPaths: Object.fromEntries(Object.entries(electronPaths).map(([name, path]) => {
-			const pathRelativeToRun = relative(runRoot, path);
-			if (!pathRelativeToRun.startsWith('..') && !isAbsolute(pathRelativeToRun)) {
+			const pathRelativeToRun = relativePathWithin(runRoot, path);
+			if (pathRelativeToRun !== null) {
 				return [name, `<trace-root>/${pathRelativeToRun.split(sep).join('/')}`];
 			}
 			return [name, name === 'home' ? '<host-home>' : '<host-app-data>'];

@@ -33,6 +33,16 @@ const canaryPatterns = canaries => [...canaries].map(([id, value]) => ({
 	],
 }));
 
+const manifestPath = (root, path) => relative(root, path).split(sep).join('/');
+
+const recordScanError = (errors, root, rootPath, path, error) => {
+	errors.push({
+		root,
+		path: manifestPath(rootPath, path),
+		error: error instanceof Error ? error.message : String(error),
+	});
+};
+
 const scanFile = (path, patterns) => new Promise((resolveScan, reject) => {
 	const hash = createHash('sha256');
 	const matches = new Map();
@@ -74,20 +84,18 @@ const snapshotRoot = async (id, path, patterns, files, errors) => {
 		try {
 			stats = await lstat(absolutePath);
 		} catch (error) {
-			errors.push({
-				root: id,
-				path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
-				error: error.message,
-			});
+			recordScanError(errors, id, absoluteRoot, absolutePath, error);
 			return;
 		}
 
 		if (stats.isSymbolicLink()) {
-			errors.push({
-				root: id,
-				path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
-				error: 'Symbolic links and reparse points are not scanned',
-			});
+			recordScanError(
+				errors,
+				id,
+				absoluteRoot,
+				absolutePath,
+				'Symbolic links and reparse points are not scanned',
+			);
 			return;
 		}
 		if (stats.isDirectory()) {
@@ -96,11 +104,7 @@ const snapshotRoot = async (id, path, patterns, files, errors) => {
 				const directory = await opendir(absolutePath);
 				for await (const entry of directory) entries.push(entry.name);
 			} catch (error) {
-				errors.push({
-					root: id,
-					path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
-					error: error.message,
-				});
+				recordScanError(errors, id, absoluteRoot, absolutePath, error);
 				return;
 			}
 			entries.sort((left, right) => left.localeCompare(right));
@@ -108,11 +112,13 @@ const snapshotRoot = async (id, path, patterns, files, errors) => {
 			return;
 		}
 		if (!stats.isFile()) {
-			errors.push({
-				root: id,
-				path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
-				error: 'Non-regular filesystem entry is not scanned',
-			});
+			recordScanError(
+				errors,
+				id,
+				absoluteRoot,
+				absolutePath,
+				'Non-regular filesystem entry is not scanned',
+			);
 			return;
 		}
 
@@ -120,16 +126,12 @@ const snapshotRoot = async (id, path, patterns, files, errors) => {
 			const scan = await scanFile(absolutePath, patterns);
 			files.push({
 				root: id,
-				path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
+				path: manifestPath(absoluteRoot, absolutePath),
 				size: stats.size,
 				...scan,
 			});
 		} catch (error) {
-			errors.push({
-				root: id,
-				path: relative(absoluteRoot, absolutePath).split(sep).join('/'),
-				error: error.message,
-			});
+			recordScanError(errors, id, absoluteRoot, absolutePath, error);
 		}
 	};
 
