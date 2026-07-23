@@ -25,7 +25,8 @@
       "commits": [
         "3a241449c5412c145bd2a4de4fd18f922053e3e9",
         "ad43fe46afcc13f34eb58c174498916194abb2c3",
-        "1a8ad892a5edea95999ed8d04888222d5190c7d4"
+        "1a8ad892a5edea95999ed8d04888222d5190c7d4",
+        "d0f5bc46d2eb750825c5263215b0914c11754a68"
       ],
       "upstreamTouchpoints": [
         ".github/workflows/watchtower-*.yml",

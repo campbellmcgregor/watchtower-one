@@ -6,7 +6,7 @@
     "commit": "c61572660382863595c6b51ccf2263e3d2c4bfce"
   },
   "downstream": {
-    "revision": "1a8ad892a5edea95999ed8d04888222d5190c7d4",
+    "revision": "d0f5bc46d2eb750825c5263215b0914c11754a68",
     "commits": [
       {
         "commit": "d991bbf456e53a749b569283072f30a937fb5771",
@@ -39,6 +39,14 @@
       {
         "commit": "1a8ad892a5edea95999ed8d04888222d5190c7d4",
         "subject": "fix: harden upstream synchronization controls"
+      },
+      {
+        "commit": "0f0a1a09ca3b894d6df351cf9dc57435c86c9cb8",
+        "subject": "chore: publish maintained downstream patch ledger"
+      },
+      {
+        "commit": "d0f5bc46d2eb750825c5263215b0914c11754a68",
+        "subject": "fix: bind release provenance to pinned baseline"
       }
     ],
     "patches": [
@@ -66,7 +74,8 @@
         "commits": [
           "3a241449c5412c145bd2a4de4fd18f922053e3e9",
           "ad43fe46afcc13f34eb58c174498916194abb2c3",
-          "1a8ad892a5edea95999ed8d04888222d5190c7d4"
+          "1a8ad892a5edea95999ed8d04888222d5190c7d4",
+          "d0f5bc46d2eb750825c5263215b0914c11754a68"
         ],
         "upstreamTouchpoints": [
           ".github/workflows/watchtower-*.yml",
