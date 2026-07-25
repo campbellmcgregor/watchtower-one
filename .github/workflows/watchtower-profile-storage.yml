@@ -91,6 +91,7 @@ jobs:
       - name: Build Jest runtime workspace dependencies
         run: |
           corepack yarn workspace @joplin/utils build
+          corepack yarn workspace @joplin/lib tsc
 
       - name: Run the encrypted profile proof
         shell: pwsh
