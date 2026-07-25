@@ -88,6 +88,10 @@ jobs:
           corepack enable
           corepack yarn install --immutable --mode=skip-build
 
+      - name: Build Jest runtime workspace dependencies
+        run: |
+          corepack yarn workspace @joplin/utils build
+
       - name: Run the encrypted profile proof
         shell: pwsh
         env:
