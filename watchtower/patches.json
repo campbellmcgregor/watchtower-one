@@ -120,7 +120,8 @@
         "91cae09f3416b097c621ea0f9e4e66bc95dc5ced",
         "2e4a0d21d5b580ff40f5497e8105e75202cb67e5",
         "abf8f13db24a9388b230b81c5b86bc035ffa99d0",
-        "9f699fafaff0c0a865be0225d78c666c2a87ad47"
+        "9f699fafaff0c0a865be0225d78c666c2a87ad47",
+        "d02566dfadca3d1728ca34fe0865c43d6186d0dd"
       ],
       "upstreamTouchpoints": [
         "packages/app-desktop/watchtower/profile/**",
