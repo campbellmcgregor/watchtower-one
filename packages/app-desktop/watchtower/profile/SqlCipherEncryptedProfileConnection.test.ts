@@ -1,8 +1,9 @@
-import SqlCipherEncryptedProfileConnection, {
+import SqlCipherEncryptedProfileConnection from './SqlCipherEncryptedProfileConnection';
+import {
 	SqlCipherNativeDatabase,
 	SqlCipherProfileConfigurationError,
-} from './SqlCipherEncryptedProfileConnection';
-// cspell:ignore sqlcipher
+} from './sqlCipherProfileTypes';
+// cspell:ignore hexkey sqlcipher
 
 const requiredCompileOptions = [
 	'DQS=3',
@@ -85,6 +86,11 @@ describe('SqlCipherEncryptedProfileConnection', () => {
 	test.each([
 		'ATTACH DATABASE ? AS plaintext_copy',
 		'SELECT load_extension(?)',
+		'PRAGMA key = "plaintext-key"',
+		'PRAGMA hexkey = "001122"',
+		'PRAGMA rekey = ""',
+		'PRAGMA cipher_log_level = TRACE',
+		'PRAGMA cipher_page_size = 1024',
 		'PRAGMA temp_store = FILE',
 		'PRAGMA cipher_plaintext_header_size = 32',
 		'PRAGMA cipher_memory_security = OFF',
@@ -92,6 +98,8 @@ describe('SqlCipherEncryptedProfileConnection', () => {
 		'PRAGMA temp_store = MEMORY; PRAGMA temp_store = FILE',
 		'PRAGMA temp_store(FILE)',
 		'PRAGMA main.journal_mode = DELETE',
+		'PRAGMA main."journal_mode" = DELETE',
+		'PRAGMA \'journal_mode\' = OFF',
 		'VACUUM INTO ?',
 	])('a profile query cannot relax encrypted persistence: %s', async unsafeSql => {
 		const connection = await SqlCipherEncryptedProfileConnection.verify(makeNativeDatabase());
@@ -99,6 +107,22 @@ describe('SqlCipherEncryptedProfileConnection', () => {
 		await expect(connection.exec(unsafeSql, ['outside.sqlite'])).rejects.toEqual(
 			expect.objectContaining({ code: 'unsafeProfileQuery' }),
 		);
+	});
+
+	test('a failed native close can be retried by hard termination', async () => {
+		const nativeDatabase = makeNativeDatabase();
+		let closeAttempts = 0;
+		nativeDatabase.close = () => {
+			closeAttempts++;
+			if (closeAttempts === 1) throw new Error('native close failed');
+		};
+		const connection = await SqlCipherEncryptedProfileConnection.verify(nativeDatabase);
+
+		await expect(connection.close(new AbortController().signal)).rejects.toThrow(
+			'native close failed',
+		);
+		expect(connection.terminate()).toBe(true);
+		expect(closeAttempts).toBe(2);
 	});
 
 });

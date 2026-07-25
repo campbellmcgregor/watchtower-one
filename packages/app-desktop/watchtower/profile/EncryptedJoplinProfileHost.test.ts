@@ -1,8 +1,9 @@
 import PreProfileVaultBootstrap from '../vault/PreProfileVaultBootstrap';
 import EncryptedProfileStorage from './EncryptedProfileStorage';
-import EncryptedJoplinProfileHost, {
+import EncryptedJoplinProfileHost from './EncryptedJoplinProfileHost';
+import {
 	JoplinProfileRuntime,
-} from './EncryptedJoplinProfileHost';
+} from './joplinProfileTypes';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -22,8 +23,10 @@ describe('EncryptedJoplinProfileHost', () => {
 			},
 			terminate: () => false,
 		});
+		let activeProfile: Parameters<JoplinProfileRuntime['start']>[0]|undefined;
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
+				activeProfile = profile;
 				events.push('joplin-started');
 				expect(profile.ephemeralRuntime.partition()).toMatch(/^watchtower-session-/);
 				events.push('ephemeral-session-active');
@@ -50,6 +53,15 @@ describe('EncryptedJoplinProfileHost', () => {
 				events.push(String(note?.body));
 			},
 			stop: async () => {
+				await activeProfile!.database.exec(
+					'UPDATE notes SET body = ? WHERE id = ?',
+					['encrypted-profile-stop-canary', 'watchtower-note'],
+				);
+				const note = await activeProfile!.database.selectOne(
+					'SELECT body FROM notes WHERE id = ?',
+					['watchtower-note'],
+				);
+				events.push(String(note?.body));
 				events.push('joplin-stopped');
 				return { kind: 'stopped' };
 			},
@@ -108,6 +120,7 @@ describe('EncryptedJoplinProfileHost', () => {
 			'ephemeral-session-active',
 			'resource-through-joplin-adapter',
 			'encrypted-profile-canary',
+			'encrypted-profile-stop-canary',
 			'joplin-stopped',
 			'ephemeral-connections-closed',
 			'ephemeral-storage-cleared',

@@ -4,9 +4,12 @@ import PreProfileVaultBootstrap, {
 } from '../vault/PreProfileVaultBootstrap';
 import Database from '@joplin/lib/database';
 import JoplinDatabase from '@joplin/lib/JoplinDatabase';
-import EncryptedProfileStorage, {
+import EncryptedProfileStorage from './EncryptedProfileStorage';
+import {
 	EncryptedProfileConnection,
-} from './EncryptedProfileStorage';
+	maximumResourceContentBytes,
+	maximumSyncCiphertextBytes,
+} from './profileStorageTypes';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -193,6 +196,10 @@ describe('EncryptedProfileStorage', () => {
 			Buffer.from('decrypted-content'),
 		);
 		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
+	});
+
+	test('sync ciphertext allows Joplin encryption overhead beyond the canonical resource limit', () => {
+		expect(maximumSyncCiphertextBytes).toBeGreaterThan(maximumResourceContentBytes);
 	});
 
 	test('sensitive settings and curated-plugin data remain isolated inside profile storage', async () => {

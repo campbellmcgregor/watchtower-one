@@ -16,16 +16,17 @@ import PreProfileVaultBootstrap, {
 } from '../vault/PreProfileVaultBootstrap';
 import EncryptedProfileStorage from './EncryptedProfileStorage';
 import EncryptedResourceFsDriver from './EncryptedResourceFsDriver';
-import SqlCipherEncryptedProfileConnection, {
+import SqlCipherEncryptedProfileConnection from './SqlCipherEncryptedProfileConnection';
+import {
 	SqlCipherNativeDatabase,
-} from './SqlCipherEncryptedProfileConnection';
+} from './sqlCipherProfileTypes';
 
 const compatibilityPrebuildRoot = process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT;
 const sqlCipherTest = compatibilityPrebuildRoot ? test : test.skip;
 
-const NOTE_CANARY = 'WATCHTOWER_PROFILE_NOTE_CANARY_7A1B2C3D';
-const RESOURCE_CANARY = 'WATCHTOWER_PROFILE_RESOURCE_CANARY_8B2C3D4E';
-const SETTING_CANARY = 'WATCHTOWER_PROFILE_SETTING_CANARY_9C3D4E5F';
+const noteCanary = 'WATCHTOWER_PROFILE_NOTE_CANARY_7A1B2C3D';
+const resourceCanary = 'WATCHTOWER_PROFILE_RESOURCE_CANARY_8B2C3D4E';
+const settingCanary = 'WATCHTOWER_PROFILE_SETTING_CANARY_9C3D4E5F';
 
 const rawKeyPragma = (key: Buffer) => `key = "x'${key.toString('hex')}'"`;
 
@@ -70,7 +71,7 @@ const scanDatabaseArtifacts = (databasePath: string) => {
 		.filter(path => statSync(path).isFile())
 		.flatMap(path => {
 			const bytes = readFileSync(path);
-			return [NOTE_CANARY, RESOURCE_CANARY, SETTING_CANARY]
+			return [noteCanary, resourceCanary, settingCanary]
 				.filter(canary => bytes.includes(Buffer.from(canary)))
 				.map(canary => ({ path, canary }));
 		});
@@ -92,7 +93,7 @@ sqlCipherTest('Joplin profile data survives an encrypted SQLCipher close and res
 		await database.open({ name: 'watchtower-profile' });
 		await database.exec(
 			'INSERT INTO notes (id, parent_id, title, body, created_time, updated_time) VALUES (?, ?, ?, ?, ?, ?)',
-			['watchtower-note', '', 'Watchtower', NOTE_CANARY, 1, 1],
+			['watchtower-note', '', 'Watchtower', noteCanary, 1, 1],
 		);
 		let resourceFileSystem = new EncryptedResourceFsDriver(
 			resourceDirectory,
@@ -100,14 +101,14 @@ sqlCipherTest('Joplin profile data survives an encrypted SQLCipher close and res
 		);
 		await resourceFileSystem.writeFile(
 			resourcePath,
-			Buffer.from(RESOURCE_CANARY),
+			Buffer.from(resourceCanary),
 			'buffer',
 		);
 		expect(existsSync(resourceDirectory)).toBe(false);
 		await opened.storage.privateData(opened.capability).write(
 			'settings',
 			'sync.credentials',
-			Buffer.from(SETTING_CANARY),
+			Buffer.from(settingCanary),
 		);
 		await database.close();
 		await opened.lifecycle.end('close');
@@ -120,19 +121,19 @@ sqlCipherTest('Joplin profile data survives an encrypted SQLCipher close and res
 		await expect(database.selectOne(
 			'SELECT body FROM notes WHERE id = ?',
 			['watchtower-note'],
-		)).resolves.toEqual({ body: NOTE_CANARY });
+		)).resolves.toEqual({ body: noteCanary });
 		resourceFileSystem = new EncryptedResourceFsDriver(
 			resourceDirectory,
 			opened.storage.resources(opened.capability),
 		);
 		await expect(resourceFileSystem.readFile(resourcePath, 'Buffer')).resolves.toEqual(
-			Buffer.from(RESOURCE_CANARY),
+			Buffer.from(resourceCanary),
 		);
 		expect(existsSync(resourceDirectory)).toBe(false);
 		await expect(opened.storage.privateData(opened.capability).read(
 			'settings',
 			'sync.credentials',
-		)).resolves.toEqual(Buffer.from(SETTING_CANARY));
+		)).resolves.toEqual(Buffer.from(settingCanary));
 		await database.close();
 		await opened.lifecycle.end('close');
 

@@ -69,8 +69,11 @@ jobs:
       - name: Verify native compile options
         working-directory: node-sqlcipher
         shell: pwsh
+        env:
+          WATCHTOWER_REPOSITORY_ROOT: ${{ github.workspace }}
         run: |
-          $verification = node "${{ github.workspace }}/watchtower/sqlcipher/verify-compatibility.cjs"
+          $verificationScript = Join-Path $env:WATCHTOWER_REPOSITORY_ROOT 'watchtower/sqlcipher/verify-compatibility.cjs'
+          $verification = node $verificationScript
           $verification
           $verification | Set-Content -LiteralPath sqlcipher-compile-options.json
 

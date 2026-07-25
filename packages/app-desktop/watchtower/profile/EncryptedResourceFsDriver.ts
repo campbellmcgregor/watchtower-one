@@ -6,7 +6,8 @@ import {
 	ResourceContent,
 	ResourceContentKind,
 	ResourceContentMetadata,
-} from './EncryptedProfileStorage';
+} from './profileStorageTypes';
+import PlaintextEgressNotAuthorizedError from './PlaintextEgressNotAuthorizedError';
 
 interface ResourceAddress {
 	fileName: string;
@@ -18,16 +19,6 @@ interface ResourceReadHandle {
 	content: Buffer;
 	position: number;
 	readonly watchtowerResourceHandle: true;
-}
-
-export class PlaintextEgressNotAuthorizedError extends Error {
-
-	public readonly code = 'explicitPlaintextEgressRequired';
-
-	public constructor() {
-		super('Explicit Plaintext Egress authorization is required');
-		this.name = 'PlaintextEgressNotAuthorizedError';
-	}
 }
 
 const isResourceReadHandle = (handle: unknown): handle is ResourceReadHandle => {
@@ -50,6 +41,12 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 		this.resourceDirectory_ = resolve(resourceDirectory);
 	}
 
+	private pathsEqual_(left: string, right: string) {
+		return process.platform === 'win32' ?
+			left.toLowerCase() === right.toLowerCase() :
+			left === right;
+	}
+
 	private address_(path: string): ResourceAddress|undefined {
 		const resolvedPath = resolve(path);
 		const relativePath = relative(this.resourceDirectory_, resolvedPath);
@@ -57,7 +54,7 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 			relativePath === '..' ||
 			relativePath.startsWith(`..${sep}`) ||
 			isAbsolute(relativePath) ||
-			resolve(this.resourceDirectory_, relativePath) !== resolvedPath
+			!this.pathsEqual_(resolve(this.resourceDirectory_, relativePath), resolvedPath)
 		) {
 			return undefined;
 		}
@@ -79,7 +76,16 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 	}
 
 	private isResourceDirectory_(path: string) {
-		return resolve(path) === this.resourceDirectory_;
+		return this.pathsEqual_(resolve(path), this.resourceDirectory_);
+	}
+
+	private isWithinResourceDirectory_(path: string) {
+		const relativePath = relative(this.resourceDirectory_, resolve(path));
+		return (
+			relativePath !== '..' &&
+			!relativePath.startsWith(`..${sep}`) &&
+			!isAbsolute(relativePath)
+		);
 	}
 
 	private async metadata_(address: ResourceAddress) {
@@ -126,6 +132,13 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 			address.kind,
 			address.fileName,
 		);
+	}
+
+	public appendFileSync(path: string, input: string) {
+		if (this.isWithinResourceDirectory_(path)) {
+			throw new Error('Encrypted resource path is invalid');
+		}
+		return super.appendFileSync(path, input);
 	}
 
 	public async writeFile(
@@ -183,7 +196,12 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 		path: string,
 		_options: ReadDirStatsOptions = null,
 	): Promise<Stat[]> {
-		if (!this.isResourceDirectory_(path)) return super.readDirStats(path, _options);
+		if (!this.isResourceDirectory_(path)) {
+			if (this.isWithinResourceDirectory_(path)) {
+				throw new Error('Encrypted resource path is invalid');
+			}
+			return super.readDirStats(path, _options);
+		}
 		const metadata = await this.content_.list();
 		return metadata.map(item => this.statFromMetadata_(
 			item.fileName ?? (
@@ -197,6 +215,9 @@ export default class EncryptedResourceFsDriver extends FsDriverNode {
 
 	public async mkdir(path: string) {
 		if (this.isResourceDirectory_(path)) return;
+		if (this.isWithinResourceDirectory_(path)) {
+			throw new Error('Encrypted resource path is invalid');
+		}
 		return super.mkdir(path);
 	}
 

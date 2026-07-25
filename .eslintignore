@@ -657,9 +657,14 @@ packages/app-desktop/watchtower/profile/EncryptedResourceFsDriver.test.js
 packages/app-desktop/watchtower/profile/EncryptedResourceFsDriver.js
 packages/app-desktop/watchtower/profile/EphemeralProfileRuntime.test.js
 packages/app-desktop/watchtower/profile/EphemeralProfileRuntime.js
+packages/app-desktop/watchtower/profile/PlaintextEgressNotAuthorizedError.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.integration.test.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.test.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.js
+packages/app-desktop/watchtower/profile/ephemeralProfileRuntimeTypes.js
+packages/app-desktop/watchtower/profile/joplinProfileTypes.js
+packages/app-desktop/watchtower/profile/profileStorageTypes.js
+packages/app-desktop/watchtower/profile/sqlCipherProfileTypes.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.test.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.js
 packages/app-mobile/PluginAssetsLoader.js

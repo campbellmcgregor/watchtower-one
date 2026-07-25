@@ -3,46 +3,84 @@ import {
 	ProfileStopResult,
 	VaultEndReason,
 	VaultSessionCapability,
+	VaultSessionLease,
 } from '../vault/PreProfileVaultBootstrap';
-import EncryptedProfileStorage, {
+import EncryptedProfileStorage from './EncryptedProfileStorage';
+import {
 	EncryptedProfileDatabase,
-	EphemeralProfileArtifacts,
-	PrivateProfileData,
-	ResourceContent,
 	encryptedProfileDatabaseName,
-} from './EncryptedProfileStorage';
+} from './profileStorageTypes';
 import EncryptedResourceFsDriver from './EncryptedResourceFsDriver';
-import EphemeralProfileRuntime, {
-	EphemeralElectronSessionFactory,
-} from './EphemeralProfileRuntime';
+import EphemeralProfileRuntime from './EphemeralProfileRuntime';
+import {
+	EncryptedJoplinProfileHostOptions,
+	JoplinProfileRuntime,
+	LoadJoplinProfileRuntime,
+} from './joplinProfileTypes';
 
-export interface JoplinEncryptedProfile {
-	database: EncryptedProfileDatabase;
-	ephemeralRuntime: EphemeralProfileRuntime;
-	resources: ResourceContent;
-	resourceFileSystem: EncryptedResourceFsDriver;
-	privateData: PrivateProfileData;
-	ephemeral: EphemeralProfileArtifacts;
+interface ScopedSessionAuthority {
+	capability: VaultSessionCapability;
+	beginClosing(): Promise<void>;
+	revoke(): void;
 }
 
-export interface JoplinProfileRuntime {
-	start(profile: JoplinEncryptedProfile, signal: AbortSignal): Promise<void>;
-	stop(reason: VaultEndReason, signal: AbortSignal): Promise<ProfileStopResult>;
-	terminate(): boolean;
-}
+const issueScopedSessionAuthority = (
+	parentLease: VaultSessionLease,
+): ScopedSessionAuthority => {
+	let state: 'active'|'closing'|'revoked' = 'active';
+	const activeLeases = new Set<symbol>();
+	let resolveDrain: (()=> void)|undefined;
 
-export type LoadJoplinProfileRuntime = ()=> Promise<JoplinProfileRuntime>;
+	const completeDrainIfPossible = () => {
+		if (state !== 'closing' || activeLeases.size || !resolveDrain) return;
+		resolveDrain();
+		resolveDrain = undefined;
+	};
 
-export interface EncryptedJoplinProfileHostOptions {
-	ephemeralSessionFactory: EphemeralElectronSessionFactory;
-	resourceDirectory: string;
-}
+	const capability = (() => {
+		parentLease();
+		if (state !== 'active') throw new Error('Vault Session is not accepting new work');
+		const leaseId = Symbol('WatchtowerProfileSessionLease');
+		activeLeases.add(leaseId);
+		let released = false;
+		const lease = (() => {
+			parentLease();
+			if (released || state === 'revoked') throw new Error('Vault Session is not active');
+		}) as VaultSessionLease;
+		lease.release = () => {
+			if (released) return;
+			released = true;
+			activeLeases.delete(leaseId);
+			completeDrainIfPossible();
+		};
+		return lease;
+	}) as VaultSessionCapability;
+
+	return {
+		capability,
+		beginClosing: () => {
+			if (state === 'active') state = 'closing';
+			if (!activeLeases.size) return Promise.resolve();
+			return new Promise(resolve => {
+				resolveDrain = resolve;
+			});
+		},
+		revoke: () => {
+			state = 'revoked';
+			activeLeases.clear();
+			resolveDrain?.();
+			resolveDrain = undefined;
+		},
+	};
+};
 
 export default class EncryptedJoplinProfileHost implements ProfileHost {
 
 	private runtime_: JoplinProfileRuntime|undefined;
 	private database_: EncryptedProfileDatabase|undefined;
 	private ephemeralRuntime_: EphemeralProfileRuntime|undefined;
+	private rootLease_: VaultSessionLease|undefined;
+	private sessionAuthority_: ScopedSessionAuthority|undefined;
 
 	public constructor(
 		private readonly storage_: ()=> EncryptedProfileStorage,
@@ -56,19 +94,25 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 	): Promise<void> {
 		if (this.runtime_) throw new Error('Encrypted Joplin profile is already running');
 
+		const rootLease = capability();
+		rootLease();
+		const sessionAuthority = issueScopedSessionAuthority(rootLease);
+		const scopedCapability = sessionAuthority.capability;
 		const storage = this.storage_();
-		const database = storage.database(capability);
-		await database.open({ name: encryptedProfileDatabaseName });
+		const database = storage.database(scopedCapability);
 		const ephemeralRuntime = new EphemeralProfileRuntime(
 			this.options_.ephemeralSessionFactory,
 		);
 		try {
-			await ephemeralRuntime.start(capability);
+			await database.open({ name: encryptedProfileDatabaseName });
+			await ephemeralRuntime.start(scopedCapability);
 			const runtime = await this.loadRuntime_();
 			this.database_ = database;
 			this.ephemeralRuntime_ = ephemeralRuntime;
+			this.rootLease_ = rootLease;
+			this.sessionAuthority_ = sessionAuthority;
 			this.runtime_ = runtime;
-			const resources = storage.resources(capability);
+			const resources = storage.resources(scopedCapability);
 			await runtime.start({
 				database,
 				ephemeralRuntime,
@@ -77,18 +121,25 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 					this.options_.resourceDirectory,
 					resources,
 				),
-				privateData: storage.privateData(capability),
-				ephemeral: storage.ephemeral(capability),
+				privateData: storage.privateData(scopedCapability),
+				ephemeral: storage.ephemeral(scopedCapability),
 			}, signal);
 		} catch (error) {
 			this.runtime_?.terminate();
 			this.runtime_ = undefined;
 			this.ephemeralRuntime_ = undefined;
 			this.database_ = undefined;
+			this.sessionAuthority_ = undefined;
+			this.rootLease_ = undefined;
 			try {
 				await ephemeralRuntime.dispose();
 			} finally {
-				await database.close();
+				try {
+					await database.close();
+				} finally {
+					sessionAuthority.revoke();
+					rootLease.release();
+				}
 			}
 			throw error;
 		}
@@ -98,25 +149,38 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 		reason: VaultEndReason,
 		signal: AbortSignal,
 	): Promise<ProfileStopResult> {
-		if (!this.runtime_ || !this.database_ || !this.ephemeralRuntime_) {
+		if (
+			!this.runtime_ ||
+			!this.database_ ||
+			!this.ephemeralRuntime_ ||
+			!this.rootLease_ ||
+			!this.sessionAuthority_
+		) {
 			throw new Error('Encrypted Joplin profile is not running');
 		}
 
 		const runtime = this.runtime_;
 		const database = this.database_;
 		const ephemeralRuntime = this.ephemeralRuntime_;
+		const rootLease = this.rootLease_;
+		const sessionAuthority = this.sessionAuthority_;
 		try {
 			return await runtime.stop(reason, signal);
 		} finally {
 			try {
+				await sessionAuthority.beginClosing();
 				await ephemeralRuntime.dispose();
 			} finally {
 				try {
 					await database.close();
 				} finally {
+					sessionAuthority.revoke();
+					rootLease.release();
 					this.runtime_ = undefined;
 					this.database_ = undefined;
 					this.ephemeralRuntime_ = undefined;
+					this.rootLease_ = undefined;
+					this.sessionAuthority_ = undefined;
 				}
 			}
 		}
@@ -129,9 +193,13 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 			const ephemeralTerminated = this.ephemeralRuntime_?.terminate() ?? true;
 			return runtimeTerminated && ephemeralTerminated;
 		} finally {
+			this.sessionAuthority_?.revoke();
+			this.rootLease_?.release();
 			this.runtime_ = undefined;
 			this.database_ = undefined;
 			this.ephemeralRuntime_ = undefined;
+			this.rootLease_ = undefined;
+			this.sessionAuthority_ = undefined;
 		}
 	}
 }

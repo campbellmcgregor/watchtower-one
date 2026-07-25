@@ -2,10 +2,11 @@ import PreProfileVaultBootstrap, {
 	VaultOpenHandle,
 	VaultSessionCapability,
 } from '../vault/PreProfileVaultBootstrap';
-import EphemeralProfileRuntime, {
+import EphemeralProfileRuntime from './EphemeralProfileRuntime';
+import {
 	EphemeralElectronSession,
 	EphemeralElectronSessionFactory,
-} from './EphemeralProfileRuntime';
+} from './ephemeralProfileRuntimeTypes';
 
 const unlock = async (
 	sessionFactory: EphemeralElectronSessionFactory,

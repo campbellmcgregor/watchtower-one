@@ -2,41 +2,14 @@ import {
 	EncryptedProfileConnection,
 	ProfileSqlParameters,
 	ProfileSqlRow,
-} from './EncryptedProfileStorage';
-
-export interface SqlCipherNativeStatement {
-	run(params?: ProfileSqlParameters): unknown|Promise<unknown>;
-	get(params?: ProfileSqlParameters): ProfileSqlRow|Promise<ProfileSqlRow>;
-	all(params?: ProfileSqlParameters): Record<string, unknown>[]|Promise<Record<string, unknown>[]>;
-	close?(): void;
-}
-
-export interface SqlCipherNativeDatabase {
-	pragma(source: string, options?: { simple?: true }): unknown;
-	prepare(sql: string): SqlCipherNativeStatement;
-	close(): void;
-}
-
-export type SqlCipherProfileConfigurationErrorCode =
-	'incompatibleSqlCipherBuild'|
-	'invalidEncryptedProfile'|
-	'unsafeSqlCipherConfiguration';
-
-export class SqlCipherProfileConfigurationError extends Error {
-	public constructor(public readonly code: SqlCipherProfileConfigurationErrorCode) {
-		super(`Encrypted profile database rejected: ${code}`);
-		this.name = 'SqlCipherProfileConfigurationError';
-	}
-}
-
-export class UnsafeProfileQueryError extends Error {
-	public readonly code = 'unsafeProfileQuery';
-
-	public constructor() {
-		super('Encrypted profile query rejected by persistence policy');
-		this.name = 'UnsafeProfileQueryError';
-	}
-}
+} from './profileStorageTypes';
+import {
+	SqlCipherNativeDatabase,
+	SqlCipherNativeStatement,
+	SqlCipherProfileConfigurationError,
+	UnsafeProfileQueryError,
+} from './sqlCipherProfileTypes';
+// cspell:ignore hexkey
 
 const requiredCompileOptions = [
 	'DQS=3',
@@ -128,12 +101,14 @@ export default class SqlCipherEncryptedProfileConnection implements EncryptedPro
 			.replace(/--[^\r\n]*/g, ' ')
 			.replace(/\s+/g, ' ')
 			.trim()
-			.toLowerCase();
+			.toLowerCase()
+			.replace(/(['"`[])([a-z_][a-z0-9_]*)(?:['"`\]])/g, '$2');
 
 		if (
 			/\battach\b/.test(normalized) ||
 			/\bload_extension\s*\(/.test(normalized) ||
-			/\bvacuum\s+into\b/.test(normalized)
+			/\bvacuum\s+into\b/.test(normalized) ||
+			/\bpragma\s+(?:(?:main|temp)\s*\.\s*)?(?:key|hexkey|rekey|cipher_[a-z0-9_]+)\s*(?:=|\()/.test(normalized)
 		) {
 			throw new UnsafeProfileQueryError();
 		}
@@ -143,7 +118,6 @@ export default class SqlCipherEncryptedProfileConnection implements EncryptedPro
 				'\\bpragma\\s+',
 				'(?:(?:main|temp)\\s*\\.\\s*)?',
 				'(temp_store|temp_store_directory|data_store_directory|',
-				'cipher_plaintext_header_size|cipher_memory_security|',
 				'journal_mode|secure_delete|foreign_keys)',
 				'\\s*(?:=\\s*([^;]+)|\\(\\s*([^)]*)\\s*\\))',
 			].join(''),
@@ -156,8 +130,6 @@ export default class SqlCipherEncryptedProfileConnection implements EncryptedPro
 				.replace(/^(['"])(.*)\1$/, '$2');
 			const permitted = (
 				(name === 'temp_store' && (value === 'memory' || value === '2')) ||
-				(name === 'cipher_plaintext_header_size' && value === '0') ||
-				(name === 'cipher_memory_security' && (value === 'on' || value === '1')) ||
 				(name === 'journal_mode' && value === 'wal') ||
 				(name === 'secure_delete' && (value === 'on' || value === '1')) ||
 				(name === 'foreign_keys' && (value === 'on' || value === '1'))
@@ -197,15 +169,15 @@ export default class SqlCipherEncryptedProfileConnection implements EncryptedPro
 
 	public async close(_signal: AbortSignal): Promise<void> {
 		if (this.closed_) return;
-		this.closed_ = true;
 		this.database_.close();
+		this.closed_ = true;
 	}
 
 	public terminate(): boolean {
 		if (this.closed_) return true;
 		try {
-			this.closed_ = true;
 			this.database_.close();
+			this.closed_ = true;
 			return true;
 		} catch {
 			return false;

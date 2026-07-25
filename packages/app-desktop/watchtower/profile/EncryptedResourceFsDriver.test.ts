@@ -54,6 +54,10 @@ describe('EncryptedResourceFsDriver', () => {
 		const resourceId = '0123456789abcdef0123456789abcdef';
 		const contentPath = join(resourceDirectory, `${resourceId}.png`);
 		const syncPath = join(resourceDirectory, `${resourceId}.crypted`);
+		const differentlyCasedContentPath = contentPath.replace(
+			'WatchtowerVirtualProfile',
+			'WatchtowerVirtualProfile'.toUpperCase(),
+		);
 
 		await driver.writeFile(contentPath, Buffer.from('resource-content'), 'buffer');
 		await driver.writeFile(syncPath, Buffer.from('sync-ciphertext'), 'buffer');
@@ -67,6 +71,15 @@ describe('EncryptedResourceFsDriver', () => {
 		await expect(driver.stat(contentPath)).resolves.toEqual(
 			expect.objectContaining({ path: contentPath, size: 16 }),
 		);
+		await driver.writeFile(
+			differentlyCasedContentPath,
+			Buffer.from('case-insensitive-resource-content'),
+			'buffer',
+		);
+		await expect(driver.readFile(contentPath, 'utf8')).resolves.toBe(
+			'case-insensitive-resource-content',
+		);
+		await driver.writeFile(contentPath, Buffer.from('resource-content'), 'buffer');
 		await expect(driver.copy(contentPath, 'C:\\outside\\resource.png')).rejects.toThrow(
 			'Explicit Plaintext Egress',
 		);
@@ -75,6 +88,22 @@ describe('EncryptedResourceFsDriver', () => {
 			'plaintext-bypass',
 			'utf8',
 		)).rejects.toThrow('Encrypted resource path is invalid');
+		await expect(driver.mkdir(
+			join(resourceDirectory, 'plaintext-subdirectory'),
+		)).rejects.toThrow('Encrypted resource path is invalid');
+		await expect(driver.readDirStats(
+			join(resourceDirectory, 'plaintext-subdirectory'),
+		)).rejects.toThrow('Encrypted resource path is invalid');
+		await expect(driver.mkdir(contentPath)).rejects.toThrow(
+			'Encrypted resource path is invalid',
+		);
+		await expect(driver.readDirStats(contentPath)).rejects.toThrow(
+			'Encrypted resource path is invalid',
+		);
+		expect(() => driver.appendFileSync(
+			join(resourceDirectory, 'plaintext-subdirectory', 'bypass.txt'),
+			'plaintext-bypass',
+		)).toThrow('Encrypted resource path is invalid');
 
 		const handle = await driver.open(contentPath, 'r');
 		await expect(driver.readFileChunk(handle, 8, 'base64')).resolves.toBe(

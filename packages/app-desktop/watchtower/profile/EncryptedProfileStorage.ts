@@ -3,64 +3,39 @@ import {
 	VaultSessionCapability,
 } from '../vault/PreProfileVaultBootstrap';
 import { createHash } from 'crypto';
+import {
+	EncryptedProfileConnection,
+	EncryptedProfileDatabase,
+	EphemeralArtifactCategory,
+	EphemeralProfileArtifacts,
+	PrivateProfileData,
+	PrivateProfileScope,
+	ResourceContent,
+	ResourceContentKind,
+	ResourceContentMetadata,
+	encryptedProfileDatabaseName,
+	maximumResourceContentBytes,
+	maximumSyncCiphertextBytes,
+} from './profileStorageTypes';
 
-export type ProfileSqlParameters = unknown[]|Record<string, unknown>|null;
-export type ProfileSqlRow = Record<string, unknown>|undefined;
+const resourceContentKindCode: Record<ResourceContentKind, number> = {
+	content: 1,
+	syncCiphertext: 2,
+};
 
-export interface EncryptedProfileConnection {
-	selectOne(sql: string, params?: ProfileSqlParameters): Promise<ProfileSqlRow>;
-	selectAll(sql: string, params?: ProfileSqlParameters): Promise<Record<string, unknown>[]>;
-	exec(sql: string, params?: ProfileSqlParameters): Promise<unknown>;
-	close(signal: AbortSignal): Promise<void>;
-	terminate(): boolean;
-}
+const resourceContentKindFromCode = (code: unknown): ResourceContentKind => {
+	switch (Number(code)) {
+	case resourceContentKindCode.content: return 'content';
+	case resourceContentKindCode.syncCiphertext: return 'syncCiphertext';
+	default: throw new Error('Resource content kind is invalid');
+	}
+};
 
-export interface EncryptedProfileDatabase {
-	open(options: { name: string }): Promise<void>;
-	close(): Promise<void>;
-	selectOne(sql: string, params?: ProfileSqlParameters): Promise<ProfileSqlRow>;
-	selectAll(sql: string, params?: ProfileSqlParameters): Promise<Record<string, unknown>[]>;
-	exec(sql: string, params?: ProfileSqlParameters): Promise<unknown>;
-	sqliteErrorToJsError(error: unknown): Error;
-}
-
-export type ResourceContentKind = 'content'|'syncCiphertext';
-
-export interface ResourceContentMetadata {
-	fileName?: string;
-	kind: ResourceContentKind;
-	resourceId: string;
-	size: number;
-	updatedTime: number;
-}
-
-export interface ResourceContent {
-	import(resourceId: string, content: Uint8Array, kind?: ResourceContentKind, fileName?: string): Promise<void>;
-	list(): Promise<ResourceContentMetadata[]>;
-	metadata(resourceId: string, kind?: ResourceContentKind): Promise<ResourceContentMetadata|undefined>;
-	read(resourceId: string, kind?: ResourceContentKind): Promise<Buffer>;
-	remove(resourceId: string, kind?: ResourceContentKind): Promise<void>;
-	touch(resourceId: string, kind: ResourceContentKind, updatedTime: number): Promise<void>;
-}
-
-export type PrivateProfileScope = 'settings'|`plugin:${string}`;
-
-export interface PrivateProfileData {
-	write(scope: PrivateProfileScope, key: string, content: Uint8Array): Promise<void>;
-	read(scope: PrivateProfileScope, key: string): Promise<Buffer|undefined>;
-	remove(scope: PrivateProfileScope, key: string): Promise<void>;
-}
-
-export type EphemeralArtifactCategory = 'cache'|'log'|'electronState'|'temporary';
-
-export interface EphemeralProfileArtifacts {
-	write(category: EphemeralArtifactCategory, key: string, content: Uint8Array): Promise<void>;
-	read(category: EphemeralArtifactCategory, key: string): Promise<Buffer|undefined>;
-	remove(category: EphemeralArtifactCategory, key: string): Promise<void>;
-}
-
-export const encryptedProfileDatabaseName = 'watchtower-profile';
-export const maximumResourceContentBytes = 100 * 1024 * 1024;
+const maximumContentBytes = (kind: ResourceContentKind) => {
+	return kind === 'syncCiphertext' ?
+		maximumSyncCiphertextBytes :
+		maximumResourceContentBytes;
+};
 
 export default class EncryptedProfileStorage implements VaultOpenHandle {
 
@@ -109,7 +84,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 			),
 			sqliteErrorToJsError: error => {
 				const source = error instanceof Error ? error : new Error('Encrypted profile query failed');
-				const output = new Error(source.message);
+				const output = new Error('Encrypted profile query failed');
 				const code = (source as Error & { code?: string }).code;
 				if (code) (output as Error & { code?: string }).code = code;
 				return output;
@@ -139,8 +114,10 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 		};
 		const metadataFromRow = (row: Record<string, unknown>): ResourceContentMetadata => {
 			const resourceId = String(row.resource_id);
-			const kind = row.content_kind as ResourceContentKind;
-			const fileName = typeof row.file_name === 'string' ? row.file_name : undefined;
+			const kind = resourceContentKindFromCode(row.content_kind);
+			const fileName = typeof row.file_name === 'string' && row.file_name ?
+				row.file_name :
+				undefined;
 			const size = Number(row.size);
 			const updatedTime = Number(row.updated_time);
 			validateResourceId(resourceId);
@@ -149,7 +126,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 			if (
 				!Number.isSafeInteger(size) ||
 				size < 0 ||
-				size > maximumResourceContentBytes ||
+				size > maximumContentBytes(kind) ||
 				!Number.isSafeInteger(updatedTime) ||
 				updatedTime < 0
 			) {
@@ -172,11 +149,11 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 					await this.connection_.exec(`
 						CREATE TABLE IF NOT EXISTS watchtower_resource_content (
 							resource_id TEXT NOT NULL,
-							content_kind TEXT NOT NULL,
+							content_kind INT NOT NULL,
 							content TEXT NOT NULL,
 							size INT NOT NULL,
 							sha256 TEXT NOT NULL,
-							file_name TEXT,
+							file_name TEXT NOT NULL,
 							updated_time INT NOT NULL,
 							PRIMARY KEY (resource_id, content_kind)
 						)
@@ -191,7 +168,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 				validateResourceId(resourceId);
 				validateKind(kind);
 				validateFileName(fileName);
-				if (input.byteLength > maximumResourceContentBytes) {
+				if (input.byteLength > maximumContentBytes(kind)) {
 					throw new Error('Resource content exceeds the supported size');
 				}
 				await initialize();
@@ -207,7 +184,15 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 						sha256 = excluded.sha256,
 						file_name = excluded.file_name,
 						updated_time = excluded.updated_time
-				`, [resourceId, kind, content, content.byteLength, digest, fileName ?? null, Date.now()]);
+				`, [
+					resourceId,
+					resourceContentKindCode[kind],
+					content,
+					content.byteLength,
+					digest,
+					fileName ?? '',
+					Date.now(),
+				]);
 			}),
 			list: async () => withSession(async () => {
 				await initialize();
@@ -226,7 +211,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 					SELECT resource_id, content_kind, size, file_name, updated_time
 					FROM watchtower_resource_content
 					WHERE resource_id = ? AND content_kind = ?
-				`, [resourceId, kind]);
+				`, [resourceId, resourceContentKindCode[kind]]);
 				return row ? metadataFromRow(row) : undefined;
 			}),
 			read: async (resourceId, kind = 'content') => withSession(async () => {
@@ -237,7 +222,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 					SELECT content, size, sha256, typeof(content) AS storage_class
 					FROM watchtower_resource_content
 					WHERE resource_id = ? AND content_kind = ?
-				`, [resourceId, kind]);
+				`, [resourceId, resourceContentKindCode[kind]]);
 				if (
 					!row ||
 					row.storage_class !== 'blob' ||
@@ -258,7 +243,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 				await initialize();
 				await this.connection_.exec(
 					'DELETE FROM watchtower_resource_content WHERE resource_id = ? AND content_kind = ?',
-					[resourceId, kind],
+					[resourceId, resourceContentKindCode[kind]],
 				);
 			}),
 			touch: async (resourceId, kind, updatedTime) => withSession(async () => {
@@ -270,7 +255,7 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 				await initialize();
 				await this.connection_.exec(
 					'UPDATE watchtower_resource_content SET updated_time = ? WHERE resource_id = ? AND content_kind = ?',
-					[updatedTime, resourceId, kind],
+					[updatedTime, resourceId, resourceContentKindCode[kind]],
 				);
 			}),
 		};
