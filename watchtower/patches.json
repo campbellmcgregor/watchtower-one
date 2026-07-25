@@ -112,6 +112,29 @@
         "Lint, spelling, and filename checks"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "encrypted-profile-storage-adapter-foundation",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "91cae09f3416b097c621ea0f9e4e66bc95dc5ced",
+        "2e4a0d21d5b580ff40f5497e8105e75202cb67e5"
+      ],
+      "upstreamTouchpoints": [
+        "packages/app-desktop/watchtower/profile/**",
+        "packages/app-desktop/package.json and yarn.lock",
+        "watchtower/sqlcipher/**",
+        ".github/workflows/watchtower-profile-storage.yml",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "Joplin schema-49 migration through the logical database driver",
+        "Native SQLCipher close, reopen, integrity, and plaintext scan proof",
+        "Virtual resource filesystem and Joplin E2EE primitive round trip",
+        "Vault Session shutdown-time flush and ephemeral Electron session tests",
+        "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
