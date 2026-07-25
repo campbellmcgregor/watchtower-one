@@ -1,0 +1,112 @@
+name: Watchtower encrypted profile storage
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/watchtower-profile-storage.yml
+      - packages/app-desktop/watchtower/profile/**
+      - packages/app-desktop/package.json
+      - watchtower/sqlcipher/**
+      - yarn.lock
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: SQLCipher profile proof (Windows x64)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out Watchtower One
+        uses: actions/checkout@v4
+
+      - name: Check out pinned Signal SQLCipher binding source
+        uses: actions/checkout@v4
+        with:
+          repository: signalapp/node-sqlcipher
+          ref: 14e0f5e74e6bcd26d3462b48546473de5fd3a1fc
+          path: node-sqlcipher
+
+      - name: Enable Joplin SQLite compatibility
+        shell: pwsh
+        run: |
+          $gypPath = 'node-sqlcipher/deps/sqlcipher/sqlcipher.gyp'
+          $gyp = Get-Content -Raw -LiteralPath $gypPath
+          $expected = "'SQLITE_DQS=0',"
+          if (-not $gyp.Contains($expected)) {
+            throw 'Pinned Signal source no longer has the reviewed SQLCipher compile flags'
+          }
+          $replacement = @"
+          'SQLITE_DQS=3',
+          'SQLITE_ENABLE_FTS3',
+          'SQLITE_ENABLE_FTS3_PARENTHESIS',
+          'SQLITE_ENABLE_FTS4',
+          "@
+          $gyp = $gyp.Replace($expected, $replacement.TrimEnd())
+          Set-Content -LiteralPath $gypPath -Value $gyp
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+          run_install: false
+
+      - name: Set up native-build Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: pnpm
+          cache-dependency-path: node-sqlcipher/pnpm-lock.yaml
+
+      - name: Build the Joplin-compatible N-API prebuild
+        working-directory: node-sqlcipher
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec prebuildify --napi --target 22.14.0 --arch x64
+
+      - name: Verify native compile options
+        working-directory: node-sqlcipher
+        shell: pwsh
+        env:
+          WATCHTOWER_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          $verificationScript = Join-Path $env:WATCHTOWER_REPOSITORY_ROOT 'watchtower/sqlcipher/verify-compatibility.cjs'
+          $verification = node $verificationScript
+          $verification
+          $verification | Set-Content -LiteralPath sqlcipher-compile-options.json
+
+      - name: Set up repository Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.15'
+          cache: yarn
+
+      - name: Install repository dependencies
+        run: |
+          corepack enable
+          corepack yarn install --immutable --mode=skip-build
+
+      - name: Build Jest runtime workspace dependencies
+        run: |
+          corepack yarn workspace @joplin/fork-htmlparser2 build
+          corepack yarn workspace @joplin/utils build
+          corepack yarn workspace @joplin/lib tsc
+
+      - name: Run the encrypted profile proof
+        shell: pwsh
+        env:
+          WATCHTOWER_SQLCIPHER_PREBUILD_ROOT: ${{ github.workspace }}\node-sqlcipher
+        run: |
+          corepack yarn watchtowerProfileStorageProof
+
+      - name: Upload verified compatibility evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-sqlcipher-profile-win32-x64
+          if-no-files-found: error
+          path: |
+            node-sqlcipher/prebuilds/win32-x64/@signalapp+sqlcipher.node
+            node-sqlcipher/sqlcipher-compile-options.json
+          retention-days: 14
