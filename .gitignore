@@ -645,6 +645,8 @@ packages/app-desktop/watchtower/vault/vaultKeyEnvelope.test.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelope.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.test.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.js
+packages/app-desktop/watchtower/vault/vaultPassphrasePolicy.test.js
+packages/app-desktop/watchtower/vault/vaultPassphrasePolicy.js
 packages/app-mobile/PluginAssetsLoader.js
 packages/app-mobile/commands/dismissPluginPanels.js
 packages/app-mobile/commands/index.js

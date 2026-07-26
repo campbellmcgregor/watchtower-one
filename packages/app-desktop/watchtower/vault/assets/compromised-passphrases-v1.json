@@ -1,0 +1,25 @@
+{
+	"format": "watchtower-passphrase-blocklist",
+	"version": 1,
+	"hash": "sha256",
+	"digestPrefixBytes": 12,
+	"entryCount": 99877,
+	"source": {
+		"publisher": "UK National Cyber Security Centre",
+		"title": "Pwned Passwords Top 100k",
+		"originalUrl": "https://www.ncsc.gov.uk/staticjson/static-assets/documents/PwnedPasswordsTop100k.txt",
+		"archivedAt": "2024-11-30T06:25:57Z",
+		"archiveUrl": "https://ghostarchive.org/archive/1lgmW",
+		"sha256": "42b8ce15a02b1a22e72c1a35daa537ae1722a96373d6591e3f64a15a3a855c59",
+		"entryCount": 100000
+	},
+	"productContextEntries": [
+		"watchtower one",
+		"watchtower-one",
+		"watchtower1",
+		"watchtowerone",
+		"watchtowerpassword",
+		"watchtowervault"
+	],
+	"outputSha256": "5226b85302d67068c431b3857b06cb5aaafb098a909cc027a07492047eecb7be"
+}
