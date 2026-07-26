@@ -649,6 +649,7 @@ packages/app-desktop/utils/sourceMapSetup.js
 packages/app-desktop/utils/window/types.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.test.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.js
+packages/app-desktop/watchtower/profile/BaseApplicationEncryptedDatabaseBinding.test.js
 packages/app-desktop/watchtower/profile/EncryptedJoplinProfileHost.test.js
 packages/app-desktop/watchtower/profile/EncryptedJoplinProfileHost.js
 packages/app-desktop/watchtower/profile/EncryptedProfileStorage.test.js
@@ -661,6 +662,7 @@ packages/app-desktop/watchtower/profile/PlaintextEgressNotAuthorizedError.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.integration.test.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.test.js
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.js
+packages/app-desktop/watchtower/profile/bindJoplinProfileStorage.js
 packages/app-desktop/watchtower/profile/ephemeralProfileRuntimeTypes.js
 packages/app-desktop/watchtower/profile/joplinProfileTypes.js
 packages/app-desktop/watchtower/profile/profileStorageTypes.js
@@ -1463,6 +1465,7 @@ packages/lib/net-utils.js
 packages/lib/ntp.js
 packages/lib/onedrive-api.test.js
 packages/lib/onedrive-api.js
+packages/lib/openProfileDatabase.js
 packages/lib/path-utils.js
 packages/lib/reducer.test.js
 packages/lib/reducer.js

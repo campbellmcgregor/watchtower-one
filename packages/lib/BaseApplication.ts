@@ -69,6 +69,7 @@ import NavService from './services/NavService';
 import getAppName from './getAppName';
 import PerformanceLogger from './PerformanceLogger';
 import Synchronizer from './Synchronizer';
+import openProfileDatabase, { ProfileDatabaseBinding } from './openProfileDatabase';
 
 const appLogger: LoggerWrapper = Logger.create('App');
 const perfLogger = PerformanceLogger.create();
@@ -82,6 +83,7 @@ export interface StartOptions {
 	rootProfileDir?: string;
 	appName?: string;
 	appId?: string;
+	profileDatabase?: ProfileDatabaseBinding;
 }
 export const safeModeFlagFilename = 'force-safe-mode-on-next-start';
 
@@ -774,11 +776,14 @@ export default class BaseApplication {
 		appLogger.info(`Profile directory: ${profileDir}`);
 		appLogger.info(`Root profile directory: ${rootProfileDir}`);
 
-		this.database_ = new JoplinDatabase(new DatabaseDriverNode());
-		this.database_.setLogExcludedQueryTypes(['SELECT']);
-		this.database_.setLogger(globalLogger);
-
-		await this.database_.open({ name: `${profileDir}/database.sqlite` });
+		const profileDatabase = options.profileDatabase ?? {
+			driver: new DatabaseDriverNode(),
+			name: `${profileDir}/database.sqlite`,
+		};
+		this.database_ = await openProfileDatabase({
+			binding: profileDatabase,
+			logger: globalLogger,
+		});
 
 		// if (Setting.value('env') === 'dev') await this.database_.clearForTesting();
 
