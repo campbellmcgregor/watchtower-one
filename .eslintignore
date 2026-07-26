@@ -670,6 +670,8 @@ packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.test.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelope.test.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelope.js
+packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.test.js
+packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.js
 packages/app-mobile/PluginAssetsLoader.js
 packages/app-mobile/commands/dismissPluginPanels.js
 packages/app-mobile/commands/index.js
