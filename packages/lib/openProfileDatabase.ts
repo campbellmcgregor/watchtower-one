@@ -1,10 +1,29 @@
 import JoplinDatabase from './JoplinDatabase';
-import DatabaseDriver from './database-driver';
+
+type ProfileSqlParameters = unknown[]|Record<string, unknown>|null;
+
+export interface ProfileDatabaseDriver {
+	open(options: { name: string }): Promise<void>;
+	close(): Promise<void>;
+	selectOne(sql: string, params?: ProfileSqlParameters): Promise<unknown>;
+	selectAll(sql: string, params?: ProfileSqlParameters): Promise<unknown[]>;
+	exec(sql: string, params?: ProfileSqlParameters): Promise<unknown>;
+	sqliteErrorToJsError(
+		error: unknown,
+		sql?: string,
+		params?: ProfileSqlParameters,
+	): Error;
+}
 
 export interface ProfileDatabaseBinding {
-	driver: DatabaseDriver;
+	driver: ProfileDatabaseDriver;
 	name: string;
 }
+
+export const selectProfileDatabaseBinding = (
+	suppliedBinding: ProfileDatabaseBinding|undefined,
+	createDefaultBinding: ()=> ProfileDatabaseBinding,
+): ProfileDatabaseBinding => suppliedBinding ?? createDefaultBinding();
 
 interface OpenProfileDatabaseOptions {
 	binding: ProfileDatabaseBinding;

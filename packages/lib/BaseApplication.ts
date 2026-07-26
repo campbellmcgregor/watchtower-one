@@ -69,7 +69,10 @@ import NavService from './services/NavService';
 import getAppName from './getAppName';
 import PerformanceLogger from './PerformanceLogger';
 import Synchronizer from './Synchronizer';
-import openProfileDatabase, { ProfileDatabaseBinding } from './openProfileDatabase';
+import openProfileDatabase, {
+	ProfileDatabaseBinding,
+	selectProfileDatabaseBinding,
+} from './openProfileDatabase';
 
 const appLogger: LoggerWrapper = Logger.create('App');
 const perfLogger = PerformanceLogger.create();
@@ -776,10 +779,13 @@ export default class BaseApplication {
 		appLogger.info(`Profile directory: ${profileDir}`);
 		appLogger.info(`Root profile directory: ${rootProfileDir}`);
 
-		const profileDatabase = options.profileDatabase ?? {
-			driver: new DatabaseDriverNode(),
-			name: `${profileDir}/database.sqlite`,
-		};
+		const profileDatabase = selectProfileDatabaseBinding(
+			options.profileDatabase,
+			() => ({
+				driver: new DatabaseDriverNode(),
+				name: `${profileDir}/database.sqlite`,
+			}),
+		);
 		this.database_ = await openProfileDatabase({
 			binding: profileDatabase,
 			logger: globalLogger,

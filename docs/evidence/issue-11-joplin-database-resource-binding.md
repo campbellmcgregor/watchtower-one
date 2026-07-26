@@ -32,9 +32,13 @@ The public-seam tests prove that:
 - Joplin runs the pinned schema migration through the capability-scoped driver;
 - a note is written, read, updated during shutdown, and closed in Vault
   Lifecycle order;
-- resource bytes are written and read through Joplin's `Resource` model; and
+- resource metadata is saved through Joplin's `Resource` model and its content
+  is read through `Resource.content`; and
 - Joplin's sync `EncryptionService` selects the same virtual resource
   filesystem.
+
+The desktop and mobile shared-backend type checks pass, preserving the stock
+SQLite adapters outside the Watchtower desktop binding.
 
 ## Deliberate handoffs
 

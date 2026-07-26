@@ -35,7 +35,7 @@ describe('EncryptedJoplinProfileHost', () => {
 				const binding = bindJoplinProfileStorage(profile);
 				expect(EncryptionService.fsDriver_).toBe(Resource.fsDriver());
 				activeDatabase = await openProfileDatabase({
-					binding: binding.database,
+					binding,
 					logger: new Logger(),
 				});
 				events.push('joplin-started');
