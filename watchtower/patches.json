@@ -227,6 +227,32 @@
         "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "vault-passphrase-policy",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "353864f796f851cb0fda9cf8d6d0d33531632f07",
+        "9e2e1687b4c90c2dad4b1bb31e0824b85aa3817e"
+      ],
+      "upstreamTouchpoints": [
+        "packages/app-desktop/watchtower/vault/argon2id.ts",
+        "packages/app-desktop/watchtower/vault/vaultPassphrasePolicy.ts",
+        "packages/app-desktop/watchtower/vault/assets/**",
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelope.ts",
+        "watchtower/tools/build-passphrase-blocklist.mjs",
+        "docs/evidence/issue-15-vault-passphrase-policy.md",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "Offline exact-match compromised-password and product-context policy",
+        "Standard and explicitly qualified constrained Argon2id calibration",
+        "Immutable cached calibration and bounded profile failure cases",
+        "Deterministic pinned blocklist reproduction",
+        "Vault envelope compatibility and affected vault test suites",
+        "Desktop typecheck, build, lint, spelling, and downstream verification suites"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
