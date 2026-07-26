@@ -23,7 +23,13 @@ names and filesystem failures are not exposed through the public error.
 
 The store refuses to replace a committed envelope with a different vault
 identifier. A corrupt existing committed file therefore cannot be silently
-overwritten as a new vault.
+overwritten as a new vault. Commit operations from separate store instances in
+the content-bearing process serialize through the same canonical directory
+identity, so identity validation and activation cannot race.
+
+Committed state is opened once and read into a buffer capped at the shared
+64 KiB envelope-format limit plus one detection byte. A concurrent file-size
+change therefore cannot turn the metadata check into an unbounded allocation.
 
 ## Public-seam verification
 
@@ -32,8 +38,10 @@ Focused tests use a real temporary filesystem and prove:
 - a committed envelope reopens through a new store instance and independently
   unlocks its SQLCipher domain key;
 - a filesystem failure at atomic replacement preserves the prior committed
-  envelope after restart; and
-- an unrelated vault identity cannot replace the committed vault.
+  envelope byte-for-byte and leaves it independently unlockable after restart;
+- an unrelated vault identity cannot replace the committed vault; and
+- concurrent first commits through separate store instances activate exactly
+  one vault identity.
 
 ## Deliberate handoffs
 

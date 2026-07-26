@@ -3,19 +3,57 @@ import {
 	access,
 	mkdir,
 	open,
-	readFile,
 	rename,
 	rm,
-	stat,
 } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import VaultKeyEnvelope, {
+	maximumVaultKeyEnvelopePublicStateBytes,
 	VaultKeyEnvelopePublicState,
 } from './vaultKeyEnvelope';
 
-const maximumCommittedEnvelopeBytes = 64 * 1024;
 const committedEnvelopeFileName = 'vault-key-envelope.json';
 const pendingEnvelopeFileName = 'vault-key-envelope.pending';
+
+class SerializedCommitQueue {
+
+	private active_ = false;
+	private readonly waiters_: (()=> void)[] = [];
+
+	public idle() {
+		return !this.active_;
+	}
+
+	public async run(operation: ()=> Promise<void>) {
+		await this.acquire_();
+		try {
+			await operation();
+		} finally {
+			this.release_();
+		}
+	}
+
+	private async acquire_() {
+		if (!this.active_) {
+			this.active_ = true;
+			return;
+		}
+		await new Promise<void>(resolve => {
+			this.waiters_.push(resolve);
+		});
+	}
+
+	private release_() {
+		const next = this.waiters_.shift();
+		if (next) {
+			next();
+		} else {
+			this.active_ = false;
+		}
+	}
+}
+
+const commitQueues = new Map<string, SerializedCommitQueue>();
 
 export class InvalidCommittedVaultKeyEnvelopeError extends Error {
 
@@ -58,18 +96,75 @@ const pathExists = async (path: string) => {
 	}
 };
 
+const readBoundedFile = async (path: string) => {
+	const handle = await open(path, 'r');
+	try {
+		const metadata = await handle.stat();
+		if (!metadata.isFile()) throw new InvalidCommittedVaultKeyEnvelopeError();
+		const buffer = Buffer.alloc(
+			maximumVaultKeyEnvelopePublicStateBytes + 1,
+		);
+		let bytesRead = 0;
+		while (bytesRead < buffer.byteLength) {
+			const readResult = await handle.read(
+				buffer,
+				bytesRead,
+				buffer.byteLength - bytesRead,
+				bytesRead,
+			);
+			if (readResult.bytesRead === 0) break;
+			bytesRead += readResult.bytesRead;
+		}
+		if (bytesRead > maximumVaultKeyEnvelopePublicStateBytes) {
+			throw new InvalidCommittedVaultKeyEnvelopeError();
+		}
+		return buffer.toString('utf8', 0, bytesRead);
+	} finally {
+		await handle.close();
+	}
+};
+
 export default class VaultKeyEnvelopeStore {
 
-	public constructor(private readonly directoryPath_: string) {}
+	private readonly queueKey_: string;
+
+	public constructor(private readonly directoryPath_: string) {
+		const absolutePath = resolve(directoryPath_);
+		this.queueKey_ = process.platform === 'win32' ?
+			absolutePath.toLocaleLowerCase('en-US') :
+			absolutePath;
+	}
 
 	public async commit(publicState: VaultKeyEnvelopePublicState): Promise<void> {
+		let queue = commitQueues.get(this.queueKey_);
+		if (!queue) {
+			queue = new SerializedCommitQueue();
+			commitQueues.set(this.queueKey_, queue);
+		}
+		try {
+			await queue.run(async () => {
+				await this.commitExclusive_(publicState);
+			});
+		} finally {
+			if (
+				queue.idle() &&
+				commitQueues.get(this.queueKey_) === queue
+			) {
+				commitQueues.delete(this.queueKey_);
+			}
+		}
+	}
+
+	private async commitExclusive_(
+		publicState: VaultKeyEnvelopePublicState,
+	): Promise<void> {
 		try {
 			const serialized = JSON.stringify(publicState);
 			const validatedState = VaultKeyEnvelope.parsePublicState(serialized);
 			const validatedSerialized = JSON.stringify(validatedState);
 			if (
 				Buffer.byteLength(validatedSerialized, 'utf8') >
-				maximumCommittedEnvelopeBytes
+				maximumVaultKeyEnvelopePublicStateBytes
 			) {
 				throw new InvalidCommittedVaultKeyEnvelopeError();
 			}
@@ -110,15 +205,8 @@ export default class VaultKeyEnvelopeStore {
 		const committedPath = join(this.directoryPath_, committedEnvelopeFileName);
 		try {
 			await access(committedPath, constants.R_OK);
-			const metadata = await stat(committedPath);
-			if (
-				!metadata.isFile() ||
-				metadata.size > maximumCommittedEnvelopeBytes
-			) {
-				throw new InvalidCommittedVaultKeyEnvelopeError();
-			}
 			return VaultKeyEnvelope.parsePublicState(
-				await readFile(committedPath, 'utf8'),
+				await readBoundedFile(committedPath),
 			);
 		} catch (error) {
 			if (error instanceof InvalidCommittedVaultKeyEnvelopeError) throw error;
