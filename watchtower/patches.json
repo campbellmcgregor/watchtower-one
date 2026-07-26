@@ -163,6 +163,23 @@
         "Full desktop test, build, lint, spelling, and downstream verification suites"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "local-vault-key-hierarchy-and-recovery",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "0bded570f61742788de3473ac59eaa69e56a302d"
+      ],
+      "upstreamTouchpoints": [
+        "CONTEXT.md",
+        "docs/adr/0005-local-vault-key-hierarchy-and-recovery.md"
+      ],
+      "tests": [
+        "Primary-standard cryptographic architecture review",
+        "Spelling, filename, package metadata, and diff checks",
+        "yarn watchtowerVerify"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
