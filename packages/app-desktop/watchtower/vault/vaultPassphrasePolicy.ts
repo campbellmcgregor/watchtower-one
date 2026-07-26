@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { performance } from 'perf_hooks';
+import deriveArgon2id from './argon2id';
 import { type PassphraseKdfParameters } from './vaultKeyEnvelope';
 
 const minimumCodePoints = 12;
@@ -18,23 +19,6 @@ const blocklistDigestPrefixBytes = 12;
 const blocklistEntries = 99_877;
 const blocklistSha256 =
 	'5226b85302d67068c431b3857b06cb5aaafb098a909cc027a07492047eecb7be';
-
-interface NodeArgon2Parameters {
-	message: Buffer;
-	nonce: Buffer;
-	parallelism: number;
-	tagLength: number;
-	memory: number;
-	passes: number;
-}
-
-type NodeArgon2 = (
-	algorithm: 'argon2id',
-	parameters: NodeArgon2Parameters,
-	callback: (error: Error|null, derivedKey: Buffer)=> void,
-)=> void;
-
-const { argon2 } = require('crypto') as { argon2: NodeArgon2 };
 
 export type VaultPassphraseMemoryProfile =
 	'standard'|'qualified-constrained';
@@ -108,32 +92,23 @@ const isCompromised = (normalizedPassphrase: string) => {
 	}
 };
 
-const measurePasses = (
+const measurePasses = async (
 	memoryKiB: number,
 	passes: number,
 	message: Buffer,
 	nonce: Buffer,
 ): Promise<number> => {
 	const startedAt = performance.now();
-	return new Promise((resolve, reject) => {
-		const finish = (error: Error|null, derivedKey?: Buffer) => {
-			derivedKey?.fill(0);
-			if (error) reject(error);
-			else resolve(Math.max(performance.now() - startedAt, 1));
-		};
-		try {
-			argon2('argon2id', {
-				message,
-				nonce,
-				parallelism,
-				tagLength: tagLengthBytes,
-				memory: memoryKiB,
-				passes,
-			}, finish);
-		} catch (error) {
-			finish(error as Error);
-		}
+	const derivedKey = await deriveArgon2id({
+		message,
+		salt: nonce,
+		parallelism,
+		tagLengthBytes,
+		memoryKiB,
+		passes,
 	});
+	derivedKey.fill(0);
+	return Math.max(performance.now() - startedAt, 1);
 };
 
 const calibrate = async (
@@ -155,65 +130,72 @@ const calibrate = async (
 			return { memoryKiB, parallelism, passes: 1 };
 		}
 
-		const candidatePasses = Math.max(2, Math.min(
-			maximumPasses,
-			Math.floor(
-				calibrationTargetMilliseconds / onePassMilliseconds,
-			),
-		));
-		const candidateMilliseconds = await measurePasses(
-			memoryKiB,
-			candidatePasses,
-			message,
-			nonce,
-		);
-		if (
-			candidatePasses === maximumPasses &&
-			candidateMilliseconds <= calibrationTargetMilliseconds
+		let previousAcceptedPasses = 0;
+		let previousAcceptedMilliseconds = 0;
+		let acceptedPasses = 1;
+		let acceptedMilliseconds = onePassMilliseconds;
+		let rejectedPasses: number|undefined;
+		let rejectedMilliseconds: number|undefined;
+
+		while (
+			acceptedPasses < maximumPasses &&
+			rejectedPasses !== acceptedPasses + 1
 		) {
-			return { memoryKiB, parallelism, passes: maximumPasses };
-		}
+			let candidatePasses: number;
+			if (
+				rejectedPasses !== undefined &&
+				rejectedMilliseconds !== undefined
+			) {
+				const interpolated = acceptedPasses + Math.floor(
+					(calibrationTargetMilliseconds - acceptedMilliseconds) *
+					(rejectedPasses - acceptedPasses) /
+					(rejectedMilliseconds - acceptedMilliseconds),
+				);
+				candidatePasses = Math.max(
+					acceptedPasses + 1,
+					Math.min(rejectedPasses - 1, interpolated),
+				);
+			} else if (previousAcceptedPasses > 0) {
+				const millisecondsPerPass =
+					(acceptedMilliseconds - previousAcceptedMilliseconds) /
+					(acceptedPasses - previousAcceptedPasses);
+				const projected = acceptedPasses + Math.floor(
+					(calibrationTargetMilliseconds - acceptedMilliseconds) /
+					millisecondsPerPass,
+				);
+				candidatePasses = Number.isFinite(projected)
+					? Math.max(
+						acceptedPasses + 1,
+						Math.min(maximumPasses, projected),
+					)
+					: acceptedPasses + 1;
+			} else {
+				candidatePasses = Math.max(2, Math.min(
+					maximumPasses,
+					Math.floor(
+						calibrationTargetMilliseconds / acceptedMilliseconds,
+					),
+				));
+			}
 
-		const millisecondsPerAdditionalPass =
-			(candidateMilliseconds - onePassMilliseconds) /
-			(candidatePasses - 1);
-		let projectedPasses = Number.isFinite(millisecondsPerAdditionalPass) &&
-			millisecondsPerAdditionalPass > 0
-			? Math.floor(
-				1 +
-				(calibrationTargetMilliseconds - onePassMilliseconds) /
-				millisecondsPerAdditionalPass,
-			)
-			: Math.floor(
-				candidatePasses *
-				calibrationTargetMilliseconds /
-				candidateMilliseconds,
+			const candidateMilliseconds = await measurePasses(
+				memoryKiB,
+				candidatePasses,
+				message,
+				nonce,
 			);
-		projectedPasses = Math.max(1, Math.min(maximumPasses, projectedPasses));
-		if (projectedPasses === candidatePasses) {
-			const passes = candidateMilliseconds <= calibrationTargetMilliseconds
-				? candidatePasses
-				: 1;
-			return { memoryKiB, parallelism, passes };
+			if (candidateMilliseconds <= calibrationTargetMilliseconds) {
+				previousAcceptedPasses = acceptedPasses;
+				previousAcceptedMilliseconds = acceptedMilliseconds;
+				acceptedPasses = candidatePasses;
+				acceptedMilliseconds = candidateMilliseconds;
+			} else {
+				rejectedPasses = candidatePasses;
+				rejectedMilliseconds = candidateMilliseconds;
+			}
 		}
 
-		const projectedMilliseconds = await measurePasses(
-			memoryKiB,
-			projectedPasses,
-			message,
-			nonce,
-		);
-		const acceptedCandidates = [
-			{ passes: 1, milliseconds: onePassMilliseconds },
-			{ passes: candidatePasses, milliseconds: candidateMilliseconds },
-			{ passes: projectedPasses, milliseconds: projectedMilliseconds },
-		].filter(candidate => {
-			return candidate.milliseconds <= calibrationTargetMilliseconds;
-		});
-		const passes = Math.max(...acceptedCandidates.map(candidate => {
-			return candidate.passes;
-		}));
-		return { memoryKiB, parallelism, passes };
+		return { memoryKiB, parallelism, passes: acceptedPasses };
 	} finally {
 		message.fill(0);
 		nonce.fill(0);
@@ -234,7 +216,7 @@ const calibratedParameters = async (
 		calibrations.set(memoryProfile, calibration);
 	}
 	try {
-		return await calibration;
+		return { ...await calibration };
 	} catch (error) {
 		calibrations.delete(memoryProfile);
 		throw error;
@@ -243,7 +225,7 @@ const calibratedParameters = async (
 
 const prepareForVaultCreation = async (
 	passphrase: string,
-	memoryProfile: VaultPassphraseMemoryProfile = 'standard',
+	memoryProfile: VaultPassphraseMemoryProfile,
 ) => {
 	if (
 		memoryProfile !== 'standard' &&

@@ -6,6 +6,7 @@ import {
 	randomBytes,
 	timingSafeEqual,
 } from 'crypto';
+import deriveArgon2id from './argon2id';
 
 // cspell:ignore ABCDEFGHJKMNPQRSTVWXYZ sqlcipher
 
@@ -95,23 +96,6 @@ interface CreateVaultKeyEnvelopeResult {
 	publicState: VaultKeyEnvelopePublicState;
 	recoverySecret: string;
 }
-
-interface NodeArgon2Parameters {
-	message: Buffer;
-	nonce: Buffer;
-	parallelism: number;
-	tagLength: number;
-	memory: number;
-	passes: number;
-}
-
-type NodeArgon2 = (
-	algorithm: 'argon2id',
-	parameters: NodeArgon2Parameters,
-	callback: (error: Error|null, derivedKey: Buffer)=> void,
-)=> void;
-
-const { argon2 } = require('crypto') as { argon2: NodeArgon2 };
 
 export class InvalidVaultKeyEnvelopeError extends Error {
 
@@ -322,36 +306,25 @@ const inspectPublicState = (serialized: string) => {
 	};
 };
 
-const deriveArgon2id = (
+const derivePassphraseArgon2id = async (
 	passphrase: string,
 	parameters: StoredPassphraseKdfParameters,
 ): Promise<Buffer> => {
 	const message = Buffer.from(passphrase.normalize('NFC'), 'utf8');
-	return new Promise((resolve, reject) => {
-		const nonce = Buffer.from(parameters.salt, 'base64url');
-		const finish = (error: Error|null, derivedKey?: Buffer) => {
-			message.fill(0);
-			nonce.fill(0);
-			if (error) {
-				derivedKey?.fill(0);
-				reject(error);
-			} else {
-				resolve(derivedKey!);
-			}
-		};
-		try {
-			argon2('argon2id', {
-				message,
-				nonce,
-				parallelism: parameters.parallelism,
-				tagLength: parameters.tagLength,
-				memory: parameters.memoryKiB,
-				passes: parameters.passes,
-			}, finish);
-		} catch (error) {
-			finish(error as Error);
-		}
-	});
+	const salt = Buffer.from(parameters.salt, 'base64url');
+	try {
+		return await deriveArgon2id({
+			message,
+			salt,
+			parallelism: parameters.parallelism,
+			tagLengthBytes: parameters.tagLength,
+			memoryKiB: parameters.memoryKiB,
+			passes: parameters.passes,
+		});
+	} finally {
+		message.fill(0);
+		salt.fill(0);
+	}
 };
 
 const derivePassphraseWrappingKey = (
@@ -630,7 +603,7 @@ const create = async (
 			generation: 1,
 			kdf,
 		} as const;
-		const argon2idOutput = await deriveArgon2id(options.passphrase, kdf);
+		const argon2idOutput = await derivePassphraseArgon2id(options.passphrase, kdf);
 		try {
 			wrappingKey = derivePassphraseWrappingKey(argon2idOutput, kdf);
 		} finally {
@@ -693,7 +666,7 @@ const unlockWithPassphrase = async (
 ): Promise<VaultSessionKeyRing> => {
 	try {
 		publicState = validatePublicState(publicState);
-		const argon2idOutput = await deriveArgon2id(
+		const argon2idOutput = await derivePassphraseArgon2id(
 			passphrase,
 			publicState.passphrase.kdf,
 		);
