@@ -180,6 +180,28 @@
         "yarn watchtowerVerify"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "vault-key-envelope-core",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "98b062a4409f6ec37242aceb577d7dd8657863af",
+        "5051d8c1048c5f161eab11c4871be812d7266c57"
+      ],
+      "upstreamTouchpoints": [
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelope.ts",
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelope.test.ts",
+        "docs/evidence/issue-15-vault-key-envelope-core.md",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "Independent passphrase and Recovery Secret unlock",
+        "Published v1 compatibility vector and all-domain key separation",
+        "Bounded strict Public Bootstrap State parsing and inspection",
+        "Wrong credential, excessive-cost, corruption, cleanup, and disposal fail-closed cases",
+        "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
