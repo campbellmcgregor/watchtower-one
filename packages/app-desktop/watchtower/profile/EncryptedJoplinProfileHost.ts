@@ -6,10 +6,7 @@ import {
 	VaultSessionLease,
 } from '../vault/PreProfileVaultBootstrap';
 import EncryptedProfileStorage from './EncryptedProfileStorage';
-import {
-	EncryptedProfileDatabase,
-	encryptedProfileDatabaseName,
-} from './profileStorageTypes';
+import { EncryptedProfileDatabase } from './profileStorageTypes';
 import EncryptedResourceFsDriver from './EncryptedResourceFsDriver';
 import EphemeralProfileRuntime from './EphemeralProfileRuntime';
 import {
@@ -104,7 +101,6 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 			this.options_.ephemeralSessionFactory,
 		);
 		try {
-			await database.open({ name: encryptedProfileDatabaseName });
 			await ephemeralRuntime.start(scopedCapability);
 			const runtime = await this.loadRuntime_();
 			this.database_ = database;

@@ -1,6 +1,13 @@
 import PreProfileVaultBootstrap from '../vault/PreProfileVaultBootstrap';
 import EncryptedProfileStorage from './EncryptedProfileStorage';
 import EncryptedJoplinProfileHost from './EncryptedJoplinProfileHost';
+import openProfileDatabase from '@joplin/lib/openProfileDatabase';
+import JoplinDatabase from '@joplin/lib/JoplinDatabase';
+import Logger from '@joplin/utils/Logger';
+import bindJoplinProfileStorage from './bindJoplinProfileStorage';
+import resolveProfileStorageBinding from '@joplin/lib/profileStorageBinding';
+import Resource from '@joplin/lib/models/Resource';
+import EncryptionService from '@joplin/lib/services/e2ee/EncryptionService';
 import {
 	JoplinProfileRuntime,
 } from './joplinProfileTypes';
@@ -23,41 +30,46 @@ describe('EncryptedJoplinProfileHost', () => {
 			},
 			terminate: () => false,
 		});
-		let activeProfile: Parameters<JoplinProfileRuntime['start']>[0]|undefined;
+		let activeDatabase: JoplinDatabase|undefined;
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
-				activeProfile = profile;
+				const binding = bindJoplinProfileStorage(profile);
+				const resolvedStorage = resolveProfileStorageBinding(binding, () => {
+					throw new Error('stock profile storage must remain unavailable');
+				});
+				expect(EncryptionService.fsDriver_).toBe(Resource.fsDriver());
+				activeDatabase = await openProfileDatabase({
+					binding: resolvedStorage.database,
+					logger: new Logger(),
+				});
 				events.push('joplin-started');
 				expect(profile.ephemeralRuntime.partition()).toMatch(/^watchtower-session-/);
 				events.push('ephemeral-session-active');
-				await profile.resourceFileSystem.writeFile(
+				await Resource.fsDriver().writeFile(
 					'C:\\WatchtowerVirtualProfile\\resources\\0123456789abcdef0123456789abcdef.md',
 					Buffer.from('resource-through-joplin-adapter'),
 					'buffer',
 				);
-				events.push(String(await profile.resourceFileSystem.readFile(
+				events.push(String(await Resource.fsDriver().readFile(
 					'C:\\WatchtowerVirtualProfile\\resources\\0123456789abcdef0123456789abcdef.md',
 					'utf8',
 				)));
-				await profile.database.exec(
-					'CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT NOT NULL)',
+				await activeDatabase.exec(
+					'INSERT INTO notes (id, parent_id, title, body, created_time, updated_time) VALUES (?, ?, ?, ?, ?, ?)',
+					['watchtower-note', '', 'Watchtower', 'encrypted-profile-canary', 1, 1],
 				);
-				await profile.database.exec(
-					'INSERT INTO notes (id, body) VALUES (?, ?)',
-					['watchtower-note', 'encrypted-profile-canary'],
-				);
-				const note = await profile.database.selectOne(
+				const note = await activeDatabase.selectOne(
 					'SELECT body FROM notes WHERE id = ?',
 					['watchtower-note'],
 				);
 				events.push(String(note?.body));
 			},
 			stop: async () => {
-				await activeProfile!.database.exec(
+				await activeDatabase!.exec(
 					'UPDATE notes SET body = ? WHERE id = ?',
 					['encrypted-profile-stop-canary', 'watchtower-note'],
 				);
-				const note = await activeProfile!.database.selectOne(
+				const note = await activeDatabase!.selectOne(
 					'SELECT body FROM notes WHERE id = ?',
 					['watchtower-note'],
 				);
@@ -102,7 +114,7 @@ describe('EncryptedJoplinProfileHost', () => {
 		});
 
 		expect(events).toEqual([]);
-		await expect(lifecycle.start('unlock', profileHost)).resolves.toEqual({ kind: 'unlocked' });
+		const startResult = await lifecycle.start('unlock', profileHost);
 		expect(events).toEqual([
 			'vault-opened',
 			'joplin-loaded',
@@ -111,6 +123,7 @@ describe('EncryptedJoplinProfileHost', () => {
 			'resource-through-joplin-adapter',
 			'encrypted-profile-canary',
 		]);
+		expect(startResult).toEqual({ kind: 'unlocked' });
 
 		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
 		expect(events).toEqual([

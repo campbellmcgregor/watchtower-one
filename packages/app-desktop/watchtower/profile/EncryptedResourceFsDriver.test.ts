@@ -12,10 +12,13 @@ import EncryptionService, {
 	EncryptionMethod,
 } from '@joplin/lib/services/e2ee/EncryptionService';
 import MasterKey from '@joplin/lib/models/MasterKey';
+import Resource from '@joplin/lib/models/Resource';
 import {
 	setupDatabaseAndSynchronizer,
 	switchClient,
 } from '@joplin/lib/testing/test-utils';
+import bindJoplinProfileStorage from './bindJoplinProfileStorage';
+import resolveProfileStorageBinding from '@joplin/lib/profileStorageBinding';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -170,8 +173,21 @@ describe('EncryptedResourceFsDriver', () => {
 
 		const encryptionService = new EncryptionService();
 		const previousFsDriver = EncryptionService.fsDriver_;
-		EncryptionService.fsDriver_ = driver;
+		const previousResourceFsDriver = Resource.fsDriver_;
+		const binding = bindJoplinProfileStorage({
+			database: storage.database(capability!),
+			resourceFileSystem: driver,
+		});
+		resolveProfileStorageBinding(binding, () => {
+			throw new Error('stock profile storage must remain unavailable');
+		});
 		try {
+			const resource = await Resource.save({
+				id: resourceId,
+				mime: 'application/octet-stream',
+			}, { isNew: true });
+			await expect(Resource.content(resource)).resolves.toEqual(content);
+
 			encryptionService.defaultFileEncryptionMethod_ = EncryptionMethod.SJCL1b;
 			let masterKey = await encryptionService.generateMasterKey(
 				'watchtower-test-password',
@@ -191,6 +207,7 @@ describe('EncryptedResourceFsDriver', () => {
 			await expect(driver.readFile(contentPath, 'Buffer')).resolves.toEqual(content);
 		} finally {
 			EncryptionService.fsDriver_ = previousFsDriver;
+			Resource.fsDriver_ = previousResourceFsDriver;
 		}
 
 		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
