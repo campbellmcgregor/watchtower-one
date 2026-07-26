@@ -2,8 +2,12 @@ import JoplinDatabase from './JoplinDatabase';
 
 type ProfileSqlParameters = unknown[]|Record<string, unknown>|null;
 
+interface ProfileDatabaseOpenOptions {
+	name: string;
+}
+
 export interface ProfileDatabaseDriver {
-	open(options: { name: string }): Promise<void>;
+	open(options: ProfileDatabaseOpenOptions): Promise<void>;
 	close(): Promise<void>;
 	selectOne(sql: string, params?: ProfileSqlParameters): Promise<unknown>;
 	selectAll(sql: string, params?: ProfileSqlParameters): Promise<unknown[]>;
@@ -19,11 +23,6 @@ export interface ProfileDatabaseBinding {
 	driver: ProfileDatabaseDriver;
 	name: string;
 }
-
-export const selectProfileDatabaseBinding = (
-	suppliedBinding: ProfileDatabaseBinding|undefined,
-	createDefaultBinding: ()=> ProfileDatabaseBinding,
-): ProfileDatabaseBinding => suppliedBinding ?? createDefaultBinding();
 
 interface OpenProfileDatabaseOptions {
 	binding: ProfileDatabaseBinding;

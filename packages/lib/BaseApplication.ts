@@ -69,10 +69,8 @@ import NavService from './services/NavService';
 import getAppName from './getAppName';
 import PerformanceLogger from './PerformanceLogger';
 import Synchronizer from './Synchronizer';
-import openProfileDatabase, {
-	ProfileDatabaseBinding,
-	selectProfileDatabaseBinding,
-} from './openProfileDatabase';
+import openProfileDatabase from './openProfileDatabase';
+import resolveProfileStorageBinding, { ProfileStorageBinding } from './profileStorageBinding';
 
 const appLogger: LoggerWrapper = Logger.create('App');
 const perfLogger = PerformanceLogger.create();
@@ -86,7 +84,7 @@ export interface StartOptions {
 	rootProfileDir?: string;
 	appName?: string;
 	appId?: string;
-	profileDatabase?: ProfileDatabaseBinding;
+	profileStorage?: ProfileStorageBinding;
 }
 export const safeModeFlagFilename = 'force-safe-mode-on-next-start';
 
@@ -715,18 +713,28 @@ export default class BaseApplication {
 		this.profileConfig_ = profileConfig;
 
 		const resourceDirName = 'resources';
-		const resourceDir = `${profileDir}/${resourceDirName}`;
+		const stockResourceDir = `${profileDir}/${resourceDirName}`;
 		const tempDir = `${profileDir}/tmp`;
 		const cacheDir = `${profileDir}/cache`;
 
 		Setting.setConstant('env', initArgs.env as Env);
-		Setting.setConstant('resourceDirName', resourceDirName);
-		Setting.setConstant('resourceDir', resourceDir);
 		Setting.setConstant('tempDir', tempDir);
 		Setting.setConstant('pluginDataDir', `${profileDir}/plugin-data`);
 		Setting.setConstant('cacheDir', cacheDir);
 		Setting.setConstant('pluginDir', `${rootProfileDir}/plugins`);
 		Setting.setConstant('homeDir', homeDir);
+
+		const profileStorage = resolveProfileStorageBinding(
+			options.profileStorage,
+			() => ({
+				database: {
+					driver: new DatabaseDriverNode(),
+					name: `${profileDir}/database.sqlite`,
+				},
+				resourceDirectory: stockResourceDir,
+			}),
+		);
+		const resourceDir = profileStorage.resourceDirectory;
 
 		SyncTargetRegistry.addClass(SyncTargetNone);
 		SyncTargetRegistry.addClass(SyncTargetFilesystem);
@@ -748,7 +756,11 @@ export default class BaseApplication {
 		}
 
 		await fs.mkdirp(profileDir, 0o755);
-		await fs.mkdirp(resourceDir, 0o755);
+		if (profileStorage.resourceFileSystem) {
+			await profileStorage.resourceFileSystem.mkdir(resourceDir);
+		} else {
+			await fs.mkdirp(resourceDir, 0o755);
+		}
 		await fs.mkdirp(tempDir, 0o755);
 		await fs.mkdirp(cacheDir, 0o755);
 
@@ -779,15 +791,8 @@ export default class BaseApplication {
 		appLogger.info(`Profile directory: ${profileDir}`);
 		appLogger.info(`Root profile directory: ${rootProfileDir}`);
 
-		const profileDatabase = selectProfileDatabaseBinding(
-			options.profileDatabase,
-			() => ({
-				driver: new DatabaseDriverNode(),
-				name: `${profileDir}/database.sqlite`,
-			}),
-		);
 		this.database_ = await openProfileDatabase({
-			binding: profileDatabase,
+			binding: profileStorage.database,
 			logger: globalLogger,
 		});
 

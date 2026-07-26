@@ -5,6 +5,7 @@ import openProfileDatabase from '@joplin/lib/openProfileDatabase';
 import JoplinDatabase from '@joplin/lib/JoplinDatabase';
 import Logger from '@joplin/utils/Logger';
 import bindJoplinProfileStorage from './bindJoplinProfileStorage';
+import resolveProfileStorageBinding from '@joplin/lib/profileStorageBinding';
 import Resource from '@joplin/lib/models/Resource';
 import EncryptionService from '@joplin/lib/services/e2ee/EncryptionService';
 import {
@@ -33,9 +34,12 @@ describe('EncryptedJoplinProfileHost', () => {
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
 				const binding = bindJoplinProfileStorage(profile);
+				const resolvedStorage = resolveProfileStorageBinding(binding, () => {
+					throw new Error('stock profile storage must remain unavailable');
+				});
 				expect(EncryptionService.fsDriver_).toBe(Resource.fsDriver());
 				activeDatabase = await openProfileDatabase({
-					binding,
+					binding: resolvedStorage.database,
 					logger: new Logger(),
 				});
 				events.push('joplin-started');

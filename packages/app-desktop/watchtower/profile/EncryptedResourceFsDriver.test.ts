@@ -18,6 +18,7 @@ import {
 	switchClient,
 } from '@joplin/lib/testing/test-utils';
 import bindJoplinProfileStorage from './bindJoplinProfileStorage';
+import resolveProfileStorageBinding from '@joplin/lib/profileStorageBinding';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -173,9 +174,12 @@ describe('EncryptedResourceFsDriver', () => {
 		const encryptionService = new EncryptionService();
 		const previousFsDriver = EncryptionService.fsDriver_;
 		const previousResourceFsDriver = Resource.fsDriver_;
-		bindJoplinProfileStorage({
+		const binding = bindJoplinProfileStorage({
 			database: storage.database(capability!),
 			resourceFileSystem: driver,
+		});
+		resolveProfileStorageBinding(binding, () => {
+			throw new Error('stock profile storage must remain unavailable');
 		});
 		try {
 			const resource = await Resource.save({

@@ -23,12 +23,20 @@ filesystem in both Joplin's `Resource` model and `EncryptionService`. Ordinary
 attachment behavior and sync E2EE therefore select the same encrypted resource
 boundary rather than stock physical resource files.
 
+Database and resource storage are supplied as one application-start binding.
+Joplin resolves that binding after calculating its profile paths, so the
+encrypted resource directory replaces the stock constant instead of being
+overwritten by it. The stock database driver is constructed lazily only when no
+Watchtower binding is present, and virtual resource-root preparation is routed
+through the encrypted filesystem driver.
+
 ## Verification
 
 The public-seam tests prove that:
 
 - an authorised logical driver is opened as `watchtower-profile`;
-- a forbidden physical database path is never supplied to that driver;
+- the stock physical database driver is neither constructed nor opened when
+  encrypted profile storage is supplied;
 - Joplin runs the pinned schema migration through the capability-scoped driver;
 - a note is written, read, updated during shutdown, and closed in Vault
   Lifecycle order;

@@ -1,7 +1,5 @@
 import Logger from '@joplin/utils/Logger';
-import openProfileDatabase, {
-	selectProfileDatabaseBinding,
-} from './openProfileDatabase';
+import openProfileDatabase from './openProfileDatabase';
 
 const { DatabaseDriverNode } = require('./database-driver-node.js');
 
@@ -27,18 +25,5 @@ describe('openProfileDatabase', () => {
 		} finally {
 			await database.close();
 		}
-	});
-
-	test('a supplied binding prevents construction of the stock profile database', () => {
-		const binding = {
-			driver: new DatabaseDriverNode(),
-			name: 'watchtower-profile',
-		};
-		const createStockBinding = jest.fn(() => {
-			throw new Error('stock profile database must remain unavailable');
-		});
-
-		expect(selectProfileDatabaseBinding(binding, createStockBinding)).toBe(binding);
-		expect(createStockBinding).not.toHaveBeenCalled();
 	});
 });
