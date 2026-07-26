@@ -37,15 +37,19 @@ No additional native cryptography dependency was introduced.
 
 Focused public-seam tests prove:
 
-- repeated passphrase unlocks derive a stable SQLCipher key;
-- resource and SQLCipher keys are domain-separated;
+- the committed v1 compatibility vector opens through both credentials and
+  derives its expected SQLCipher-key fingerprint;
+- repeated passphrase unlocks derive all four stable, pairwise-distinct domain
+  keys;
 - the generated Recovery Secret independently opens the same hierarchy;
 - persisted public state round-trips through the bounded parser;
 - pre-unlock inspection reveals only approved technical metadata;
 - wrong passphrase and Recovery Secret attempts return the same public error;
 - excessive Argon2 resource requests are rejected before derivation;
+- unknown fields at every public-envelope level fail closed;
 - authenticated ciphertext corruption fails closed; and
-- disposed Vault Session keys cannot be used.
+- disposed Vault Session keys cannot be used, including keys held by an
+  in-flight callback.
 
 The implementation validates format, version, algorithm, generation, binary
 length, canonical encoding, and Argon2 resource bounds before unlock. Owned

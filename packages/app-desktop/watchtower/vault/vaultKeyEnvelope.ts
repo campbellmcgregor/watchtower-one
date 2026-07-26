@@ -31,6 +31,13 @@ export type VaultKeyPurpose =
 	'private-profile-data'|
 	'vault-metadata-authentication';
 
+const vaultKeyPurposes = new Set<VaultKeyPurpose>([
+	'sqlcipher',
+	'resource-content',
+	'private-profile-data',
+	'vault-metadata-authentication',
+]);
+
 export interface PassphraseKdfParameters {
 	memoryKiB: number;
 	parallelism: number;
@@ -137,6 +144,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
+const hasExactKeys = (value: Record<string, unknown>, keys: string[]) => {
+	const actualKeys = Object.keys(value).sort();
+	const expectedKeys = [...keys].sort();
+	return (
+		actualKeys.length === expectedKeys.length &&
+		actualKeys.every((key, index) => key === expectedKeys[index])
+	);
+};
+
 const readBase64Url = (
 	value: unknown,
 	expectedBytes: number,
@@ -162,6 +178,12 @@ const readBase64Url = (
 const readWrappedKey = (value: unknown): WrappedLocalVaultKey => {
 	if (
 		!isRecord(value) ||
+		!hasExactKeys(value, [
+			'algorithm',
+			'authenticationTag',
+			'ciphertext',
+			'nonce',
+		]) ||
 		value.algorithm !== 'aes-256-gcm'
 	) {
 		throw new InvalidVaultKeyEnvelopeError();
@@ -180,20 +202,53 @@ const readWrappedKey = (value: unknown): WrappedLocalVaultKey => {
 const validatePublicState = (value: unknown): VaultKeyEnvelopePublicState => {
 	if (
 		!isRecord(value) ||
+		!hasExactKeys(value, [
+			'activeGeneration',
+			'format',
+			'passphrase',
+			'recovery',
+			'vaultId',
+			'version',
+		]) ||
 		value.format !== 'watchtower-vault-key-envelope' ||
 		value.version !== 1 ||
 		value.activeGeneration !== 1 ||
 		!isRecord(value.passphrase) ||
+		!hasExactKeys(value.passphrase, [
+			'generation',
+			'kdf',
+			'purpose',
+			'wrappedKey',
+		]) ||
 		value.passphrase.purpose !== 'passphrase' ||
 		value.passphrase.generation !== 1 ||
 		!isRecord(value.passphrase.kdf) ||
+		!hasExactKeys(value.passphrase.kdf, [
+			'algorithm',
+			'memoryKiB',
+			'parallelism',
+			'passes',
+			'salt',
+			'tagLength',
+			'version',
+		]) ||
 		value.passphrase.kdf.algorithm !== 'argon2id' ||
 		value.passphrase.kdf.version !== 19 ||
 		value.passphrase.kdf.tagLength !== 32 ||
 		!isRecord(value.recovery) ||
+		!hasExactKeys(value.recovery, [
+			'generation',
+			'kdf',
+			'purpose',
+			'wrappedKey',
+		]) ||
 		value.recovery.purpose !== 'recovery' ||
 		value.recovery.generation !== 1 ||
 		!isRecord(value.recovery.kdf) ||
+		!hasExactKeys(value.recovery.kdf, [
+			'algorithm',
+			'salt',
+		]) ||
 		value.recovery.kdf.algorithm !== 'hkdf-sha256'
 	) {
 		throw new InvalidVaultKeyEnvelopeError();
@@ -272,21 +327,29 @@ const deriveArgon2id = (
 ): Promise<Buffer> => {
 	const message = Buffer.from(passphrase.normalize('NFC'), 'utf8');
 	return new Promise((resolve, reject) => {
-		argon2('argon2id', {
-			message,
-			nonce: Buffer.from(parameters.salt, 'base64url'),
-			parallelism: parameters.parallelism,
-			tagLength: parameters.tagLength,
-			memory: parameters.memoryKiB,
-			passes: parameters.passes,
-		}, (error, derivedKey) => {
+		const nonce = Buffer.from(parameters.salt, 'base64url');
+		const finish = (error: Error|null, derivedKey?: Buffer) => {
 			message.fill(0);
+			nonce.fill(0);
 			if (error) {
+				derivedKey?.fill(0);
 				reject(error);
 			} else {
-				resolve(derivedKey);
+				resolve(derivedKey!);
 			}
-		});
+		};
+		try {
+			argon2('argon2id', {
+				message,
+				nonce,
+				parallelism: parameters.parallelism,
+				tagLength: parameters.tagLength,
+				memory: parameters.memoryKiB,
+				passes: parameters.passes,
+			}, finish);
+		} catch (error) {
+			finish(error as Error);
+		}
 	});
 };
 
@@ -323,26 +386,34 @@ const encodeBase32 = (value: Buffer) => {
 const decodeBase32 = (encoded: string) => {
 	let bits = 0;
 	let bitCount = 0;
-	const decoded: number[] = [];
+	const decoded = Buffer.alloc(Math.floor(encoded.length * 5 / 8));
+	let decodedOffset = 0;
 	for (const character of encoded) {
 		const value = base32Alphabet.indexOf(character);
-		if (value < 0) throw new InvalidVaultKeyEnvelopeError();
+		if (value < 0) {
+			decoded.fill(0);
+			throw new InvalidVaultKeyEnvelopeError();
+		}
 		bits = (bits << 5) | value;
 		bitCount += 5;
 		if (bitCount >= 8) {
 			bitCount -= 8;
-			decoded.push((bits >>> bitCount) & 255);
+			decoded[decodedOffset++] = (bits >>> bitCount) & 255;
 		}
 	}
-	return Buffer.from(decoded);
+	return decoded;
 };
 
 const recoverySecretChecksum = (secret: Buffer) => {
-	return createHash('sha256')
+	const digest = createHash('sha256')
 		.update('watchtower-one/v1/recovery-secret-checksum\0', 'utf8')
 		.update(secret)
-		.digest()
-		.subarray(0, recoveryChecksumBytes);
+		.digest();
+	try {
+		return Buffer.from(digest.subarray(0, recoveryChecksumBytes));
+	} finally {
+		digest.fill(0);
+	}
 };
 
 const encodeRecoverySecret = (secret: Buffer) => {
@@ -451,12 +522,19 @@ const unwrapLocalVaultKey = (
 		);
 		decipher.setAAD(authenticatedData);
 		decipher.setAuthTag(Buffer.from(wrappedKey.authenticationTag, 'base64url'));
-		const plaintextChunks = [
-			decipher.update(Buffer.from(wrappedKey.ciphertext, 'base64url')),
-			decipher.final(),
-		];
-		const localVaultKey = Buffer.concat(plaintextChunks);
-		for (const chunk of plaintextChunks) chunk.fill(0);
+		const ciphertext = Buffer.from(wrappedKey.ciphertext, 'base64url');
+		let updated: Buffer|undefined;
+		let final: Buffer|undefined;
+		let localVaultKey: Buffer;
+		try {
+			updated = decipher.update(ciphertext);
+			final = decipher.final();
+			localVaultKey = Buffer.concat([updated, final]);
+		} finally {
+			ciphertext.fill(0);
+			updated?.fill(0);
+			final?.fill(0);
+		}
 		if (localVaultKey.byteLength !== localVaultKeyBytes) {
 			localVaultKey.fill(0);
 			throw new InvalidVaultKeyEnvelopeError();
@@ -479,6 +557,7 @@ export interface VaultSessionKeyRing {
 class VaultSessionKeyRingImpl implements VaultSessionKeyRing {
 
 	private disposed_ = false;
+	private readonly activeDerivedKeys_ = new Set<Buffer>();
 
 	public constructor(
 		private readonly localVaultKey_: Buffer,
@@ -489,7 +568,12 @@ class VaultSessionKeyRingImpl implements VaultSessionKeyRing {
 		purpose: VaultKeyPurpose,
 		operation: (key: Buffer)=> T|Promise<T>,
 	): Promise<T> {
-		if (this.disposed_) throw new Error('Vault Session key ring is disposed');
+		if (
+			this.disposed_ ||
+			!vaultKeyPurposes.has(purpose)
+		) {
+			throw new Error('Vault Session key ring is disposed or the purpose is invalid');
+		}
 		const derivedKey = hkdfSync(
 			'sha256',
 			this.localVaultKey_,
@@ -498,10 +582,17 @@ class VaultSessionKeyRingImpl implements VaultSessionKeyRing {
 			localVaultKeyBytes,
 		);
 		const key = Buffer.isBuffer(derivedKey) ? derivedKey : Buffer.from(derivedKey);
+		this.activeDerivedKeys_.add(key);
+		if (this.disposed_) {
+			key.fill(0);
+			this.activeDerivedKeys_.delete(key);
+			throw new Error('Vault Session key ring is disposed or the purpose is invalid');
+		}
 		try {
 			return await operation(key);
 		} finally {
 			key.fill(0);
+			this.activeDerivedKeys_.delete(key);
 		}
 	}
 
@@ -509,6 +600,7 @@ class VaultSessionKeyRingImpl implements VaultSessionKeyRing {
 		if (this.disposed_) return;
 		this.disposed_ = true;
 		this.localVaultKey_.fill(0);
+		for (const key of this.activeDerivedKeys_) key.fill(0);
 	}
 }
 
@@ -544,49 +636,49 @@ const create = async (
 			argon2idOutput.fill(0);
 		}
 		const recoverySecretBytes = randomBytes(recoverySecretLength);
-		const recoverySecret = encodeRecoverySecret(recoverySecretBytes);
-		const recoveryKdf: StoredRecoveryKdfParameters = {
-			algorithm: 'hkdf-sha256',
-			salt: randomBytes(saltBytes).toString('base64url'),
-		};
-		const recoveryEnvelope = {
-			purpose: 'recovery',
-			generation: 1,
-			kdf: recoveryKdf,
-		} as const;
 		try {
+			const recoverySecret = encodeRecoverySecret(recoverySecretBytes);
+			const recoveryKdf: StoredRecoveryKdfParameters = {
+				algorithm: 'hkdf-sha256',
+				salt: randomBytes(saltBytes).toString('base64url'),
+			};
+			const recoveryEnvelope = {
+				purpose: 'recovery',
+				generation: 1,
+				kdf: recoveryKdf,
+			} as const;
 			recoveryWrappingKey = deriveRecoveryWrappingKey(
 				recoverySecretBytes,
 				recoveryKdf,
 			);
+			return {
+				recoverySecret,
+				publicState: {
+					format: 'watchtower-vault-key-envelope',
+					version: 1,
+					vaultId,
+					activeGeneration: 1,
+					passphrase: {
+						...passphraseEnvelope,
+						wrappedKey: wrapLocalVaultKey(
+							localVaultKey,
+							wrappingKey,
+							envelopeAuthenticatedData(vaultId, passphraseEnvelope),
+						),
+					},
+					recovery: {
+						...recoveryEnvelope,
+						wrappedKey: wrapLocalVaultKey(
+							localVaultKey,
+							recoveryWrappingKey,
+							envelopeAuthenticatedData(vaultId, recoveryEnvelope),
+						),
+					},
+				},
+			};
 		} finally {
 			recoverySecretBytes.fill(0);
 		}
-		return {
-			recoverySecret,
-			publicState: {
-				format: 'watchtower-vault-key-envelope',
-				version: 1,
-				vaultId,
-				activeGeneration: 1,
-				passphrase: {
-					...passphraseEnvelope,
-					wrappedKey: wrapLocalVaultKey(
-						localVaultKey,
-						wrappingKey,
-						envelopeAuthenticatedData(vaultId, passphraseEnvelope),
-					),
-				},
-				recovery: {
-					...recoveryEnvelope,
-					wrappedKey: wrapLocalVaultKey(
-						localVaultKey,
-						recoveryWrappingKey,
-						envelopeAuthenticatedData(vaultId, recoveryEnvelope),
-					),
-				},
-			},
-		};
 	} finally {
 		wrappingKey?.fill(0);
 		recoveryWrappingKey?.fill(0);
