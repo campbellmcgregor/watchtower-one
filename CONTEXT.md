@@ -1,6 +1,6 @@
 # Watchtower One domain context
 
-<!-- cspell:ignore campbellmcgregor -->
+<!-- cspell:ignore campbellmcgregor HKDF -->
 
 Watchtower One is a security-focused, Windows-first downstream distribution of Joplin. It retains Joplin's mature note-taking, mobile-capable shared backend, plugin APIs, and end-to-end encrypted synchronization while adding an always-encrypted local profile, independent local recovery, Watchtower-owned identity, and a curated plugin trust boundary.
 
@@ -16,6 +16,8 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 - **Watchtower Profile Vault**: the logical encrypted boundary containing app-managed notes, metadata, histories, search data, attachments, sensitive settings, credentials, Curated Plugin user data, and automatic backups. It is implemented through encrypted modules rather than a mounted root-profile container.
 - **Vault Session**: the capability-scoped, unlocked lifetime of the content-bearing application process tree. Decrypted user data may exist in trusted process memory during this lifetime, but application-managed persistence remains encrypted. Joplin profile initialization cannot precede it.
 - **Local Vault Key**: the random key material protecting the Watchtower Profile Vault. It is independent of all Joplin sync E2EE keys.
+- **Vault Key Schedule**: the versioned HKDF-SHA-256 derivation boundary that turns the Local Vault Key into separate SQLCipher, resource-content, private-profile-data, and metadata-authentication keys.
+- **Vault Key Envelope**: Public Bootstrap State containing one authenticated passphrase wrapper and one authenticated Recovery Secret wrapper for the Local Vault Key, together with bounded algorithm, parameter, nonce, and generation metadata.
 - **Canonical Encrypted Store**: the SQLCipher database that owns persistent user-derived data unless an accepted ADR assigns a specific artifact to Public Bootstrap State, a reconstructible non-content cache, or Explicit Plaintext Egress.
 - **Public Bootstrap State**: the minimal reviewed, non-content state required to locate and identify a vault before unlock. It contains no note, resource, credential, sensitive setting, profile name, or Curated Plugin user data.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.
@@ -52,8 +54,10 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 
 ## Open architectural terms
 
-ADR-0003 selects the SQLCipher-led logical profile vault. The implementation
-must still decide the Local Vault Key hierarchy and recovery interface, the
-exact Public Bootstrap State, and macOS/Linux qualification. ADR-0004 defines
-the unlocked Vault Session at-rest contract. The remaining decisions must not
-be guessed in feature code.
+ADR-0003 selects the SQLCipher-led logical profile vault. ADR-0004 defines the
+unlocked Vault Session at-rest contract. ADR-0005 defines the independently
+wrapped Local Vault Key, domain-separated key schedule, mandatory user-held
+recovery, credential rotation, and minimal envelope portion of Public Bootstrap
+State. The implementation must still qualify the complete Public Bootstrap
+State and macOS/Linux adapters. Remaining decisions must not be guessed in
+feature code.
