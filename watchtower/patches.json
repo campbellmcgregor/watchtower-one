@@ -139,6 +139,30 @@
         "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "joplin-database-resource-runtime-binding",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "7cedc4956a1af485707fd4a95642b053134dcf27",
+        "5cd54ddde69142015171c3516c033f8f43bd0d13",
+        "739b810bdc2ff07be7ad675711eaf7097a0d0705"
+      ],
+      "upstreamTouchpoints": [
+        "packages/lib/BaseApplication.ts",
+        "packages/lib/openProfileDatabase.ts",
+        "packages/lib/profileStorageBinding.ts",
+        "packages/app-desktop/watchtower/profile/**",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "Ordinary Joplin database queries through the encrypted profile binding",
+        "Lazy stock database construction and resource binding lifecycle",
+        "Joplin Resource model and sync E2EE over the encrypted resource filesystem",
+        "Desktop and mobile shared-backend type checks",
+        "Full desktop test, build, lint, spelling, and downstream verification suites"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
