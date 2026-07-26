@@ -23,7 +23,7 @@ const minimumMemoryKiB = 128 * 1024;
 const maximumMemoryKiB = 1024 * 1024;
 const maximumPasses = 32;
 const maximumParallelism = 16;
-const maximumPublicStateBytes = 64 * 1024;
+export const maximumVaultKeyEnvelopePublicStateBytes = 64 * 1024;
 
 export type VaultKeyPurpose =
 	'sqlcipher'|
@@ -292,7 +292,8 @@ const parsePublicState = (serialized: string): VaultKeyEnvelopePublicState => {
 	try {
 		if (
 			typeof serialized !== 'string' ||
-			Buffer.byteLength(serialized, 'utf8') > maximumPublicStateBytes
+			Buffer.byteLength(serialized, 'utf8') >
+			maximumVaultKeyEnvelopePublicStateBytes
 		) {
 			throw new InvalidVaultKeyEnvelopeError();
 		}

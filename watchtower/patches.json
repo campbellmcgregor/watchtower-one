@@ -202,6 +202,31 @@
         "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
       ],
       "upstreamCandidate": false
+    },
+    {
+      "id": "vault-key-envelope-store",
+      "owner": "Watchtower maintainers",
+      "commits": [
+        "9d0026a665f53413af370b2f51ba5ae70f7a77da",
+        "ea3cade6782887ebc6f29a5328a9091f34a5dde7",
+        "1dd75a828f878d8b1b5c66ddb789167b7c638e9f"
+      ],
+      "upstreamTouchpoints": [
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.ts",
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelopeStore.test.ts",
+        "packages/app-desktop/watchtower/vault/vaultKeyEnvelope.ts format limit",
+        "docs/evidence/issue-15-vault-key-envelope-store.md",
+        ".gitignore and .eslintignore generated entries"
+      ],
+      "tests": [
+        "Committed envelope restart and independent unlock",
+        "Interrupted replacement preservation and generic failure",
+        "Vault-identity replacement rejection",
+        "Canonical-directory concurrent commit serialization",
+        "Single-handle bounded committed-state reads",
+        "Full desktop test, typecheck, build, lint, spelling, and downstream verification suites"
+      ],
+      "upstreamCandidate": false
     }
   ]
 }
