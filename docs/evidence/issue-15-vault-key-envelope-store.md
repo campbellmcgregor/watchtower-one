@@ -41,7 +41,8 @@ Focused tests use a real temporary filesystem and prove:
   envelope byte-for-byte and leaves it independently unlockable after restart;
 - an unrelated vault identity cannot replace the committed vault; and
 - concurrent first commits through separate store instances activate exactly
-  one vault identity.
+  one vault identity, including when the callers use filesystem aliases for
+  the same canonical directory.
 
 ## Deliberate handoffs
 

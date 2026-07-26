@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { mkdtemp, rename, rm, writeFile } from 'fs/promises';
+import { mkdtemp, rename, rm, symlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import VaultKeyEnvelope, {
@@ -48,6 +48,7 @@ const sqlCipherFingerprint = async (
 
 describe('VaultKeyEnvelopeStore', () => {
 	let storeDirectory = '';
+	let storeDirectoryAlias = '';
 
 	beforeEach(async () => {
 		storeDirectory = await mkdtemp(join(tmpdir(), 'watchtower-envelope-store-'));
@@ -55,6 +56,10 @@ describe('VaultKeyEnvelopeStore', () => {
 
 	afterEach(async () => {
 		jest.mocked(rename).mockClear();
+		if (storeDirectoryAlias) {
+			await rm(storeDirectoryAlias, { recursive: true, force: true });
+			storeDirectoryAlias = '';
+		}
 		await rm(storeDirectory, { recursive: true, force: true });
 	});
 
@@ -74,11 +79,16 @@ describe('VaultKeyEnvelopeStore', () => {
 		const passphrase = 'first committed passphrase';
 		const first = await createEnvelope(passphrase);
 		const replacement = JSON.parse(JSON.stringify(first.publicState));
+		const ciphertext = replacement.passphrase.wrappedKey.ciphertext;
+		const mutationOffset = Math.floor(ciphertext.length / 2);
 		replacement.passphrase.wrappedKey.ciphertext = `${
-			replacement.passphrase.wrappedKey.ciphertext.slice(0, -1)
-		}${replacement.passphrase.wrappedKey.ciphertext.endsWith('A') ? 'B' : 'A'}`;
+			ciphertext.slice(0, mutationOffset)
+		}${ciphertext[mutationOffset] === 'A' ? 'B' : 'A'}${
+			ciphertext.slice(mutationOffset + 1)
+		}`;
 		const store = new VaultKeyEnvelopeStore(storeDirectory);
 		await store.commit(first.publicState);
+		jest.mocked(rename).mockClear();
 		jest.mocked(rename).mockRejectedValueOnce(
 			new Error('simulated forced termination'),
 		);
@@ -86,6 +96,7 @@ describe('VaultKeyEnvelopeStore', () => {
 		await expect(store.commit(replacement)).rejects.toThrow(
 			'Vault Key Envelope commit failed closed',
 		);
+		expect(rename).toHaveBeenCalledTimes(1);
 
 		const reopenedState = await new VaultKeyEnvelopeStore(
 			storeDirectory,
@@ -127,6 +138,24 @@ describe('VaultKeyEnvelopeStore', () => {
 			first.publicState.vaultId,
 			second.publicState.vaultId,
 		]).toContain(reopenedState.vaultId);
+	});
+
+	test('serializes commits through filesystem aliases of the same directory', async () => {
+		storeDirectoryAlias = `${storeDirectory}-alias`;
+		await symlink(
+			storeDirectory,
+			storeDirectoryAlias,
+			process.platform === 'win32' ? 'junction' : 'dir',
+		);
+		const first = await createEnvelope('first alias passphrase');
+		const second = await createEnvelope('second alias passphrase');
+		const outcomes = await Promise.allSettled([
+			new VaultKeyEnvelopeStore(storeDirectory).commit(first.publicState),
+			new VaultKeyEnvelopeStore(storeDirectoryAlias).commit(second.publicState),
+		]);
+
+		expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);
+		expect(outcomes.filter(outcome => outcome.status === 'rejected')).toHaveLength(1);
 	});
 
 	test('rejects an oversized committed envelope through the bounded reader', async () => {

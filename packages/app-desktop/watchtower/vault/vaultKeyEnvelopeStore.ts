@@ -3,10 +3,11 @@ import {
 	access,
 	mkdir,
 	open,
+	realpath,
 	rename,
 	rm,
 } from 'fs/promises';
-import { join, resolve } from 'path';
+import { join } from 'path';
 import VaultKeyEnvelope, {
 	maximumVaultKeyEnvelopePublicStateBytes,
 	VaultKeyEnvelopePublicState,
@@ -126,20 +127,24 @@ const readBoundedFile = async (path: string) => {
 
 export default class VaultKeyEnvelopeStore {
 
-	private readonly queueKey_: string;
-
-	public constructor(private readonly directoryPath_: string) {
-		const absolutePath = resolve(directoryPath_);
-		this.queueKey_ = process.platform === 'win32' ?
-			absolutePath.toLocaleLowerCase('en-US') :
-			absolutePath;
-	}
+	public constructor(private readonly directoryPath_: string) {}
 
 	public async commit(publicState: VaultKeyEnvelopePublicState): Promise<void> {
-		let queue = commitQueues.get(this.queueKey_);
+		let queueKey: string;
+		try {
+			await mkdir(this.directoryPath_, { recursive: true, mode: 0o700 });
+			const canonicalPath = await realpath(this.directoryPath_);
+			queueKey = process.platform === 'win32' ?
+				canonicalPath.toLocaleLowerCase('en-US') :
+				canonicalPath;
+		} catch (error) {
+			throw new VaultKeyEnvelopeCommitError();
+		}
+
+		let queue = commitQueues.get(queueKey);
 		if (!queue) {
 			queue = new SerializedCommitQueue();
-			commitQueues.set(this.queueKey_, queue);
+			commitQueues.set(queueKey, queue);
 		}
 		try {
 			await queue.run(async () => {
@@ -148,9 +153,9 @@ export default class VaultKeyEnvelopeStore {
 		} finally {
 			if (
 				queue.idle() &&
-				commitQueues.get(this.queueKey_) === queue
+				commitQueues.get(queueKey) === queue
 			) {
-				commitQueues.delete(this.queueKey_);
+				commitQueues.delete(queueKey);
 			}
 		}
 	}
@@ -169,7 +174,6 @@ export default class VaultKeyEnvelopeStore {
 				throw new InvalidCommittedVaultKeyEnvelopeError();
 			}
 
-			await mkdir(this.directoryPath_, { recursive: true, mode: 0o700 });
 			const pendingPath = join(this.directoryPath_, pendingEnvelopeFileName);
 			const committedPath = join(
 				this.directoryPath_,
