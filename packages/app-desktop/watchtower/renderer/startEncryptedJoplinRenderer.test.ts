@@ -11,6 +11,17 @@ jest.mock('@sentry/electron/main', () => ({
 	electronMinidumpIntegration: jest.fn(),
 	init: jest.fn(),
 }));
+jest.mock('electron', () => ({
+	BrowserWindow: class {},
+	Menu: {},
+	app: {},
+	dialog: {},
+	globalShortcut: {},
+	nativeImage: {},
+	nativeTheme: {},
+	safeStorage: {},
+	shell: {},
+}));
 
 describe('startEncryptedJoplinRenderer', () => {
 	test('does not initialize Joplin when encrypted profile storage is unavailable', async () => {
