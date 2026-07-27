@@ -13,6 +13,9 @@ import { isCallbackUrl } from '@joplin/lib/callbackUrlUtils';
 import determineBaseAppDirs from '@joplin/lib/determineBaseAppDirs';
 import registerCustomProtocols from './utils/customProtocols/registerCustomProtocols';
 import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
+import {
+	requireEncryptedProfileStorage,
+} from './watchtower/renderer/startEncryptedJoplinRenderer';
 
 const getFlagValueFromArgs = (args: string[], flag: string, defaultValue: string|null) => {
 	if (!args) return null;
@@ -29,6 +32,7 @@ type ExtendedGlobal = {
 const startJoplinMain = async (
 	profileStorage: ProfileStorageBinding,
 ): Promise<ElectronAppWrapper> => {
+	profileStorage = requireEncryptedProfileStorage(profileStorage);
 	require('@electron/remote/main').initialize();
 
 	// Electron takes the application name from package.json `name` and

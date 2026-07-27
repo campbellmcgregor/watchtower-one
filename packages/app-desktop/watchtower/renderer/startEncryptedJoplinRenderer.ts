@@ -10,14 +10,20 @@ export interface EncryptedRendererApplication<TResult> {
 	start(argv: string[], options: StartOptions): Promise<TResult>;
 }
 
+export const requireEncryptedProfileStorage = (
+	profileStorage: ProfileStorageBinding|undefined,
+): ProfileStorageBinding => {
+	if (!profileStorage) {
+		throw new Error('Encrypted profile storage is unavailable');
+	}
+	return profileStorage;
+};
+
 export const startEncryptedJoplinRenderer = async <TResult>(
 	bridge: EncryptedRendererBridge,
 	application: EncryptedRendererApplication<TResult>,
 ): Promise<TResult> => {
-	const profileStorage = bridge.profileStorage();
-	if (!profileStorage) {
-		throw new Error('Encrypted profile storage is unavailable');
-	}
+	const profileStorage = requireEncryptedProfileStorage(bridge.profileStorage());
 
 	return application.start(bridge.processArgv(), { profileStorage });
 };

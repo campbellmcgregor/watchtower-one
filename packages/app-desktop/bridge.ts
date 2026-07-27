@@ -44,13 +44,13 @@ export class Bridge {
 	private appId_: string;
 	private logFilePath_ = '';
 	private altInstanceId_ = '';
-	private readonly profileStorage_: ProfileStorageBinding|undefined;
+	private readonly profileStorage_: ProfileStorageBinding;
 
 	private extraAllowedExtensions_: string[] = [];
 	private onAllowedExtensionsChangeListener_: OnAllowedExtensionsChange = ()=>{};
 	private registeredGlobalHotkey_ = '';
 
-	public constructor(electronWrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage?: ProfileStorageBinding) {
+	public constructor(electronWrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage: ProfileStorageBinding) {
 		this.electronWrapper_ = electronWrapper;
 		this.appId_ = appId;
 		this.appName_ = appName;
@@ -705,7 +705,7 @@ export class Bridge {
 
 let bridge_: Bridge = null;
 
-export function initBridge(wrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage?: ProfileStorageBinding) {
+export function initBridge(wrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage: ProfileStorageBinding) {
 	if (bridge_) throw new Error('Bridge already initialized');
 	bridge_ = new Bridge(wrapper, appId, appName, rootProfileDir, autoUploadCrashDumps, altInstanceId, profileStorage);
 	return bridge_;
