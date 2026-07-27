@@ -622,6 +622,8 @@ packages/app-desktop/utils/sourceMapSetup.js
 packages/app-desktop/utils/window/types.js
 packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.test.js
 packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.js
+packages/app-desktop/watchtower/desktop/runPreProfileUnlockFlow.test.js
+packages/app-desktop/watchtower/desktop/runPreProfileUnlockFlow.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.test.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.js
 packages/app-desktop/watchtower/profile/EncryptedJoplinProfileHost.test.js
