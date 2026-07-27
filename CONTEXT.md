@@ -1,6 +1,6 @@
 # Watchtower One domain context
 
-<!-- cspell:ignore campbellmcgregor HKDF -->
+<!-- cspell:ignore campbellmcgregor handoff HKDF -->
 
 Watchtower One is a security-focused, Windows-first downstream distribution of Joplin. It retains Joplin's mature note-taking, mobile-capable shared backend, plugin APIs, and end-to-end encrypted synchronization while adding an always-encrypted local profile, independent local recovery, Watchtower-owned identity, and a curated plugin trust boundary.
 
@@ -23,6 +23,10 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
   composes policy, independently wrapped credentials, confirmation, monotonic
   wrapper generations, and atomic persistence. Restart selects only a complete
   committed generation and never falls back to plaintext.
+- **Credential-to-profile handoff**: the trusted desktop bootstrap operation
+  that opens SQLCipher from a live Vault Session key ring and makes the
+  resulting encrypted storage available to the profile host without exposing
+  a raw key or permitting stock profile fallback.
 - **Canonical Encrypted Store**: the SQLCipher database that owns persistent user-derived data unless an accepted ADR assigns a specific artifact to Public Bootstrap State, a reconstructible non-content cache, or Explicit Plaintext Egress.
 - **Public Bootstrap State**: the minimal reviewed, non-content state required to locate and identify a vault before unlock. It contains no note, resource, credential, sensitive setting, profile name, or Curated Plugin user data.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.
