@@ -1,6 +1,6 @@
 # ADR-0005: Use independently wrapped, domain-separated Local Vault Keys
 
-<!-- cspell:ignore Argon Argon2id ciphertexts DPAPI HKDF passphrases sqlcipher -->
+<!-- cspell:ignore Argon Argon2id ciphertexts DPAPI HKDF NCSC passphrases Pwned sqlcipher -->
 
 - Status: Accepted
 - Date: 2026-07-26
@@ -100,6 +100,22 @@ Version 1 passphrases:
 - are checked locally against a reviewed common/compromised-password blocklist;
 - may be pasted from a password manager; and
 - are never transmitted or written to persistent storage.
+
+The version 1 blocklist is the NCSC-published top 100,000 compromised
+passwords derived from Have I Been Pwned, plus reviewed Watchtower product
+context terms. Watchtower ships only a sorted set of the first 96 bits of each
+NFC-normalised SHA-256 digest. It does not ship the plaintext corpus or query a
+network service. The source response, transformed artifact, entry counts, and
+generation parameters are pinned in the adjacent manifest and reproducible
+build tool. Comparisons cover the complete normalised passphrase rather than
+substrings. A future corpus update is a reviewed, versioned downstream change.
+
+Calibration uses random non-secret probe bytes, never the proposed passphrase.
+It measures bounded Argon2id candidates and selects the greatest measured pass
+count at or below the five-second target, capped at 32. The result may be
+cached for the current process and is stored in the new envelope. Selecting
+the 128 MiB profile requires the explicit `qualified-constrained` policy
+profile; an unknown profile fails closed.
 
 An incorrect passphrase produces the same user-visible failure as an invalid
 wrapper or unauthorised vault. Repeated failures receive increasing
@@ -283,6 +299,9 @@ atomically, and only then retire the old format.
 - [RFC 9106: Argon2 Memory-Hard Function](https://www.rfc-editor.org/rfc/rfc9106.html)
 - [RFC 5869: HKDF](https://www.rfc-editor.org/rfc/rfc5869.html)
 - [NIST SP 800-63B-4: Password Authenticators](https://pages.nist.gov/800-63-4/sp800-63b.html#password-auth)
+- [NCSC: Most hacked passwords revealed](https://www.ncsc.gov.uk/news/most-hacked-passwords-revealed-as-uk-cyber-survey-exposes-gaps-in-online-security)
+- [Archived NCSC Pwned Passwords Top 100k response](https://ghostarchive.org/archive/1lgmW)
+- [Have I Been Pwned API: Pwned Passwords](https://haveibeenpwned.com/API/V3#PwnedPasswords)
 - [NIST SP 800-38D: AES-GCM](https://csrc.nist.gov/pubs/sp/800/38/d/final)
 - [Microsoft CryptProtectMemory limitations and memory clearing](https://learn.microsoft.com/windows/win32/api/dpapi/nf-dpapi-cryptprotectmemory)
 - `docs/adr/0003-sqlcipher-logical-profile-vault.md`
