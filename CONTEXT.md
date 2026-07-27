@@ -27,6 +27,12 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
   that opens SQLCipher from a live Vault Session key ring and makes the
   resulting encrypted storage available to the profile host without exposing
   a raw key or permitting stock profile fallback.
+- **Main-to-renderer profile transport**: the trusted Electron bridge path that
+  publishes the vault-scoped Joplin database and resource-store binding after
+  vault unlock. Renderer startup fails closed when that binding is absent; no
+  Local Vault Key or derived key crosses this seam. This transport is not a
+  renderer sandbox or a replacement for Joplin's existing Node filesystem
+  authority.
 - **Canonical Encrypted Store**: the SQLCipher database that owns persistent user-derived data unless an accepted ADR assigns a specific artifact to Public Bootstrap State, a reconstructible non-content cache, or Explicit Plaintext Egress.
 - **Public Bootstrap State**: the minimal reviewed, non-content state required to locate and identify a vault before unlock. It contains no note, resource, credential, sensitive setting, profile name, or Curated Plugin user data.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.

@@ -15,6 +15,7 @@ import { closeSync, openSync, readSync, statSync } from 'fs';
 import { KB } from '@joplin/utils/bytes';
 import { defaultWindowId } from '@joplin/lib/reducer';
 import { execCommand } from '@joplin/utils';
+import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
 
 interface LastSelectedPath {
 	file: string;
@@ -43,18 +44,20 @@ export class Bridge {
 	private appId_: string;
 	private logFilePath_ = '';
 	private altInstanceId_ = '';
+	private readonly profileStorage_: ProfileStorageBinding;
 
 	private extraAllowedExtensions_: string[] = [];
 	private onAllowedExtensionsChangeListener_: OnAllowedExtensionsChange = ()=>{};
 	private registeredGlobalHotkey_ = '';
 
-	public constructor(electronWrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string) {
+	public constructor(electronWrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage: ProfileStorageBinding) {
 		this.electronWrapper_ = electronWrapper;
 		this.appId_ = appId;
 		this.appName_ = appName;
 		this.rootProfileDir_ = rootProfileDir;
 		this.autoUploadCrashDumps_ = autoUploadCrashDumps;
 		this.altInstanceId_ = altInstanceId;
+		this.profileStorage_ = profileStorage;
 		this.lastSelectedPaths_ = {
 			file: null,
 			directory: null,
@@ -292,6 +295,10 @@ export class Bridge {
 
 	public processArgv() {
 		return process.argv;
+	}
+
+	public profileStorage() {
+		return this.profileStorage_;
 	}
 
 	public getLocale = () => {
@@ -698,9 +705,9 @@ export class Bridge {
 
 let bridge_: Bridge = null;
 
-export function initBridge(wrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string) {
+export function initBridge(wrapper: ElectronAppWrapper, appId: string, appName: string, rootProfileDir: string, autoUploadCrashDumps: boolean, altInstanceId: string, profileStorage: ProfileStorageBinding) {
 	if (bridge_) throw new Error('Bridge already initialized');
-	bridge_ = new Bridge(wrapper, appId, appName, rootProfileDir, autoUploadCrashDumps, altInstanceId);
+	bridge_ = new Bridge(wrapper, appId, appName, rootProfileDir, autoUploadCrashDumps, altInstanceId, profileStorage);
 	return bridge_;
 }
 

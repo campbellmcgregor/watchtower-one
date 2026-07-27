@@ -11,6 +11,7 @@ module.exports = {
 	testMatch: [
 		'**/watchtower/desktop/makeEncryptedDesktopDependencies.test.ts',
 		'**/watchtower/profile/SqlCipherEncryptedProfileConnection.integration.test.ts',
+		'**/watchtower/renderer/startEncryptedJoplinRenderer.test.ts',
 	],
 	transform: {
 		'\\.(ts|tsx)$': 'ts-jest',
