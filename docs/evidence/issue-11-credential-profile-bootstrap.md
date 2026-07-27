@@ -14,6 +14,11 @@ database key exists only inside the key-ring callback and is not returned to
 desktop startup, Joplin runtime, renderer code, command-line arguments,
 environment variables, or IPC.
 
+The command credential is consumed by the dependency factory: its caller-owned
+field is cleared immediately, and the factory releases its remaining reference
+before attempting unlock. JavaScript strings cannot be zeroed in place, so this
+is reference-lifetime reduction rather than a claim of secure memory erasure.
+
 The module owns the otherwise error-prone handoff between vault access and
 profile startup. Callers provide a command, public envelope location, encrypted
 database location, lazy Joplin runtime loader, and ephemeral-session adapter.
@@ -57,4 +62,6 @@ but does not yet:
 
 Those integrations must land before Watchtower has a user-operable desktop
 build or issue #11 can close. Issue #13 must then qualify forced termination
-and prove that application startup never selects a plaintext profile.
+and prove that application startup never selects a plaintext profile. This
+document is focused handoff evidence, not forced-termination or release
+evidence.

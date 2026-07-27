@@ -73,17 +73,30 @@ const failedClosed = (): VaultOpenResult => ({
 export const makeEncryptedDesktopDependencies = (
 	options: EncryptedDesktopDependencyOptions,
 ): WatchtowerDesktopDependencies => {
+	let pendingPassphrase = options.command.passphrase;
+	options.command.passphrase = '';
+	const {
+		databasePath,
+		envelopeDirectory,
+		loadJoplinProfileRuntime,
+		profileHostOptions,
+	} = options;
 	const credentialLifecycle = new VaultCredentialLifecycle(
-		new VaultKeyEnvelopeStore(options.envelopeDirectory),
+		new VaultKeyEnvelopeStore(envelopeDirectory),
 	);
 	const openProfileStorage = options.openProfileStorage ??
-		(keyRing => openSqlCipherProfileStorage(options.databasePath, keyRing));
+		(keyRing => openSqlCipherProfileStorage(databasePath, keyRing));
 	let activeStorage: EncryptedProfileStorage|undefined;
 
 	const unlock = async (signal: AbortSignal): Promise<VaultOpenResult> => {
 		if (signal.aborted) return failedClosed();
+		const passphrase = pendingPassphrase;
+		pendingPassphrase = '';
+		if (!passphrase) {
+			return { kind: 'rejected', reason: 'wrongCredential' };
+		}
 		const result = await credentialLifecycle.unlockWithPassphrase(
-			options.command.passphrase,
+			passphrase,
 		);
 		if (result.kind === 'rejected') {
 			if (
@@ -140,12 +153,12 @@ export const makeEncryptedDesktopDependencies = (
 			}
 			return activeStorage;
 		},
-		options.loadJoplinProfileRuntime,
-		options.profileHostOptions,
+		loadJoplinProfileRuntime,
+		profileHostOptions,
 	);
 
 	return {
-		operation: options.command.kind,
+		operation: 'unlock',
 		accessAdapter,
 		profileHost,
 	};

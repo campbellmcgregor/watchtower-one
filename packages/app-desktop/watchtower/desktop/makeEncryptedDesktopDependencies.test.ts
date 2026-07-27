@@ -8,6 +8,7 @@ import {
 	encryptedProfileDatabaseName,
 } from '../profile/profileStorageTypes';
 import VaultCredentialLifecycle from '../vault/VaultCredentialLifecycle';
+import { VaultSessionKeyRing } from '../vault/vaultKeyEnvelope';
 import VaultKeyEnvelopeStore from '../vault/vaultKeyEnvelopeStore';
 import {
 	makeEncryptedDesktopDependencies,
@@ -16,11 +17,13 @@ import { startWatchtowerDesktop } from './startWatchtowerDesktop';
 
 // cspell:ignore SIGNALAPP sqlcipher
 
-const makeConnection = (): EncryptedProfileConnection => ({
+const makeConnection = (events?: string[]): EncryptedProfileConnection => ({
 	selectOne: async () => undefined,
 	selectAll: async () => [],
 	exec: async () => undefined,
-	close: async () => {},
+	close: async () => {
+		events?.push('storage-closed');
+	},
 	terminate: () => true,
 });
 
@@ -35,8 +38,9 @@ describe('makeEncryptedDesktopDependencies', () => {
 		await rm(vaultDirectory, { recursive: true, force: true });
 	});
 
-	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {
-		const passphrase = 'production private atlas words';
+	const createCommittedVault = async (
+		passphrase: string,
+	): Promise<VaultSessionKeyRing> => {
 		const credentialLifecycle = new VaultCredentialLifecycle(
 			new VaultKeyEnvelopeStore(vaultDirectory),
 		);
@@ -52,24 +56,64 @@ describe('makeEncryptedDesktopDependencies', () => {
 			recoverySecret: begun.recoverySecret,
 		});
 		if (created.kind !== 'opened') throw new Error('Expected vault creation');
-		const expectedFingerprint = await created.keyRing.withDerivedKey(
+		return created.keyRing;
+	};
+
+	test('consumes the credential instead of retaining it in desktop dependencies', () => {
+		const command = {
+			kind: 'unlock' as const,
+			passphrase: 'transient private atlas words',
+		};
+
+		makeEncryptedDesktopDependencies({
+			command,
+			databasePath: join(vaultDirectory, 'profile.sqlite'),
+			envelopeDirectory: vaultDirectory,
+			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
+			profileHostOptions: {
+				ephemeralSessionFactory: {
+					fromPartition: async () => ({
+						storagePath: null,
+						clearCache: async () => {},
+						clearStorageData: async () => {},
+						closeAllConnections: async () => {},
+					}),
+				},
+				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
+			},
+			loadJoplinProfileRuntime: async () => ({
+				start: async () => {},
+				stop: async () => ({ kind: 'stopped' }),
+				terminate: () => true,
+			}),
+		});
+
+		expect(command.passphrase).toBe('');
+	});
+
+	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {
+		const passphrase = 'production private atlas words';
+		const createdKeyRing = await createCommittedVault(passphrase);
+		const expectedFingerprint = await createdKeyRing.withDerivedKey(
 			'sqlcipher',
 			key => createHash('sha256').update(key).digest('hex'),
 		);
-		created.keyRing.dispose();
+		createdKeyRing.dispose();
 
 		const events: string[] = [];
+		let activeKeyRing: VaultSessionKeyRing|undefined;
 		const makeDependencies = (candidatePassphrase: string) =>
 			makeEncryptedDesktopDependencies({
 				command: { kind: 'unlock', passphrase: candidatePassphrase },
 				databasePath: join(vaultDirectory, 'profile.sqlite'),
 				envelopeDirectory: vaultDirectory,
 				openProfileStorage: async keyRing => {
+					activeKeyRing = keyRing;
 					events.push(await keyRing.withDerivedKey(
 						'sqlcipher',
 						key => `storage:${createHash('sha256').update(key).digest('hex')}`,
 					));
-					return new EncryptedProfileStorage(makeConnection());
+					return new EncryptedProfileStorage(makeConnection(events));
 				},
 				profileHostOptions: {
 					ephemeralSessionFactory: {
@@ -88,7 +132,10 @@ describe('makeEncryptedDesktopDependencies', () => {
 						start: async () => {
 							events.push('joplin-started');
 						},
-						stop: async () => ({ kind: 'stopped' }),
+						stop: async () => {
+							events.push('joplin-stopped');
+							return { kind: 'stopped' };
+						},
 						terminate: () => true,
 					};
 				},
@@ -102,6 +149,14 @@ describe('makeEncryptedDesktopDependencies', () => {
 			'joplin-started',
 		]);
 		await unlocked.lifecycle.end('close');
+		expect(events.slice(-2)).toEqual([
+			'joplin-stopped',
+			'storage-closed',
+		]);
+		await expect(activeKeyRing!.withDerivedKey(
+			'sqlcipher',
+			key => key.byteLength,
+		)).rejects.toThrow('disposed');
 
 		events.length = 0;
 		const rejected = await startWatchtowerDesktop(
@@ -112,7 +167,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 			reason: 'wrongCredential',
 		});
 		expect(events).toEqual([]);
-	});
+	}, 30_000);
 
 	const sqlCipherTest = process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT ?
 		test :
@@ -121,22 +176,8 @@ describe('makeEncryptedDesktopDependencies', () => {
 		process.env['@SIGNALAPP/SQLCIPHER_PREBUILD'] =
 			process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT;
 		const passphrase = 'production sqlcipher atlas words';
-		const credentialLifecycle = new VaultCredentialLifecycle(
-			new VaultKeyEnvelopeStore(vaultDirectory),
-		);
-		const begun = await credentialLifecycle.beginCreate({
-			passphrase,
-			memoryProfile: 'qualified-constrained',
-		});
-		if (begun.kind !== 'recoveryConfirmationRequired') {
-			throw new Error('Expected vault creation to begin');
-		}
-		const created = await credentialLifecycle.confirmCreate({
-			creationId: begun.creationId,
-			recoverySecret: begun.recoverySecret,
-		});
-		if (created.kind !== 'opened') throw new Error('Expected vault creation');
-		created.keyRing.dispose();
+		const createdKeyRing = await createCommittedVault(passphrase);
+		createdKeyRing.dispose();
 
 		const started = await startWatchtowerDesktop(
 			makeEncryptedDesktopDependencies({
@@ -182,5 +223,5 @@ describe('makeEncryptedDesktopDependencies', () => {
 		await expect(started.lifecycle.end('close')).resolves.toEqual({
 			kind: 'locked',
 		});
-	});
+	}, 30_000);
 });
