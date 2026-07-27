@@ -668,6 +668,9 @@ packages/app-desktop/watchtower/profile/profileStorageTypes.js
 packages/app-desktop/watchtower/profile/sqlCipherProfileTypes.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.test.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.js
+packages/app-desktop/watchtower/vault/VaultCredentialLifecycle.forcedTerminationWorker.js
+packages/app-desktop/watchtower/vault/VaultCredentialLifecycle.test.js
+packages/app-desktop/watchtower/vault/VaultCredentialLifecycle.js
 packages/app-desktop/watchtower/vault/argon2id.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelope.test.js
 packages/app-desktop/watchtower/vault/vaultKeyEnvelope.js

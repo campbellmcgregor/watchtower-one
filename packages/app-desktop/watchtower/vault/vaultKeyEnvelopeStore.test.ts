@@ -78,14 +78,17 @@ describe('VaultKeyEnvelopeStore', () => {
 	test('retains the committed envelope when replacement is interrupted', async () => {
 		const passphrase = 'first committed passphrase';
 		const first = await createEnvelope(passphrase);
-		const replacement = JSON.parse(JSON.stringify(first.publicState));
-		const ciphertext = replacement.passphrase.wrappedKey.ciphertext;
-		const mutationOffset = Math.floor(ciphertext.length / 2);
-		replacement.passphrase.wrappedKey.ciphertext = `${
-			ciphertext.slice(0, mutationOffset)
-		}${ciphertext[mutationOffset] === 'A' ? 'B' : 'A'}${
-			ciphertext.slice(mutationOffset + 1)
-		}`;
+		const keyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+			first.publicState,
+			passphrase,
+		);
+		const replacement = await VaultKeyEnvelope.replacePassphrase(
+			first.publicState,
+			keyRing,
+			'replacement committed passphrase',
+			passphraseKdf,
+		);
+		keyRing.dispose();
 		const store = new VaultKeyEnvelopeStore(storeDirectory);
 		await store.commit(first.publicState);
 		jest.mocked(rename).mockClear();

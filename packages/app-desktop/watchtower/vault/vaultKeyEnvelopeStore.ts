@@ -72,6 +72,17 @@ export class VaultKeyEnvelopeCommitError extends Error {
 	}
 }
 
+export type CommittedVaultKeyEnvelopeInspection =
+	{ kind: 'missing' }|
+	{ kind: 'committed'; publicState: VaultKeyEnvelopePublicState };
+
+export type VaultKeyEnvelopeDurabilityPhase =
+	'pending-synced'|'committed-synced';
+
+export interface VaultKeyEnvelopeDurabilityObserver {
+	reached(phase: VaultKeyEnvelopeDurabilityPhase): Promise<void>;
+}
+
 const syncDirectoryWhereSupported = async (directoryPath: string) => {
 	let directoryHandle;
 	try {
@@ -126,8 +137,18 @@ const readBoundedFile = async (path: string) => {
 };
 
 export default class VaultKeyEnvelopeStore {
+	private durabilityObserver_: VaultKeyEnvelopeDurabilityObserver|null = null;
 
 	public constructor(private readonly directoryPath_: string) {}
+
+	public static withDurabilityObserver(
+		directoryPath: string,
+		observer: VaultKeyEnvelopeDurabilityObserver,
+	) {
+		const store = new VaultKeyEnvelopeStore(directoryPath);
+		store.durabilityObserver_ = observer;
+		return store;
+	}
 
 	public async commit(publicState: VaultKeyEnvelopePublicState): Promise<void> {
 		let queueKey: string;
@@ -181,7 +202,11 @@ export default class VaultKeyEnvelopeStore {
 			);
 			if (await pathExists(committedPath)) {
 				const committedState = await this.loadCommitted();
-				if (committedState.vaultId !== validatedState.vaultId) {
+				if (
+					committedState.vaultId !== validatedState.vaultId ||
+					validatedState.activeGeneration <=
+						committedState.activeGeneration
+				) {
 					throw new VaultKeyEnvelopeCommitError();
 				}
 			}
@@ -191,10 +216,12 @@ export default class VaultKeyEnvelopeStore {
 				pendingHandle = await open(pendingPath, 'w', 0o600);
 				await pendingHandle.writeFile(validatedSerialized, 'utf8');
 				await pendingHandle.sync();
+				await this.durabilityObserver_?.reached('pending-synced');
 				await pendingHandle.close();
 				pendingHandle = undefined;
 				await rename(pendingPath, committedPath);
 				await syncDirectoryWhereSupported(this.directoryPath_);
+				await this.durabilityObserver_?.reached('committed-synced');
 			} finally {
 				await pendingHandle?.close();
 				await rm(pendingPath, { force: true });
@@ -206,12 +233,30 @@ export default class VaultKeyEnvelopeStore {
 	}
 
 	public async loadCommitted(): Promise<VaultKeyEnvelopePublicState> {
+		const inspection = await this.inspectCommitted();
+		if (inspection.kind === 'missing') {
+			throw new InvalidCommittedVaultKeyEnvelopeError();
+		}
+		return inspection.publicState;
+	}
+
+	public async inspectCommitted(): Promise<CommittedVaultKeyEnvelopeInspection> {
 		const committedPath = join(this.directoryPath_, committedEnvelopeFileName);
 		try {
 			await access(committedPath, constants.R_OK);
-			return VaultKeyEnvelope.parsePublicState(
-				await readBoundedFile(committedPath),
-			);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+				return { kind: 'missing' };
+			}
+			throw new InvalidCommittedVaultKeyEnvelopeError();
+		}
+		try {
+			return {
+				kind: 'committed',
+				publicState: VaultKeyEnvelope.parsePublicState(
+					await readBoundedFile(committedPath),
+				),
+			};
 		} catch (error) {
 			if (error instanceof InvalidCommittedVaultKeyEnvelopeError) throw error;
 			throw new InvalidCommittedVaultKeyEnvelopeError();
