@@ -156,7 +156,7 @@ export default class VaultKeyEnvelopeStore {
 
 	public async commit(
 		publicState: VaultKeyEnvelopePublicState,
-		verifyPending?: PendingVaultKeyEnvelopeVerifier,
+		verifyPending: PendingVaultKeyEnvelopeVerifier,
 	): Promise<void> {
 		let queueKey: string;
 		try {
@@ -190,7 +190,7 @@ export default class VaultKeyEnvelopeStore {
 
 	private async commitExclusive_(
 		publicState: VaultKeyEnvelopePublicState,
-		verifyPending?: PendingVaultKeyEnvelopeVerifier,
+		verifyPending: PendingVaultKeyEnvelopeVerifier,
 	): Promise<void> {
 		try {
 			const serialized = JSON.stringify(publicState);
@@ -230,7 +230,7 @@ export default class VaultKeyEnvelopeStore {
 				const reopenedPending = VaultKeyEnvelope.parsePublicState(
 					await readBoundedFile(pendingPath),
 				);
-				await verifyPending?.(reopenedPending);
+				await verifyPending(reopenedPending);
 				await rename(pendingPath, committedPath);
 				await syncDirectoryWhereSupported(this.directoryPath_);
 				await this.durabilityObserver_?.reached('committed-synced');
