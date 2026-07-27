@@ -32,6 +32,9 @@ import * as React from 'react';
 import nodeSqlite = require('sqlite3');
 import initLib from '@joplin/lib/initLib';
 import PerformanceLogger from '@joplin/lib/PerformanceLogger';
+import {
+	startEncryptedJoplinRenderer,
+} from './watchtower/renderer/startEncryptedJoplinRenderer';
 const pdfJs = require('pdfjs-dist');
 const { isAppleSilicon } = require('is-apple-silicon');
 require('@sentry/electron/renderer');
@@ -100,7 +103,7 @@ const main = async () => {
 	Logger.initializeGlobalLogger(logger);
 	initLib(logger);
 
-	const startResult = await app().start(bridge().processArgv());
+	const startResult = await startEncryptedJoplinRenderer(bridge(), app());
 
 	if (!startResult || !startResult.action) {
 		require('./gui/Root');
