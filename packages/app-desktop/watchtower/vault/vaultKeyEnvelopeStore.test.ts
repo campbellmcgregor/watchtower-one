@@ -29,6 +29,8 @@ const createEnvelope = async (passphrase: string) => {
 	return await VaultKeyEnvelope.create({ passphrase, passphraseKdf });
 };
 
+const acceptPending = async () => {};
+
 const sqlCipherFingerprint = async (
 	publicState: Awaited<ReturnType<typeof createEnvelope>>['publicState'],
 	passphrase: string,
@@ -68,7 +70,7 @@ describe('VaultKeyEnvelopeStore', () => {
 		const created = await createEnvelope(passphrase);
 		const initialStore = new VaultKeyEnvelopeStore(storeDirectory);
 
-		await initialStore.commit(created.publicState);
+		await initialStore.commit(created.publicState, acceptPending);
 
 		const restartedStore = new VaultKeyEnvelopeStore(storeDirectory);
 		const reopenedState = await restartedStore.loadCommitted();
@@ -78,22 +80,25 @@ describe('VaultKeyEnvelopeStore', () => {
 	test('retains the committed envelope when replacement is interrupted', async () => {
 		const passphrase = 'first committed passphrase';
 		const first = await createEnvelope(passphrase);
-		const replacement = JSON.parse(JSON.stringify(first.publicState));
-		const ciphertext = replacement.passphrase.wrappedKey.ciphertext;
-		const mutationOffset = Math.floor(ciphertext.length / 2);
-		replacement.passphrase.wrappedKey.ciphertext = `${
-			ciphertext.slice(0, mutationOffset)
-		}${ciphertext[mutationOffset] === 'A' ? 'B' : 'A'}${
-			ciphertext.slice(mutationOffset + 1)
-		}`;
+		const keyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+			first.publicState,
+			passphrase,
+		);
+		const replacement = await VaultKeyEnvelope.replacePassphrase(
+			first.publicState,
+			keyRing,
+			'replacement committed passphrase',
+			passphraseKdf,
+		);
+		keyRing.dispose();
 		const store = new VaultKeyEnvelopeStore(storeDirectory);
-		await store.commit(first.publicState);
+		await store.commit(first.publicState, acceptPending);
 		jest.mocked(rename).mockClear();
 		jest.mocked(rename).mockRejectedValueOnce(
 			new Error('simulated forced termination'),
 		);
 
-		await expect(store.commit(replacement)).rejects.toThrow(
+		await expect(store.commit(replacement, acceptPending)).rejects.toThrow(
 			'Vault Key Envelope commit failed closed',
 		);
 		expect(rename).toHaveBeenCalledTimes(1);
@@ -105,13 +110,42 @@ describe('VaultKeyEnvelopeStore', () => {
 		expect(await sqlCipherFingerprint(reopenedState, passphrase)).toHaveLength(64);
 	});
 
+	test('does not activate pending bytes rejected by credential verification', async () => {
+		const passphrase = 'first committed passphrase';
+		const first = await createEnvelope(passphrase);
+		const keyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+			first.publicState,
+			passphrase,
+		);
+		const replacement = await VaultKeyEnvelope.replacePassphrase(
+			first.publicState,
+			keyRing,
+			'replacement committed passphrase',
+			passphraseKdf,
+		);
+		keyRing.dispose();
+		const store = new VaultKeyEnvelopeStore(storeDirectory);
+		await store.commit(first.publicState, acceptPending);
+		jest.mocked(rename).mockClear();
+
+		await expect(store.commit(replacement, async reopenedPending => {
+			expect(reopenedPending).toEqual(replacement);
+			throw new Error('simulated credential verification failure');
+		})).rejects.toThrow('Vault Key Envelope commit failed closed');
+		expect(rename).not.toHaveBeenCalled();
+		expect(await store.loadCommitted()).toEqual(first.publicState);
+	});
+
 	test('refuses to replace a committed vault with another vault identity', async () => {
 		const first = await createEnvelope('first committed passphrase');
 		const unrelated = await createEnvelope('unrelated vault passphrase');
 		const store = new VaultKeyEnvelopeStore(storeDirectory);
-		await store.commit(first.publicState);
+		await store.commit(first.publicState, acceptPending);
 
-		await expect(store.commit(unrelated.publicState)).rejects.toThrow(
+		await expect(store.commit(
+			unrelated.publicState,
+			acceptPending,
+		)).rejects.toThrow(
 			'Vault Key Envelope commit failed closed',
 		);
 
@@ -125,8 +159,14 @@ describe('VaultKeyEnvelopeStore', () => {
 		const first = await createEnvelope('first concurrent passphrase');
 		const second = await createEnvelope('second concurrent passphrase');
 		const outcomes = await Promise.allSettled([
-			new VaultKeyEnvelopeStore(storeDirectory).commit(first.publicState),
-			new VaultKeyEnvelopeStore(storeDirectory).commit(second.publicState),
+			new VaultKeyEnvelopeStore(storeDirectory).commit(
+				first.publicState,
+				acceptPending,
+			),
+			new VaultKeyEnvelopeStore(storeDirectory).commit(
+				second.publicState,
+				acceptPending,
+			),
 		]);
 
 		expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);
@@ -150,8 +190,14 @@ describe('VaultKeyEnvelopeStore', () => {
 		const first = await createEnvelope('first alias passphrase');
 		const second = await createEnvelope('second alias passphrase');
 		const outcomes = await Promise.allSettled([
-			new VaultKeyEnvelopeStore(storeDirectory).commit(first.publicState),
-			new VaultKeyEnvelopeStore(storeDirectoryAlias).commit(second.publicState),
+			new VaultKeyEnvelopeStore(storeDirectory).commit(
+				first.publicState,
+				acceptPending,
+			),
+			new VaultKeyEnvelopeStore(storeDirectoryAlias).commit(
+				second.publicState,
+				acceptPending,
+			),
 		]);
 
 		expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);

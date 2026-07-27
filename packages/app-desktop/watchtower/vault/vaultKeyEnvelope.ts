@@ -60,7 +60,7 @@ interface WrappedLocalVaultKey {
 }
 
 interface PassphraseKeyEnvelope {
-	generation: 1;
+	generation: number;
 	kdf: StoredPassphraseKdfParameters;
 	purpose: 'passphrase';
 	wrappedKey: WrappedLocalVaultKey;
@@ -72,14 +72,14 @@ interface StoredRecoveryKdfParameters {
 }
 
 interface RecoveryKeyEnvelope {
-	generation: 1;
+	generation: number;
 	kdf: StoredRecoveryKdfParameters;
 	purpose: 'recovery';
 	wrappedKey: WrappedLocalVaultKey;
 }
 
 export interface VaultKeyEnvelopePublicState {
-	activeGeneration: 1;
+	activeGeneration: number;
 	format: 'watchtower-vault-key-envelope';
 	passphrase: PassphraseKeyEnvelope;
 	recovery: RecoveryKeyEnvelope;
@@ -93,6 +93,11 @@ interface CreateVaultKeyEnvelopeOptions {
 }
 
 interface CreateVaultKeyEnvelopeResult {
+	publicState: VaultKeyEnvelopePublicState;
+	recoverySecret: string;
+}
+
+interface ReplaceRecoverySecretResult {
 	publicState: VaultKeyEnvelopePublicState;
 	recoverySecret: string;
 }
@@ -196,7 +201,7 @@ const validatePublicState = (value: unknown): VaultKeyEnvelopePublicState => {
 		]) ||
 		value.format !== 'watchtower-vault-key-envelope' ||
 		value.version !== 1 ||
-		value.activeGeneration !== 1 ||
+		!isIntegerInRange(value.activeGeneration, 1, Number.MAX_SAFE_INTEGER) ||
 		!isRecord(value.passphrase) ||
 		!hasExactKeys(value.passphrase, [
 			'generation',
@@ -205,7 +210,11 @@ const validatePublicState = (value: unknown): VaultKeyEnvelopePublicState => {
 			'wrappedKey',
 		]) ||
 		value.passphrase.purpose !== 'passphrase' ||
-		value.passphrase.generation !== 1 ||
+		!isIntegerInRange(
+			value.passphrase.generation,
+			1,
+			value.activeGeneration as number,
+		) ||
 		!isRecord(value.passphrase.kdf) ||
 		!hasExactKeys(value.passphrase.kdf, [
 			'algorithm',
@@ -227,13 +236,23 @@ const validatePublicState = (value: unknown): VaultKeyEnvelopePublicState => {
 			'wrappedKey',
 		]) ||
 		value.recovery.purpose !== 'recovery' ||
-		value.recovery.generation !== 1 ||
+		!isIntegerInRange(
+			value.recovery.generation,
+			1,
+			value.activeGeneration as number,
+		) ||
 		!isRecord(value.recovery.kdf) ||
 		!hasExactKeys(value.recovery.kdf, [
 			'algorithm',
 			'salt',
 		]) ||
 		value.recovery.kdf.algorithm !== 'hkdf-sha256'
+	) {
+		throw new InvalidVaultKeyEnvelopeError();
+	}
+	if (
+		value.passphrase.generation !== value.activeGeneration &&
+		value.recovery.generation !== value.activeGeneration
 	) {
 		throw new InvalidVaultKeyEnvelopeError();
 	}
@@ -253,16 +272,16 @@ const validatePublicState = (value: unknown): VaultKeyEnvelopePublicState => {
 		format: value.format,
 		version: value.version,
 		vaultId: readBase64Url(value.vaultId, vaultIdentifierBytes),
-		activeGeneration: value.activeGeneration,
+		activeGeneration: value.activeGeneration as number,
 		passphrase: {
 			purpose: value.passphrase.purpose,
-			generation: value.passphrase.generation,
+			generation: value.passphrase.generation as number,
 			kdf: passphraseKdf,
 			wrappedKey: readWrappedKey(value.passphrase.wrappedKey),
 		},
 		recovery: {
 			purpose: value.recovery.purpose,
-			generation: value.recovery.generation,
+			generation: value.recovery.generation as number,
 			kdf: {
 				algorithm: value.recovery.kdf.algorithm,
 				salt: readBase64Url(value.recovery.kdf.salt, saltBytes),
@@ -456,7 +475,7 @@ const envelopeAuthenticatedData = (
 		format: 'watchtower-vault-key-envelope',
 		version: 1,
 		vaultId,
-		activeGeneration: 1,
+		activeGeneration: envelope.generation,
 		purpose: envelope.purpose,
 		generation: envelope.generation,
 		kdf: envelope.kdf,
@@ -575,6 +594,102 @@ class VaultSessionKeyRingImpl implements VaultSessionKeyRing {
 		this.disposed_ = true;
 		this.localVaultKey_.fill(0);
 		for (const key of this.activeDerivedKeys_) key.fill(0);
+	}
+
+	public async createPassphraseReplacement(
+		publicState: VaultKeyEnvelopePublicState,
+		passphrase: string,
+		passphraseKdf: PassphraseKdfParameters,
+	): Promise<VaultKeyEnvelopePublicState> {
+		if (
+			this.disposed_ ||
+			publicState.vaultId !== this.vaultId_ ||
+			publicState.activeGeneration >= Number.MAX_SAFE_INTEGER
+		) {
+			throw new InvalidVaultKeyEnvelopeError();
+		}
+		validatePassphraseKdf(passphraseKdf);
+
+		const generation = publicState.activeGeneration + 1;
+		const kdf: StoredPassphraseKdfParameters = {
+			algorithm: 'argon2id',
+			version: 19,
+			salt: randomBytes(saltBytes).toString('base64url'),
+			tagLength: 32,
+			...passphraseKdf,
+		};
+		const passphraseEnvelope = {
+			purpose: 'passphrase',
+			generation,
+			kdf,
+		} as const;
+		const argon2idOutput = await derivePassphraseArgon2id(passphrase, kdf);
+		let wrappingKey: Buffer|undefined;
+		try {
+			wrappingKey = derivePassphraseWrappingKey(argon2idOutput, kdf);
+			return {
+				...publicState,
+				activeGeneration: generation,
+				passphrase: {
+					...passphraseEnvelope,
+					wrappedKey: wrapLocalVaultKey(
+						this.localVaultKey_,
+						wrappingKey,
+						envelopeAuthenticatedData(this.vaultId_, passphraseEnvelope),
+					),
+				},
+			};
+		} finally {
+			argon2idOutput.fill(0);
+			wrappingKey?.fill(0);
+		}
+	}
+
+	public createRecoveryReplacement(
+		publicState: VaultKeyEnvelopePublicState,
+	): ReplaceRecoverySecretResult {
+		if (
+			this.disposed_ ||
+			publicState.vaultId !== this.vaultId_ ||
+			publicState.activeGeneration >= Number.MAX_SAFE_INTEGER
+		) {
+			throw new InvalidVaultKeyEnvelopeError();
+		}
+
+		const generation = publicState.activeGeneration + 1;
+		const recoverySecretBytes = randomBytes(recoverySecretLength);
+		let wrappingKey: Buffer|undefined;
+		try {
+			const recoverySecret = encodeRecoverySecret(recoverySecretBytes);
+			const kdf: StoredRecoveryKdfParameters = {
+				algorithm: 'hkdf-sha256',
+				salt: randomBytes(saltBytes).toString('base64url'),
+			};
+			const recoveryEnvelope = {
+				purpose: 'recovery',
+				generation,
+				kdf,
+			} as const;
+			wrappingKey = deriveRecoveryWrappingKey(recoverySecretBytes, kdf);
+			return {
+				recoverySecret,
+				publicState: {
+					...publicState,
+					activeGeneration: generation,
+					recovery: {
+						...recoveryEnvelope,
+						wrappedKey: wrapLocalVaultKey(
+							this.localVaultKey_,
+							wrappingKey,
+							envelopeAuthenticatedData(this.vaultId_, recoveryEnvelope),
+						),
+					},
+				},
+			};
+		} finally {
+			recoverySecretBytes.fill(0);
+			wrappingKey?.fill(0);
+		}
 	}
 }
 
@@ -727,10 +842,40 @@ const unlockWithRecoverySecret = async (
 	}
 };
 
+const replacePassphrase = async (
+	publicState: VaultKeyEnvelopePublicState,
+	keyRing: VaultSessionKeyRing,
+	passphrase: string,
+	passphraseKdf: PassphraseKdfParameters,
+) => {
+	publicState = validatePublicState(publicState);
+	if (!(keyRing instanceof VaultSessionKeyRingImpl)) {
+		throw new InvalidVaultKeyEnvelopeError();
+	}
+	return keyRing.createPassphraseReplacement(
+		publicState,
+		passphrase,
+		passphraseKdf,
+	);
+};
+
+const replaceRecoverySecret = (
+	publicState: VaultKeyEnvelopePublicState,
+	keyRing: VaultSessionKeyRing,
+) => {
+	publicState = validatePublicState(publicState);
+	if (!(keyRing instanceof VaultSessionKeyRingImpl)) {
+		throw new InvalidVaultKeyEnvelopeError();
+	}
+	return keyRing.createRecoveryReplacement(publicState);
+};
+
 const VaultKeyEnvelope = {
 	create,
 	inspectPublicState,
 	parsePublicState,
+	replacePassphrase,
+	replaceRecoverySecret,
 	unlockWithPassphrase,
 	unlockWithRecoverySecret,
 };
