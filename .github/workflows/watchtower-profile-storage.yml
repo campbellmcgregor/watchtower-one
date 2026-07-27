@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/watchtower-profile-storage.yml
+      - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/package.json
       - watchtower/sqlcipher/**

@@ -9,6 +9,7 @@ module.exports = {
 	],
 	testEnvironment: 'node',
 	testMatch: [
+		'**/watchtower/desktop/makeEncryptedDesktopDependencies.test.ts',
 		'**/watchtower/profile/SqlCipherEncryptedProfileConnection.integration.test.ts',
 	],
 	transform: {
