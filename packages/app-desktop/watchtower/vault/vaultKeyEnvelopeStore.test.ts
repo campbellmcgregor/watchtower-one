@@ -108,6 +108,32 @@ describe('VaultKeyEnvelopeStore', () => {
 		expect(await sqlCipherFingerprint(reopenedState, passphrase)).toHaveLength(64);
 	});
 
+	test('does not activate pending bytes rejected by credential verification', async () => {
+		const passphrase = 'first committed passphrase';
+		const first = await createEnvelope(passphrase);
+		const keyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+			first.publicState,
+			passphrase,
+		);
+		const replacement = await VaultKeyEnvelope.replacePassphrase(
+			first.publicState,
+			keyRing,
+			'replacement committed passphrase',
+			passphraseKdf,
+		);
+		keyRing.dispose();
+		const store = new VaultKeyEnvelopeStore(storeDirectory);
+		await store.commit(first.publicState);
+		jest.mocked(rename).mockClear();
+
+		await expect(store.commit(replacement, async reopenedPending => {
+			expect(reopenedPending).toEqual(replacement);
+			throw new Error('simulated credential verification failure');
+		})).rejects.toThrow('Vault Key Envelope commit failed closed');
+		expect(rename).not.toHaveBeenCalled();
+		expect(await store.loadCommitted()).toEqual(first.publicState);
+	});
+
 	test('refuses to replace a committed vault with another vault identity', async () => {
 		const first = await createEnvelope('first committed passphrase');
 		const unrelated = await createEnvelope('unrelated vault passphrase');

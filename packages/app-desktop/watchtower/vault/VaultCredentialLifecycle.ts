@@ -143,7 +143,14 @@ export default class VaultCredentialLifecycle {
 		verificationKeyRing.dispose();
 
 		try {
-			await this.store_.commit(pending.publicState);
+			await this.store_.commit(pending.publicState, async publicState => {
+				const reopenedKeyRing =
+					await VaultKeyEnvelope.unlockWithRecoverySecret(
+						publicState,
+						options.recoverySecret,
+					);
+				reopenedKeyRing.dispose();
+			});
 			const committed = await this.store_.loadCommitted();
 			const keyRing = await VaultKeyEnvelope.unlockWithRecoverySecret(
 				committed,
@@ -235,7 +242,13 @@ export default class VaultCredentialLifecycle {
 			);
 			verificationKeyRing.dispose();
 
-			await this.store_.commit(replacement);
+			await this.store_.commit(replacement, async publicState => {
+				const reopenedKeyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+					publicState,
+					options.newPassphrase,
+				);
+				reopenedKeyRing.dispose();
+			});
 			const durableReplacement = await this.store_.loadCommitted();
 			return {
 				kind: 'opened',
@@ -297,7 +310,13 @@ export default class VaultCredentialLifecycle {
 				options.newPassphrase,
 			);
 			verificationKeyRing.dispose();
-			await this.store_.commit(replacement);
+			await this.store_.commit(replacement, async publicState => {
+				const reopenedKeyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+					publicState,
+					options.newPassphrase,
+				);
+				reopenedKeyRing.dispose();
+			});
 			return {
 				kind: 'opened',
 				keyRing: await VaultKeyEnvelope.unlockWithPassphrase(
@@ -387,7 +406,14 @@ export default class VaultCredentialLifecycle {
 		verificationKeyRing.dispose();
 
 		try {
-			await this.store_.commit(pending.publicState);
+			await this.store_.commit(pending.publicState, async publicState => {
+				const reopenedKeyRing =
+					await VaultKeyEnvelope.unlockWithRecoverySecret(
+						publicState,
+						options.recoverySecret,
+					);
+				reopenedKeyRing.dispose();
+			});
 			const committed = await this.store_.loadCommitted();
 			const keyRing = await VaultKeyEnvelope.unlockWithRecoverySecret(
 				committed,

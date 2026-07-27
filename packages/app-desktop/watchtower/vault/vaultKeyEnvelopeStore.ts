@@ -83,6 +83,10 @@ export interface VaultKeyEnvelopeDurabilityObserver {
 	reached(phase: VaultKeyEnvelopeDurabilityPhase): Promise<void>;
 }
 
+export type PendingVaultKeyEnvelopeVerifier = (
+	publicState: VaultKeyEnvelopePublicState,
+)=> Promise<void>;
+
 const syncDirectoryWhereSupported = async (directoryPath: string) => {
 	let directoryHandle;
 	try {
@@ -150,7 +154,10 @@ export default class VaultKeyEnvelopeStore {
 		return store;
 	}
 
-	public async commit(publicState: VaultKeyEnvelopePublicState): Promise<void> {
+	public async commit(
+		publicState: VaultKeyEnvelopePublicState,
+		verifyPending?: PendingVaultKeyEnvelopeVerifier,
+	): Promise<void> {
 		let queueKey: string;
 		try {
 			await mkdir(this.directoryPath_, { recursive: true, mode: 0o700 });
@@ -169,7 +176,7 @@ export default class VaultKeyEnvelopeStore {
 		}
 		try {
 			await queue.run(async () => {
-				await this.commitExclusive_(publicState);
+				await this.commitExclusive_(publicState, verifyPending);
 			});
 		} finally {
 			if (
@@ -183,6 +190,7 @@ export default class VaultKeyEnvelopeStore {
 
 	private async commitExclusive_(
 		publicState: VaultKeyEnvelopePublicState,
+		verifyPending?: PendingVaultKeyEnvelopeVerifier,
 	): Promise<void> {
 		try {
 			const serialized = JSON.stringify(publicState);
@@ -219,6 +227,10 @@ export default class VaultKeyEnvelopeStore {
 				await this.durabilityObserver_?.reached('pending-synced');
 				await pendingHandle.close();
 				pendingHandle = undefined;
+				const reopenedPending = VaultKeyEnvelope.parsePublicState(
+					await readBoundedFile(pendingPath),
+				);
+				await verifyPending?.(reopenedPending);
 				await rename(pendingPath, committedPath);
 				await syncDirectoryWhereSupported(this.directoryPath_);
 				await this.durabilityObserver_?.reached('committed-synced');

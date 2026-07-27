@@ -23,8 +23,10 @@ other encrypted profile data. The published generation-one compatibility
 vector remains valid.
 
 The pending file is a journal record, never an alternate profile or plaintext
-fallback. Restart reads only the committed envelope. Corrupt committed state
-cannot be treated as a missing vault and cannot trigger creation.
+fallback. After flushing, the lifecycle reopens and authenticates the actual
+pending bytes with the new credential before atomic activation. Restart reads
+only the committed envelope. Corrupt committed state cannot be treated as a
+missing vault and cannot trigger creation.
 
 ## Forced-termination evidence
 
@@ -51,11 +53,12 @@ arguments, environment variables, or IPC.
 ## Deliberate boundaries
 
 This is lifecycle and filesystem evidence at the production vault seam. It
-does not claim physical secure erasure on SSDs. Removing an obsolete wrapper
-makes that credential cryptographically inactive without claiming its former
-flash cells were overwritten.
+does not claim physical secure erasure on SSDs.
 
 Packaged runtime tracing, UI progress/cancellation, and wiring these commands
 into the pre-unlock host remain integration and release-evidence work. Hard
 lock/close remains owned by the pre-profile process lifecycle rather than by
-the credential-envelope module.
+the credential-envelope module. Rejecting restoration of a previously copied,
+otherwise authentic envelope requires the independent retirement marker in
+authenticated encrypted metadata; the envelope file alone cannot prove
+freshness after an offline rollback. Issues #13 and #15 therefore remain open.
