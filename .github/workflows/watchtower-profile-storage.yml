@@ -10,6 +10,9 @@ on:
       - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/watchtower/renderer/**
+      - packages/app-desktop/watchtower/unlock/**
+      - packages/app-desktop/gulpfile.ts
+      - packages/app-desktop/tools/bundleJs.ts
       - packages/app-desktop/package.json
       - watchtower/sqlcipher/**
       - yarn.lock
@@ -105,6 +108,11 @@ jobs:
           WATCHTOWER_SQLCIPHER_PREBUILD_ROOT: ${{ github.workspace }}\node-sqlcipher
         run: |
           corepack yarn watchtowerProfileStorageProof
+
+      - name: Run the pre-profile unlock-window proof
+        run: |
+          corepack yarn workspace @joplin/app-desktop gulp bundleWatchtowerUnlockPreload
+          corepack yarn workspace @joplin/app-desktop test --config watchtower/unlock/jest.unlock-proof.config.js --runInBand
 
       - name: Upload verified compatibility evidence
         uses: actions/upload-artifact@v4

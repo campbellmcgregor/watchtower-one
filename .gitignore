@@ -646,6 +646,11 @@ packages/app-desktop/watchtower/profile/profileStorageTypes.js
 packages/app-desktop/watchtower/profile/sqlCipherProfileTypes.js
 packages/app-desktop/watchtower/renderer/startEncryptedJoplinRenderer.test.js
 packages/app-desktop/watchtower/renderer/startEncryptedJoplinRenderer.js
+packages/app-desktop/watchtower/unlock/ElectronPreProfileUnlockView.test.js
+packages/app-desktop/watchtower/unlock/ElectronPreProfileUnlockView.js
+packages/app-desktop/watchtower/unlock/preload.js
+packages/app-desktop/watchtower/unlock/unlockAssets.test.js
+packages/app-desktop/watchtower/unlock/unlockIpcChannels.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.test.js
 packages/app-desktop/watchtower/vault/PreProfileVaultBootstrap.js
 packages/app-desktop/watchtower/vault/VaultCredentialLifecycle.forcedTerminationWorker.js

@@ -4,7 +4,7 @@ const compileSass = require('@joplin/tools/compileSass');
 const compilePackageInfo = require('@joplin/tools/compilePackageInfo');
 import buildDefaultPlugins from '@joplin/default-plugins/commands/buildAll';
 import copy7Zip from './tools/copy7Zip';
-import bundleJs from './tools/bundleJs';
+import bundleJs, { bundleWatchtowerUnlockPreload } from './tools/bundleJs';
 import { remove } from 'fs-extra';
 
 const tasks = {
@@ -15,6 +15,9 @@ const tasks = {
 	// locally or with https://esbuild.github.io/analyze/.
 	bundleWithStats: {
 		fn: () => bundleJs(true),
+	},
+	bundleWatchtowerUnlockPreload: {
+		fn: bundleWatchtowerUnlockPreload,
 	},
 	compileScripts: {
 		fn: require('./tools/compileScripts'),

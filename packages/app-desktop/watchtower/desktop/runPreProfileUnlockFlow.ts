@@ -14,18 +14,19 @@ export type PreProfileUnlockFeedback = {
 };
 
 export type PreProfileUnlockSubmission =
-	{ kind: 'submitted'; passphrase: string }|
+	{ kind: 'submitted'; passphrase: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
 
 export interface PreProfileUnlockView {
 	requestPassphrase(
 		feedback?: PreProfileUnlockFeedback,
 	): Promise<PreProfileUnlockSubmission>;
-	close(): void;
+	close(): Promise<void>|void;
 }
 
 export type StartEncryptedDesktopUnlock = (
 	command: EncryptedDesktopUnlockCommand,
+	signal: AbortSignal,
 )=> Promise<WatchtowerDesktopStart>;
 
 export type PreProfileUnlockFlowResult =
@@ -38,8 +39,9 @@ const runPreProfileUnlockFlow = async (
 	startAttempt: StartEncryptedDesktopUnlock,
 ): Promise<PreProfileUnlockFlowResult> => {
 	let feedback: PreProfileUnlockFeedback|undefined;
+	let unlockedLifecycle: PreProfileVaultBootstrap|undefined;
 
-	try {
+	const run = async (): Promise<PreProfileUnlockFlowResult> => {
 		while (true) {
 			const submission = await view.requestPassphrase(feedback);
 			if (submission.kind === 'cancelled') return submission;
@@ -50,7 +52,7 @@ const runPreProfileUnlockFlow = async (
 			};
 			let started: WatchtowerDesktopStart;
 			try {
-				started = await startAttempt(command);
+				started = await startAttempt(command, submission.signal);
 			} finally {
 				command.passphrase = '';
 				submission.passphrase = '';
@@ -65,6 +67,7 @@ const runPreProfileUnlockFlow = async (
 			}
 
 			if (started.result.kind === 'unlocked') {
+				unlockedLifecycle = started.lifecycle;
 				return {
 					kind: 'unlocked',
 					lifecycle: started.lifecycle,
@@ -72,9 +75,23 @@ const runPreProfileUnlockFlow = async (
 			}
 			return started.result;
 		}
-	} finally {
-		view.close();
+	};
+
+	let result: PreProfileUnlockFlowResult|undefined;
+	let runError: unknown;
+	try {
+		result = await run();
+	} catch (error) {
+		runError = error;
 	}
+	try {
+		await view.close();
+	} catch (error) {
+		if (unlockedLifecycle) await unlockedLifecycle.end('close');
+		throw error;
+	}
+	if (result === undefined) throw runError;
+	return result;
 };
 
 export default runPreProfileUnlockFlow;

@@ -169,6 +169,50 @@ describe('makeEncryptedDesktopDependencies', () => {
 		expect(events).toEqual([]);
 	}, 30_000);
 
+	test('cancels passphrase unlock before opening profile storage or loading Joplin', async () => {
+		const passphrase = 'cancelled private atlas words';
+		const createdKeyRing = await createCommittedVault(passphrase);
+		createdKeyRing.dispose();
+		const openProfileStorage = jest.fn(
+			async () => new EncryptedProfileStorage(makeConnection()),
+		);
+		const loadJoplinProfileRuntime = jest.fn(async () => ({
+			start: async () => {},
+			stop: async () => ({ kind: 'stopped' as const }),
+			terminate: () => true,
+		}));
+		const controller = new AbortController();
+
+		const starting = startWatchtowerDesktop(
+			makeEncryptedDesktopDependencies({
+				command: { kind: 'unlock', passphrase },
+				databasePath: join(vaultDirectory, 'profile.sqlite'),
+				envelopeDirectory: vaultDirectory,
+				openProfileStorage,
+				profileHostOptions: {
+					ephemeralSessionFactory: {
+						fromPartition: async () => ({
+							storagePath: null,
+							clearCache: async () => {},
+							clearStorageData: async () => {},
+							closeAllConnections: async () => {},
+						}),
+					},
+					resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
+				},
+				loadJoplinProfileRuntime,
+			}),
+			controller.signal,
+		);
+		setTimeout(() => controller.abort(), 0);
+
+		await expect(starting).resolves.toMatchObject({
+			result: { kind: 'rejected', reason: 'cancelled' },
+		});
+		expect(openProfileStorage).not.toHaveBeenCalled();
+		expect(loadJoplinProfileRuntime).not.toHaveBeenCalled();
+	}, 30_000);
+
 	const sqlCipherTest = process.env.WATCHTOWER_SQLCIPHER_PREBUILD_ROOT ?
 		test :
 		test.skip;

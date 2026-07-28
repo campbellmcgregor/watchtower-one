@@ -20,6 +20,7 @@ export interface WatchtowerDesktopStart {
 
 export const startWatchtowerDesktop = async (
 	dependencies: WatchtowerDesktopDependencies,
+	signal?: AbortSignal,
 ): Promise<WatchtowerDesktopStart> => {
 	const lifecycle = new PreProfileVaultBootstrap(
 		dependencies.accessAdapter,
@@ -27,7 +28,11 @@ export const startWatchtowerDesktop = async (
 	);
 	return {
 		lifecycle,
-		result: await lifecycle.start(dependencies.operation, dependencies.profileHost),
+		result: await lifecycle.start(
+			dependencies.operation,
+			dependencies.profileHost,
+			signal,
+		),
 	};
 };
 
