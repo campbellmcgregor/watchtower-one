@@ -65,6 +65,12 @@ const runPreProfileUnlockFlow = async (
 				feedback = { kind: 'wrongCredential' };
 				continue;
 			}
+			if (
+				started.result.kind === 'rejected' &&
+				started.result.reason === 'cancelled'
+			) {
+				return { kind: 'cancelled' };
+			}
 
 			if (started.result.kind === 'unlocked') {
 				unlockedLifecycle = started.lifecycle;

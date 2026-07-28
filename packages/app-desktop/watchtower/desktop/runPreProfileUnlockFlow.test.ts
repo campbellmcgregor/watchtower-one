@@ -177,4 +177,41 @@ describe('runPreProfileUnlockFlow', () => {
 		expect(stopProfile).toHaveBeenCalledWith('close', expect.any(AbortSignal));
 		expect(closeVault).toHaveBeenCalledTimes(1);
 	});
+
+	test('normalizes cancellation during an active unlock attempt', async () => {
+		const controller = new AbortController();
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => ({
+				kind: 'submitted',
+				passphrase: 'private atlas words',
+				signal: controller.signal,
+			}),
+			close: jest.fn(),
+		};
+		const startAttempt = async (
+			_command: EncryptedDesktopUnlockCommand,
+			signal: AbortSignal,
+		) => {
+			controller.abort();
+			return startWatchtowerDesktop({
+				operation: 'unlock',
+				accessAdapter: {
+					create: jest.fn(),
+					unlock: async () => ({ kind: 'rejected', reason: 'wrongCredential' }),
+					recover: jest.fn(),
+					abort: () => true,
+				},
+				profileHost: {
+					start: jest.fn(),
+					stop: jest.fn(),
+					terminate: () => true,
+				},
+			}, signal);
+		};
+
+		await expect(runPreProfileUnlockFlow(view, startAttempt)).resolves.toEqual({
+			kind: 'cancelled',
+		});
+		expect(view.close).toHaveBeenCalledTimes(1);
+	});
 });
