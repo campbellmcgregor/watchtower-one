@@ -12,6 +12,7 @@ import { startWatchtowerDesktop } from './startWatchtowerDesktop';
 import type { WatchtowerDesktopStart } from './startWatchtowerDesktop';
 
 describe('runPreProfileUnlockFlow', () => {
+	const activeSignal = () => new AbortController().signal;
 	const openHandle: VaultOpenHandle = {
 		close: async () => {},
 		terminate: () => true,
@@ -22,6 +23,7 @@ describe('runPreProfileUnlockFlow', () => {
 		commands: EncryptedDesktopUnlockCommand[],
 	) => async (
 		command: EncryptedDesktopUnlockCommand,
+		signal: AbortSignal,
 	): Promise<WatchtowerDesktopStart> => {
 		commands.push(command);
 		const accessAdapter: VaultAccessAdapter = {
@@ -44,14 +46,22 @@ describe('runPreProfileUnlockFlow', () => {
 			operation: 'unlock',
 			accessAdapter,
 			profileHost,
-		});
+		}, signal);
 	};
 
 	test('retries a wrong credential without starting Joplin and clears each submission', async () => {
 		const feedback: unknown[] = [];
 		const submissions = [
-			{ kind: 'submitted' as const, passphrase: 'wrong private atlas words' },
-			{ kind: 'submitted' as const, passphrase: 'correct private atlas words' },
+			{
+				kind: 'submitted' as const,
+				passphrase: 'wrong private atlas words',
+				signal: activeSignal(),
+			},
+			{
+				kind: 'submitted' as const,
+				passphrase: 'correct private atlas words',
+				signal: activeSignal(),
+			},
 		];
 		const view: PreProfileUnlockView = {
 			requestPassphrase: async currentFeedback => {
@@ -97,6 +107,7 @@ describe('runPreProfileUnlockFlow', () => {
 		const submission = {
 			kind: 'submitted' as const,
 			passphrase: 'private atlas words',
+			signal: activeSignal(),
 		};
 		const view: PreProfileUnlockView = {
 			requestPassphrase: jest.fn(async () => submission),
@@ -121,5 +132,49 @@ describe('runPreProfileUnlockFlow', () => {
 		expect(submission.passphrase).toBe('');
 		expect(view.requestPassphrase).toHaveBeenCalledTimes(1);
 		expect(view.close).toHaveBeenCalledTimes(1);
+	});
+
+	test('closes an unlocked profile before surfacing unlock-view cleanup failure', async () => {
+		const closeVault = jest.fn(async () => {});
+		const stopProfile = jest.fn(async () => ({ kind: 'stopped' as const }));
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => ({
+				kind: 'submitted',
+				passphrase: 'correct private atlas words',
+				signal: activeSignal(),
+			}),
+			close: async () => {
+				throw new Error('unlock view cleanup failed');
+			},
+		};
+		const startAttempt = async (
+			_command: EncryptedDesktopUnlockCommand,
+			signal: AbortSignal,
+		) => await startWatchtowerDesktop({
+			operation: 'unlock',
+			accessAdapter: {
+				create: jest.fn(),
+				unlock: async () => ({
+					kind: 'opened',
+					handle: {
+						close: closeVault,
+						terminate: () => true,
+					},
+				}),
+				recover: jest.fn(),
+				abort: () => true,
+			},
+			profileHost: {
+				start: async () => {},
+				stop: stopProfile,
+				terminate: () => true,
+			},
+		}, signal);
+
+		await expect(runPreProfileUnlockFlow(view, startAttempt)).rejects.toThrow(
+			'unlock view cleanup failed',
+		);
+		expect(stopProfile).toHaveBeenCalledWith('close', expect.any(AbortSignal));
+		expect(closeVault).toHaveBeenCalledTimes(1);
 	});
 });

@@ -75,6 +75,32 @@ describe('PreProfileVaultBootstrap', () => {
 		expect(profileHost.start).not.toHaveBeenCalled();
 	});
 
+	test('cancels in-flight vault access before profile initialization', async () => {
+		const accessAdapter = makeAccessAdapter({
+			unlock: async signal => await new Promise(resolve => {
+				const cancel = () => resolve({
+					kind: 'rejected' as const,
+					reason: 'wrongCredential' as const,
+				});
+				if (signal.aborted) cancel();
+				else signal.addEventListener('abort', cancel, { once: true });
+			}),
+		});
+		const profileHost = makeProfileHost({ start: jest.fn() });
+		const bootstrap = new PreProfileVaultBootstrap(accessAdapter);
+		const controller = new AbortController();
+
+		const starting = bootstrap.start('unlock', profileHost, controller.signal);
+		controller.abort();
+
+		await expect(starting).resolves.toEqual({
+			kind: 'rejected',
+			reason: 'cancelled',
+		});
+		expect(bootstrap.state()).toBe('locked');
+		expect(profileHost.start).not.toHaveBeenCalled();
+	});
+
 	test.each([
 		'corruptVault',
 		'unsupportedVersion',

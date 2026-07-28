@@ -1,4 +1,4 @@
-import { filename, toForwardSlashes } from '@joplin/utils/path';
+import { toForwardSlashes } from '@joplin/utils/path';
 import * as esbuild from 'esbuild';
 import { existsSync, readFileSync } from 'fs';
 import { writeFile } from 'fs/promises';
@@ -9,10 +9,15 @@ const baseNodeModules = join(baseDir, 'node_modules');
 
 // Note: Roughly based on js-draw's use of esbuild:
 // https://github.com/personalizedrefrigerator/js-draw/blob/6fe6d6821402a08a8d17f15a8f48d95e5d7b084f/packages/build-tool/src/BundledFile.ts#L64
-const makeBuildContext = (entryPoint: string, renderer: boolean, addDebugStats: boolean) => {
+const makeBuildContext = (
+	entryPoint: string,
+	outputFile: string,
+	renderer: boolean,
+	addDebugStats: boolean,
+) => {
 	return esbuild.context({
 		entryPoints: [entryPoint],
-		outfile: `${filename(entryPoint)}.bundle.js`,
+		outfile: outputFile,
 		bundle: true,
 		minify: true,
 		keepNames: true, // Preserve original function names -- useful for debugging
@@ -121,13 +126,29 @@ const makeBuildContext = (entryPoint: string, renderer: boolean, addDebugStats: 
 	});
 };
 
-const bundleJs = async (writeStats: boolean) => {
-	const entryPoints = [
-		{ fileName: 'main.ts', renderer: false },
-		{ fileName: 'main-html.ts', renderer: true },
-	];
-	for (const { fileName, renderer } of entryPoints) {
-		const compiler = await makeBuildContext(fileName, renderer, writeStats);
+interface BundleEntryPoint {
+	fileName: string;
+	outputFile: string;
+	renderer: boolean;
+}
+
+const unlockPreloadEntryPoint: BundleEntryPoint = {
+	fileName: 'watchtower/unlock/preload.ts',
+	outputFile: 'watchtower/unlock/preload.bundle.js',
+	renderer: true,
+};
+
+const bundleEntryPoints = async (
+	entryPoints: BundleEntryPoint[],
+	writeStats: boolean,
+) => {
+	for (const { fileName, outputFile, renderer } of entryPoints) {
+		const compiler = await makeBuildContext(
+			fileName,
+			outputFile,
+			renderer,
+			writeStats,
+		);
 		const result = await compiler.rebuild();
 		if (writeStats) {
 			const outPath = `${dirname(__dirname)}/${fileName}.meta.json`;
@@ -136,6 +157,18 @@ const bundleJs = async (writeStats: boolean) => {
 		}
 		await compiler.dispose();
 	}
+};
+
+export const bundleWatchtowerUnlockPreload = async () => {
+	await bundleEntryPoints([unlockPreloadEntryPoint], false);
+};
+
+const bundleJs = async (writeStats: boolean) => {
+	await bundleEntryPoints([
+		{ fileName: 'main.ts', outputFile: 'main.bundle.js', renderer: false },
+		{ fileName: 'main-html.ts', outputFile: 'main-html.bundle.js', renderer: true },
+		unlockPreloadEntryPoint,
+	], writeStats);
 };
 
 export default bundleJs;

@@ -108,6 +108,10 @@ export const makeEncryptedDesktopDependencies = (
 			return failedClosed();
 		}
 		if (result.kind === 'failedClosed') return failedClosed();
+		if (signal.aborted) {
+			result.keyRing.dispose();
+			return failedClosed();
+		}
 
 		try {
 			const storage = await openProfileStorage(result.keyRing);

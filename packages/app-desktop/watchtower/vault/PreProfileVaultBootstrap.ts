@@ -21,6 +21,7 @@ export type VaultAccessFailureReason =
 export type VaultLifecycleRejectionReason =
 	'alreadyUnlocked'|
 	'busy'|
+	'cancelled'|
 	'egressResiduePresent'|
 	'failedClosed';
 
@@ -135,6 +136,7 @@ const issueVaultSessionCapability = () => {
 
 type BoundedOperationResult<T> =
 	{ kind: 'completed'; value: T }|
+	{ kind: 'cancelled'; value?: T }|
 	{ kind: 'failed' }|
 	{ kind: 'timedOut' };
 
@@ -186,14 +188,23 @@ export default class PreProfileVaultBootstrap {
 
 	private async runBounded_<T>(
 		operation: (signal: AbortSignal)=> Promise<T>,
+		externalSignal?: AbortSignal,
 	): Promise<BoundedOperationResult<T>> {
 		const controller = new AbortController();
 		return await new Promise(resolve => {
 			let settled = false;
+			let externallyCancelled = externalSignal?.aborted ?? false;
+			const cancel = () => {
+				externallyCancelled = true;
+				controller.abort();
+			};
+			externalSignal?.addEventListener('abort', cancel, { once: true });
+			if (externallyCancelled) controller.abort();
 			const finish = (result: BoundedOperationResult<T>) => {
 				if (settled) return;
 				settled = true;
 				clearTimeout(timeout);
+				externalSignal?.removeEventListener('abort', cancel);
 				resolve(result);
 			};
 			const timeout = setTimeout(() => {
@@ -202,8 +213,12 @@ export default class PreProfileVaultBootstrap {
 			}, this.options_.operationTimeoutMs);
 
 			void Promise.resolve().then(() => operation(controller.signal)).then(
-				value => finish({ kind: 'completed', value }),
-				() => finish({ kind: 'failed' }),
+				value => finish(externallyCancelled ?
+					{ kind: 'cancelled', value } :
+					{ kind: 'completed', value }),
+				() => finish(externallyCancelled ?
+					{ kind: 'cancelled' } :
+					{ kind: 'failed' }),
 			);
 		});
 	}
@@ -221,6 +236,7 @@ export default class PreProfileVaultBootstrap {
 	public async start(
 		operation: VaultAccessOperation,
 		profileHost: ProfileHost,
+		externalSignal?: AbortSignal,
 	): Promise<VaultStartResult> {
 		if (this.state_ !== 'locked') {
 			const reason: VaultLifecycleRejectionReason = (() => {
@@ -238,7 +254,23 @@ export default class PreProfileVaultBootstrap {
 		this.state_ = 'unlocking';
 		const vaultAccessResult = await this.runBounded_(
 			signal => this.accessAdapter_[operation](signal),
+			externalSignal,
 		);
+		if (vaultAccessResult.kind === 'cancelled') {
+			if (vaultAccessResult.value?.kind === 'opened') {
+				const closeResult = await this.closeVault_(vaultAccessResult.value.handle);
+				if (closeResult.kind === 'failed') {
+					this.state_ = 'failedClosed';
+					return {
+						kind: 'failedClosed',
+						stage: closeResult.terminated ? 'vaultClose' : 'vaultTerminate',
+						...(closeResult.timedOut ? { timedOut: true as const } : {}),
+					};
+				}
+			}
+			this.state_ = 'locked';
+			return { kind: 'rejected', reason: 'cancelled' };
+		}
 		if (vaultAccessResult.kind !== 'completed') {
 			const accessTerminated = this.abortAccess_(operation);
 			this.state_ = 'failedClosed';
@@ -263,6 +295,7 @@ export default class PreProfileVaultBootstrap {
 		const sessionAuthority = issueVaultSessionCapability();
 		const profileStartResult = await this.runBounded_(
 			signal => profileHost.start(sessionAuthority.capability, signal),
+			externalSignal,
 		);
 		if (profileStartResult.kind === 'completed') {
 			this.openHandle_ = openResult.handle;
@@ -283,6 +316,10 @@ export default class PreProfileVaultBootstrap {
 					stage: vaultCloseResult.terminated ? 'vaultClose' : 'vaultTerminate',
 					...(vaultCloseResult.timedOut ? { timedOut: true as const } : {}),
 				};
+			}
+			if (profileStartResult.kind === 'cancelled') {
+				this.state_ = 'locked';
+				return { kind: 'rejected', reason: 'cancelled' };
 			}
 			return {
 				kind: 'failedClosed',
