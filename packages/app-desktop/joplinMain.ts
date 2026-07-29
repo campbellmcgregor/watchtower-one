@@ -4,7 +4,7 @@ import './utils/sourceMapSetup';
 import { app as electronApp } from 'electron';
 import type { Session } from 'electron';
 import ElectronAppWrapper from './ElectronAppWrapper';
-import { pathExistsSync, readFileSync, mkdirpSync } from 'fs-extra';
+import { mkdirpSync } from 'fs-extra';
 import { initBridge } from './bridge';
 import Logger from '@joplin/utils/Logger';
 import FsDriverNode from '@joplin/lib/fs-driver-node';
@@ -17,6 +17,7 @@ import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
 import {
 	requireEncryptedProfileStorage,
 } from './watchtower/renderer/startEncryptedJoplinRenderer';
+import readPrivateRootSettings from './watchtower/profile/readPrivateRootSettings';
 
 const getFlagValueFromArgs = (args: string[], flag: string, defaultValue: string|null) => {
 	if (!args) return null;
@@ -72,18 +73,8 @@ const startJoplinMain = async (
 	// https://www.electron.build/nsis.html#guid-vs-application-name
 	electronApp.setAppUserModelId(appId);
 
-	const settingsPath = `${rootProfileDir}/settings.json`;
-	let autoUploadCrashDumps = false;
-
-	if (pathExistsSync(settingsPath)) {
-		const settingsContent = readFileSync(settingsPath, 'utf8');
-		try {
-			const settings = JSON.parse(settingsContent);
-			autoUploadCrashDumps = !!settings && !!settings.autoUploadCrashDumps;
-		} catch (error) {
-			console.error(`Could not load settings: ${settingsPath}:`, error);
-		}
-	}
+	const rootSettings = await readPrivateRootSettings(profileStorage.privateData);
+	const autoUploadCrashDumps = !!rootSettings.autoUploadCrashDumps;
 
 	electronApp.setAsDefaultProtocolClient('joplin');
 	void registerCustomProtocols();

@@ -39,9 +39,9 @@ export interface WatchtowerElectronMainDependencies {
 }
 
 const loadPendingEncryptedJoplinRuntime = async (): Promise<JoplinProfileRuntime> => {
-	// Stock Joplin startup still creates profile-bearing settings, logs, locks,
-	// window state, and temporary files. Keep that runtime unavailable until
-	// those paths consume the encrypted/ephemeral profile binding.
+	// Stock Joplin startup still creates profile-bearing profile configuration,
+	// logs, locks, window state, and temporary files. Keep that runtime
+	// unavailable until those paths consume the encrypted/ephemeral binding.
 	throw new Error('Encrypted Joplin runtime binding is unavailable');
 };
 

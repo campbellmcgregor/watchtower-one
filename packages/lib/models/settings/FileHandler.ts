@@ -7,23 +7,48 @@ const logger = Logger.create('Settings');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 export type SettingValues = Record<string, any>;
 
-export default class FileHandler {
+export interface SettingsFileHandler {
+	load(): Promise<SettingValues>;
+	save(values: SettingValues): Promise<void>;
+}
 
-	private filePath_: string;
+export interface SettingsFileStorage {
+	readonly description: string;
+	read(): Promise<string|undefined>;
+	write(content: string): Promise<void>;
+	handleInvalid?(error: unknown): Promise<SettingValues>;
+}
+
+export default class FileHandler implements SettingsFileHandler {
+
+	private storage_: SettingsFileStorage;
 	private valueJsonCache_: string = null;
 	private parsedJsonCache_: SettingValues = null;
 
-	public constructor(filePath: string) {
-		this.filePath_ = filePath;
+	public constructor(storage: string|SettingsFileStorage) {
+		if (typeof storage === 'string') {
+			const filePath = storage;
+			this.storage_ = {
+				description: filePath,
+				read: async () => {
+					if (!(await shim.fsDriver().exists(filePath))) return undefined;
+					return shim.fsDriver().readFile(filePath, 'utf8');
+				},
+				write: content => shim.fsDriver().writeFile(filePath, content, 'utf8'),
+				handleInvalid: async error => {
+					logger.error(`Could not parse JSON file: ${filePath}`, error);
+					await shim.fsDriver().move(filePath, `${filePath}-${Date.now()}-invalid.bak`);
+					return {};
+				},
+			};
+		} else {
+			this.storage_ = storage;
+		}
 	}
 
 	public async load(): Promise<SettingValues> {
 		if (!this.valueJsonCache_) {
-			if (!(await shim.fsDriver().exists(this.filePath_))) {
-				this.valueJsonCache_ = '{}';
-			} else {
-				this.valueJsonCache_ = await shim.fsDriver().readFile(this.filePath_, 'utf8');
-			}
+			this.valueJsonCache_ = await this.storage_.read() ?? '{}';
 			this.parsedJsonCache_ = null;
 		}
 
@@ -36,12 +61,10 @@ export default class FileHandler {
 			delete values['$schema'];
 			result = values;
 		} catch (error) {
-			// Most likely the user entered invalid JSON - in this case we move
-			// the broken file to a new name (otherwise it would be overwritten
-			// by valid JSON and user will lose all their settings).
-			logger.error(`Could not parse JSON file: ${this.filePath_}`, error);
-			await shim.fsDriver().move(this.filePath_, `${this.filePath_}-${Date.now()}-invalid.bak`);
-			result = {};
+			if (!this.storage_.handleInvalid) {
+				throw new Error(`Could not parse ${this.storage_.description}`);
+			}
+			result = await this.storage_.handleInvalid(error);
 		}
 
 		this.parsedJsonCache_ = result;
@@ -68,7 +91,7 @@ export default class FileHandler {
 
 		if (json === this.valueJsonCache_) return;
 
-		await shim.fsDriver().writeFile(this.filePath_, json, 'utf8');
+		await this.storage_.write(json);
 		this.valueJsonCache_ = json;
 	}
 
