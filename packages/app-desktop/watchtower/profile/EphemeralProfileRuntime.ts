@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import type { Session } from 'electron';
 import { VaultSessionCapability } from '../vault/PreProfileVaultBootstrap';
 import {
 	EphemeralElectronSession,
@@ -69,6 +70,10 @@ export default class EphemeralProfileRuntime {
 	public partition(): string {
 		this.session();
 		return this.partition_!;
+	}
+
+	public electronSession(): Session {
+		return this.session().browserSession;
 	}
 
 	public async dispose(): Promise<void> {

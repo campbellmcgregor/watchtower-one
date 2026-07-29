@@ -2,6 +2,7 @@
 
 import './utils/sourceMapSetup';
 import { app as electronApp } from 'electron';
+import type { Session } from 'electron';
 import ElectronAppWrapper from './ElectronAppWrapper';
 import { pathExistsSync, readFileSync, mkdirpSync } from 'fs-extra';
 import { initBridge } from './bridge';
@@ -31,6 +32,7 @@ type ExtendedGlobal = {
 
 const startJoplinMain = async (
 	profileStorage: ProfileStorageBinding,
+	profileSession: Session,
 ): Promise<ElectronAppWrapper> => {
 	profileStorage = requireEncryptedProfileStorage(profileStorage);
 	require('@electron/remote/main').initialize();
@@ -90,6 +92,7 @@ const startJoplinMain = async (
 
 	const wrapper = new ElectronAppWrapper(electronApp, {
 		env, profilePath: rootProfileDir, isDebugMode, initialCallbackUrl, isEndToEndTesting,
+		profileSession,
 	});
 
 	(globalThis as unknown as ExtendedGlobal).joplinBridge = (

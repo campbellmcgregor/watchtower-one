@@ -672,6 +672,8 @@ packages/app-desktop/watchtower/profile/ephemeralProfileRuntimeTypes.js
 packages/app-desktop/watchtower/profile/joplinProfileTypes.js
 packages/app-desktop/watchtower/profile/openSqlCipherProfileStorage.js
 packages/app-desktop/watchtower/profile/profileStorageTypes.js
+packages/app-desktop/watchtower/profile/selectJoplinElectronSession.test.js
+packages/app-desktop/watchtower/profile/selectJoplinElectronSession.js
 packages/app-desktop/watchtower/profile/sqlCipherProfileTypes.js
 packages/app-desktop/watchtower/renderer/startEncryptedJoplinRenderer.test.js
 packages/app-desktop/watchtower/renderer/startEncryptedJoplinRenderer.js

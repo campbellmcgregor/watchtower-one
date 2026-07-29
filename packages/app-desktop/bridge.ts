@@ -16,6 +16,9 @@ import { KB } from '@joplin/utils/bytes';
 import { defaultWindowId } from '@joplin/lib/reducer';
 import { execCommand } from '@joplin/utils';
 import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
+import {
+	bindSuppliedSessionToWindow,
+} from './watchtower/profile/selectJoplinElectronSession';
 
 interface LastSelectedPath {
 	file: string;
@@ -390,7 +393,10 @@ export class Bridge {
 	}
 
 	public newBrowserWindow(options: BrowserWindowConstructorOptions) {
-		return new BrowserWindow(options);
+		return new BrowserWindow(bindSuppliedSessionToWindow(
+			options,
+			this.electronWrapper_.suppliedProfileSession(),
+		));
 	}
 
 	public windowSetSize(width: number, height: number) {

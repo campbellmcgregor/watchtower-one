@@ -1,4 +1,7 @@
+import type { Session } from 'electron';
+
 export interface EphemeralElectronSession {
+	readonly browserSession: Session;
 	readonly storagePath: string|null;
 	clearCache(): Promise<void>;
 	clearStorageData(): Promise<void>;
@@ -15,6 +18,13 @@ export interface EphemeralElectronSessionFactory {
 export const makeElectronSessionFactory = (): EphemeralElectronSessionFactory => ({
 	fromPartition: async (partition, options) => {
 		const electron = await import('electron');
-		return electron.session.fromPartition(partition, options);
+		const browserSession = electron.session.fromPartition(partition, options);
+		return {
+			browserSession,
+			storagePath: browserSession.storagePath,
+			clearCache: () => browserSession.clearCache(),
+			clearStorageData: () => browserSession.clearStorageData(),
+			closeAllConnections: () => browserSession.closeAllConnections(),
+		};
 	},
 });
