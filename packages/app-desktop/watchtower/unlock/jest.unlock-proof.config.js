@@ -6,7 +6,9 @@ module.exports = {
 	rootDir: path.resolve(__dirname, '../..'),
 	testEnvironment: 'jsdom',
 	testMatch: [
+		'**/watchtower/desktop/runWatchtowerElectronMain.test.ts',
 		'**/watchtower/desktop/runPreProfileUnlockFlow.test.ts',
+		'**/watchtower/desktop/startWatchtowerDesktop.test.ts',
 		'**/watchtower/unlock/*.test.ts',
 	],
 	transform: {

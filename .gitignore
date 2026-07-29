@@ -624,6 +624,8 @@ packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.test.js
 packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.js
 packages/app-desktop/watchtower/desktop/runPreProfileUnlockFlow.test.js
 packages/app-desktop/watchtower/desktop/runPreProfileUnlockFlow.js
+packages/app-desktop/watchtower/desktop/runWatchtowerElectronMain.test.js
+packages/app-desktop/watchtower/desktop/runWatchtowerElectronMain.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.test.js
 packages/app-desktop/watchtower/desktop/startWatchtowerDesktop.js
 packages/app-desktop/watchtower/profile/EncryptedJoplinProfileHost.test.js

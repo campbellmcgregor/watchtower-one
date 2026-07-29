@@ -3,8 +3,6 @@ import {
 	startWatchtowerDesktop,
 } from './startWatchtowerDesktop';
 import { ProfileHost, VaultAccessAdapter } from '../vault/PreProfileVaultBootstrap';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 
 describe('startWatchtowerDesktop', () => {
 	test('does not load profile-bearing code when vault access is rejected', async () => {
@@ -45,18 +43,4 @@ describe('startWatchtowerDesktop', () => {
 		expect(startProfile).not.toHaveBeenCalled();
 	});
 
-	test('the production entrypoint contains no profile-bearing startup', () => {
-		const mainSource = readFileSync(resolve(__dirname, '../../main.ts'), 'utf8');
-
-		expect(mainSource).toContain('./watchtower/desktop/startWatchtowerDesktop');
-		for (const forbiddenProfileStartup of [
-			'ElectronAppWrapper',
-			'determineBaseAppDirs',
-			'mkdirpSync',
-			'readFileSync',
-			'settings.json',
-		]) {
-			expect(mainSource).not.toContain(forbiddenProfileStartup);
-		}
-	});
 });

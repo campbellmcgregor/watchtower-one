@@ -1,16 +1,33 @@
+import { app } from 'electron';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
 import {
-	makeFailClosedDesktopDependencies,
-	startWatchtowerDesktop,
-} from './watchtower/desktop/startWatchtowerDesktop';
+	makeEncryptedDesktopDependencies,
+} from './watchtower/desktop/makeEncryptedDesktopDependencies';
+import runWatchtowerElectronMain from './watchtower/desktop/runWatchtowerElectronMain';
+import {
+	makeElectronSessionFactory,
+} from './watchtower/profile/ephemeralProfileRuntimeTypes';
+import createElectronPreProfileUnlockView from './watchtower/unlock/ElectronPreProfileUnlockView';
 
-// Until the encrypted profile adapter supplies production dependencies,
-// Watchtower exits failed closed. Stock Joplin startup must never be used as a
-// plaintext fallback.
-void startWatchtowerDesktop(makeFailClosedDesktopDependencies()).then(
-	started => {
-		if (started.result.kind !== 'unlocked') process.exitCode = 1;
+void runWatchtowerElectronMain({
+	host: {
+		applicationDataDirectory: () => app.getPath('appData'),
+		ensureDirectory: path => mkdirSync(path, {
+			mode: 0o700,
+			recursive: true,
+		}),
+		setUserDataDirectory: path => app.setPath('userData', path),
+		waitUntilReady: async () => app.whenReady(),
+		createUnlockView: createElectronPreProfileUnlockView,
+		quit: exitCode => {
+			process.exitCode = exitCode;
+			app.quit();
+		},
 	},
-	() => {
-		process.exitCode = 1;
-	},
-);
+	unlockAssetDirectory: join(__dirname, 'watchtower', 'unlock'),
+	ephemeralSessionFactory: makeElectronSessionFactory(),
+	makeEncryptedDesktopDependencies,
+}).catch(() => {
+	// The composition root already requested a failed-closed quit.
+});
