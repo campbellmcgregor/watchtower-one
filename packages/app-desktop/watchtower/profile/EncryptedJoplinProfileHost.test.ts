@@ -11,6 +11,7 @@ import EncryptionService from '@joplin/lib/services/e2ee/EncryptionService';
 import {
 	JoplinProfileRuntime,
 } from './joplinProfileTypes';
+import type { Session } from 'electron';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -18,6 +19,7 @@ describe('EncryptedJoplinProfileHost', () => {
 
 	test('joplin loads only after the vault supplies capability-scoped profile storage', async () => {
 		const events: string[] = [];
+		const browserSession = {} as Session;
 		const sqlite = new DatabaseDriverNode();
 		await sqlite.open({ name: ':memory:' });
 		const storage = new EncryptedProfileStorage({
@@ -88,6 +90,7 @@ describe('EncryptedJoplinProfileHost', () => {
 			{
 				ephemeralSessionFactory: {
 					fromPartition: async () => ({
+						browserSession,
 						storagePath: null,
 						clearCache: async () => {
 							events.push('ephemeral-cache-cleared');

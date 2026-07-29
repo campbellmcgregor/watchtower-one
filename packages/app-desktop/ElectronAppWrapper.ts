@@ -24,6 +24,7 @@ import { msleep, Second } from '@joplin/utils/time';
 import determineBaseAppDirs from '@joplin/lib/determineBaseAppDirs';
 import getAppName from '@joplin/lib/getAppName';
 import { execCommand } from '@joplin/utils';
+import selectJoplinElectronSession from './watchtower/profile/selectJoplinElectronSession';
 
 interface RendererProcessQuitReply {
 	canClose: boolean;
@@ -44,6 +45,7 @@ export interface Options {
 	isDebugMode: boolean;
 	isEndToEndTesting: boolean;
 	initialCallbackUrl: string;
+	profileSession?: Session;
 }
 
 export default class ElectronAppWrapper {
@@ -69,6 +71,7 @@ export default class ElectronAppWrapper {
 	private customProtocolHandlers_: CustomProtocolHandlers|null = null;
 	private updatePollInterval_: ReturnType<typeof setTimeout>|null = null;
 	private joplinSession_: Session|null = null;
+	private suppliedProfileSession_: Session|undefined;
 
 	private profileLocker_: FileLocker|null = null;
 	private ipcServer_: IpcServer|null = null;
@@ -78,13 +81,15 @@ export default class ElectronAppWrapper {
 	private ipcLogger_: LoggerWrapper;
 	private appLogger_: LoggerWrapper;
 
-	public constructor(electronApp: App, { env, profilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting }: Options) {
+	public constructor(electronApp: App, { env, profilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting, profileSession }: Options) {
 		this.electronApp_ = electronApp;
 		this.env_ = env;
 		this.isDebugMode_ = isDebugMode;
 		this.profilePath_ = profilePath;
 		this.initialCallbackUrl_ = initialCallbackUrl;
 		this.isEndToEndTesting_ = isEndToEndTesting;
+		this.suppliedProfileSession_ = profileSession;
+		this.joplinSession_ = profileSession ?? null;
 
 		this.profileLocker_ = new FileLocker(`${this.profilePath_}/lock`);
 
@@ -100,6 +105,10 @@ export default class ElectronAppWrapper {
 
 	public electronApp() {
 		return this.electronApp_;
+	}
+
+	public suppliedProfileSession() {
+		return this.suppliedProfileSession_;
 	}
 
 	public mainWindow() {
@@ -940,7 +949,10 @@ export default class ElectronAppWrapper {
 		await this.fixLinuxAccessibility_();
 
 		// Session must be created before handleCustomProtocols() so both use the same object.
-		this.joplinSession_ = this.createJoplinSession_();
+		this.joplinSession_ = selectJoplinElectronSession(
+			this.joplinSession_ ?? undefined,
+			() => this.createJoplinSession_(),
+		);
 		this.customProtocolHandlers_ = handleCustomProtocols(this.joplinSession_);
 		this.createWindow();
 

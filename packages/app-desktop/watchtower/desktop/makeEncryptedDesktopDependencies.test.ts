@@ -14,6 +14,7 @@ import {
 	makeEncryptedDesktopDependencies,
 } from './makeEncryptedDesktopDependencies';
 import { startWatchtowerDesktop } from './startWatchtowerDesktop';
+import type { Session } from 'electron';
 
 // cspell:ignore SIGNALAPP sqlcipher
 
@@ -29,6 +30,7 @@ const makeConnection = (events?: string[]): EncryptedProfileConnection => ({
 
 describe('makeEncryptedDesktopDependencies', () => {
 	let vaultDirectory = '';
+	const browserSession = {} as Session;
 
 	beforeEach(async () => {
 		vaultDirectory = await mkdtemp(join(tmpdir(), 'watchtower-production-bootstrap-'));
@@ -73,6 +75,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 			profileHostOptions: {
 				ephemeralSessionFactory: {
 					fromPartition: async () => ({
+						browserSession,
 						storagePath: null,
 						clearCache: async () => {},
 						clearStorageData: async () => {},
@@ -118,6 +121,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 				profileHostOptions: {
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
+							browserSession,
 							storagePath: null,
 							clearCache: async () => {},
 							clearStorageData: async () => {},
@@ -192,6 +196,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 				profileHostOptions: {
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
+							browserSession,
 							storagePath: null,
 							clearCache: async () => {},
 							clearStorageData: async () => {},
@@ -231,6 +236,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 				profileHostOptions: {
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
+							browserSession,
 							storagePath: null,
 							clearCache: async () => {},
 							clearStorageData: async () => {},

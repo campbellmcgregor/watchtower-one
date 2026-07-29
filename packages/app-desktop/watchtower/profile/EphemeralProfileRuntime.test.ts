@@ -7,6 +7,7 @@ import {
 	EphemeralElectronSession,
 	EphemeralElectronSessionFactory,
 } from './ephemeralProfileRuntimeTypes';
+import type { Session } from 'electron';
 
 const unlock = async (
 	sessionFactory: EphemeralElectronSessionFactory,
@@ -38,7 +39,9 @@ describe('EphemeralProfileRuntime', () => {
 
 	test('content-bearing Electron state uses a fresh memory-only, cache-disabled session', async () => {
 		const events: string[] = [];
+		const browserSession = {} as Session;
 		const electronSession: EphemeralElectronSession = {
+			browserSession,
 			storagePath: null,
 			clearCache: async () => {
 				events.push('cache-cleared');
@@ -62,6 +65,7 @@ describe('EphemeralProfileRuntime', () => {
 		expect(partition).toMatch(/^watchtower-session-/);
 		expect(partition).not.toContain('persist:');
 		expect(runtime.session()).toBe(electronSession);
+		expect(runtime.electronSession()).toBe(browserSession);
 
 		await runtime.dispose();
 		expect(events).toEqual([
@@ -69,11 +73,15 @@ describe('EphemeralProfileRuntime', () => {
 			'storage-cleared',
 			'cache-cleared',
 		]);
+		expect(() => runtime.electronSession()).toThrow(
+			'Ephemeral profile runtime is not active',
+		);
 		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
 	});
 
 	test('a file-backed Electron session is rejected before Joplin can use it', async () => {
 		const electronSession: EphemeralElectronSession = {
+			browserSession: {} as Session,
 			storagePath: 'C:\\plaintext-electron-state',
 			clearCache: async () => undefined,
 			clearStorageData: async () => undefined,
