@@ -161,10 +161,21 @@
 		}
 	};
 
-	const pluginScriptPath = urlParams.get('pluginScript');
-	const script = document.createElement('script');
-	script.src = pluginScriptPath;
-	document.head.appendChild(script);
+	const pluginScript = urlParams.get('pluginScript');
+	if (pluginScript === 'memory') {
+		ipcRenderer.once('pluginScriptSource', (_event, payload) => {
+			if (payload.pluginId !== pluginId) {
+				throw new Error('Plugin script identity does not match its host');
+			}
+			const script = document.createElement('script');
+			script.textContent = `${payload.scriptText}\n//# sourceURL=plugin://${encodeURIComponent(pluginId)}/index.js`;
+			document.head.appendChild(script);
+		});
+	} else {
+		const script = document.createElement('script');
+		script.src = pluginScript;
+		document.head.appendChild(script);
+	}
 
 	globalObject.joplin = sandboxProxy(wrappedTarget);
 })(window);

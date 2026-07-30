@@ -9,6 +9,10 @@ import shim from '@joplin/lib/shim';
 import Logger from '@joplin/utils/Logger';
 import getPathToExecutable7Zip from '../../utils/7zip/getPathToExecutable7Zip';
 import getAssetPath from '../../utils/getAssetPath';
+import {
+	FileBackedPluginScriptLoader,
+	type PluginScriptLoader,
+} from './PluginScriptLoader';
 // import BackOffHandler from './BackOffHandler';
 const ipcRenderer = require('electron').ipcRenderer;
 
@@ -95,7 +99,13 @@ export default class PluginRunner extends BasePluginRunner {
 	protected eventHandlers_: EventHandlers = {};
 	// private backOffHandlers_: Record<string, BackOffHandler> = {};
 
-	public constructor() {
+	public constructor(
+		private readonly pluginScriptLoader_: PluginScriptLoader =
+		new FileBackedPluginScriptLoader(
+			shim.fsDriver(),
+			() => Setting.value('tempDir'),
+		),
+	) {
 		super();
 
 		this.eventHandler = this.eventHandler.bind(this);
@@ -115,9 +125,6 @@ export default class PluginRunner extends BasePluginRunner {
 	// }
 
 	public async run(plugin: Plugin, pluginApi: Global) {
-		const scriptPath = `${Setting.value('tempDir')}/plugin_${plugin.id}.js`;
-		await shim.fsDriver().writeFile(scriptPath, plugin.scriptText, 'utf8');
-
 		const pluginWindow = bridge().newBrowserWindow({
 			show: false,
 			webPreferences: {
@@ -134,11 +141,11 @@ export default class PluginRunner extends BasePluginRunner {
 			pathTo7za: await getPathToExecutable7Zip(),
 		};
 
-		void pluginWindow.loadURL(`${require('url').format({
+		const pluginPageUrl = `${require('url').format({
 			pathname: getAssetPath('services/plugins/plugin_index.html'),
 			protocol: 'file:',
 			slashes: true,
-		})}?pluginId=${encodeURIComponent(plugin.id)}&pluginScript=${encodeURIComponent(`file://${scriptPath}`)}&libraryData=${encodeURIComponent(JSON.stringify(libraryData))}`);
+		})}?pluginId=${encodeURIComponent(plugin.id)}&libraryData=${encodeURIComponent(JSON.stringify(libraryData))}`;
 
 		if (plugin.devMode) {
 			pluginWindow.webContents.once('dom-ready', () => {
@@ -215,6 +222,13 @@ export default class PluginRunner extends BasePluginRunner {
 					error: error,
 				});
 			}
+		});
+
+		await this.pluginScriptLoader_.load({
+			pageUrl: pluginPageUrl,
+			pluginId: plugin.id,
+			scriptText: plugin.scriptText,
+			target: pluginWindow,
 		});
 	}
 

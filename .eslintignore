@@ -604,7 +604,10 @@ packages/app-desktop/services/commands/stateToWhenClauseContext.js
 packages/app-desktop/services/commands/types.js
 packages/app-desktop/services/plugins/BackOffHandler.js
 packages/app-desktop/services/plugins/PlatformImplementation.js
+packages/app-desktop/services/plugins/PluginRunner.test.js
 packages/app-desktop/services/plugins/PluginRunner.js
+packages/app-desktop/services/plugins/PluginScriptLoader.test.js
+packages/app-desktop/services/plugins/PluginScriptLoader.js
 packages/app-desktop/services/plugins/UserWebview.js
 packages/app-desktop/services/plugins/UserWebviewDialog.js
 packages/app-desktop/services/plugins/UserWebviewDialogButtonBar.js

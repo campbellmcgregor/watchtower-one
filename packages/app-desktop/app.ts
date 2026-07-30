@@ -4,6 +4,7 @@ import KeymapService from '@joplin/lib/services/KeymapService';
 import PluginService, { PluginSettings } from '@joplin/lib/services/plugins/PluginService';
 import resourceEditWatcherReducer, { defaultState as resourceEditWatcherDefaultState } from '@joplin/lib/services/ResourceEditWatcher/reducer';
 import PluginRunner from './services/plugins/PluginRunner';
+import { EphemeralPluginScriptLoader } from './services/plugins/PluginScriptLoader';
 import PlatformImplementation from './services/plugins/PlatformImplementation';
 import type ShimType from '@joplin/lib/shim';
 const shim: typeof ShimType = require('@joplin/lib/shim').default;
@@ -274,7 +275,11 @@ class Application extends BaseApplication {
 
 		const service = PluginService.instance();
 
-		const pluginRunner = new PluginRunner();
+		const pluginRunner = new PluginRunner(
+			bridge().profileStorage() ?
+				new EphemeralPluginScriptLoader() :
+				undefined,
+		);
 		service.initialize(packageInfo.version, PlatformImplementation.instance(), pluginRunner, this.store());
 		service.isSafeMode = Setting.value('isSafeMode');
 
