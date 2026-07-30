@@ -16,18 +16,33 @@ class TestResourceFileSystem extends FsDriverNode implements ProfileResourceFile
 }
 
 describe('resolveProfileStorageBinding', () => {
-	test('installs supplied database and resource storage after profile paths are known', () => {
+	afterEach(() => {
+		Setting.setFileHandlerFactories();
+	});
+
+	test('installs supplied database, resource, and private settings storage after profile paths are known', async () => {
 		const database = {
 			driver: new DatabaseDriverNode(),
 			name: 'watchtower-encrypted-profile',
 		};
 		const resourceFileSystem = new TestResourceFileSystem();
+		const privateContent = new Map<string, Buffer>();
+		const privateData = {
+			write: async (_scope: 'settings', key: string, content: Uint8Array) => {
+				privateContent.set(key, Buffer.from(content));
+			},
+			read: async (_scope: 'settings', key: string) => privateContent.get(key),
+			remove: async (_scope: 'settings', key: string) => {
+				privateContent.delete(key);
+			},
+		};
 		const createStockStorage = jest.fn(() => {
 			throw new Error('stock profile storage must remain unavailable');
 		});
+		Setting.setConstant('isSubProfile', false);
 
 		const resolved = resolveProfileStorageBinding(
-			{ database, resourceFileSystem },
+			{ database, resourceFileSystem, privateData },
 			createStockStorage,
 		);
 
@@ -38,5 +53,20 @@ describe('resolveProfileStorageBinding', () => {
 		expect(Setting.value('resourceDir')).toBe(resourceFileSystem.resourceDirectory());
 		expect(Resource.fsDriver()).toBe(resourceFileSystem);
 		expect(EncryptionService.fsDriver_).toBe(resourceFileSystem);
+
+		await Setting.rootFileHandler.save({ locale: 'en_GB' });
+		await Setting.fileHandler.save({ 'sync.target': 5 });
+		await Setting.reset();
+
+		await expect(Setting.rootFileHandler.load()).resolves.toEqual({
+			locale: 'en_GB',
+		});
+		await expect(Setting.fileHandler.load()).resolves.toEqual({
+			'sync.target': 5,
+		});
+		expect([...privateContent.keys()].sort()).toEqual([
+			'profile:default',
+			'root',
+		]);
 	});
 });

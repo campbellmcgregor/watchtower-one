@@ -3,7 +3,10 @@ import { _ } from '../locale';
 import eventManager, { EventName } from '../eventManager';
 import BaseModel from '../BaseModel';
 import Database from '../database';
-import FileHandler, { SettingValues } from './settings/FileHandler';
+import FileHandler, {
+	SettingValues,
+	SettingsFileHandler,
+} from './settings/FileHandler';
 import Logger from '@joplin/utils/Logger';
 import mergeGlobalAndLocalSettings from '../services/profileConfig/mergeGlobalAndLocalSettings';
 import splitGlobalAndLocalSettings from '../services/profileConfig/splitGlobalAndLocalSettings';
@@ -326,8 +329,10 @@ class Setting extends BaseModel {
 	private static customMetadata_: SettingItems = {};
 	private static customSections_: SettingSections = {};
 	private static changedKeys_: string[] = [];
-	private static fileHandler_: FileHandler = null;
-	private static rootFileHandler_: FileHandler = null;
+	private static fileHandler_: SettingsFileHandler = null;
+	private static rootFileHandler_: SettingsFileHandler = null;
+	private static fileHandlerFactory_: (()=> SettingsFileHandler)|undefined;
+	private static rootFileHandlerFactory_: (()=> SettingsFileHandler)|undefined;
 	private static settingFilename_ = 'settings.json';
 	private static buildInMetadata_: SettingItems = null;
 
@@ -369,16 +374,26 @@ class Setting extends BaseModel {
 		this.settingFilename_ = v;
 	}
 
-	public static get fileHandler(): FileHandler {
+	public static setFileHandlerFactories(
+		fileHandlerFactory?: ()=> SettingsFileHandler,
+		rootFileHandlerFactory?: ()=> SettingsFileHandler,
+	) {
+		this.fileHandler_ = null;
+		this.rootFileHandler_ = null;
+		this.fileHandlerFactory_ = fileHandlerFactory;
+		this.rootFileHandlerFactory_ = rootFileHandlerFactory;
+	}
+
+	public static get fileHandler(): SettingsFileHandler {
 		if (!this.fileHandler_) {
-			this.fileHandler_ = new FileHandler(this.settingFilePath);
+			this.fileHandler_ = this.fileHandlerFactory_?.() ?? new FileHandler(this.settingFilePath);
 		}
 		return this.fileHandler_;
 	}
 
-	public static get rootFileHandler(): FileHandler {
+	public static get rootFileHandler(): SettingsFileHandler {
 		if (!this.rootFileHandler_) {
-			this.rootFileHandler_ = new FileHandler(this.rootSettingFilePath);
+			this.rootFileHandler_ = this.rootFileHandlerFactory_?.() ?? new FileHandler(this.rootSettingFilePath);
 		}
 		return this.rootFileHandler_;
 	}

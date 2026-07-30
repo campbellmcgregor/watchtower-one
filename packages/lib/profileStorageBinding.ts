@@ -3,6 +3,10 @@ import Resource from './models/Resource';
 import Setting from './models/Setting';
 import { ProfileDatabaseBinding } from './openProfileDatabase';
 import EncryptionService from './services/e2ee/EncryptionService';
+import FileHandler, {
+	SettingsFileHandler,
+} from './models/settings/FileHandler';
+import { filename } from './path-utils';
 
 export interface ProfileResourceFileSystem extends FsDriverBase {
 	resourceDirectory(): string;
@@ -10,8 +14,31 @@ export interface ProfileResourceFileSystem extends FsDriverBase {
 
 export interface ProfileStorageBinding {
 	database: ProfileDatabaseBinding;
+	privateData: ProfilePrivateData;
 	resourceFileSystem: ProfileResourceFileSystem;
 }
+
+export interface ProfilePrivateData {
+	write(scope: 'settings', key: string, content: Uint8Array): Promise<void>;
+	read(scope: 'settings', key: string): Promise<Uint8Array|undefined>;
+	remove(scope: 'settings', key: string): Promise<void>;
+}
+
+export const makePrivateProfileSettingsHandler = (
+	privateData: ProfilePrivateData,
+	key: string,
+): SettingsFileHandler => new FileHandler({
+	description: `encrypted settings (${key})`,
+	read: async () => {
+		const content = await privateData.read('settings', key);
+		return content ? Buffer.from(content).toString('utf8') : undefined;
+	},
+	write: content => privateData.write(
+		'settings',
+		key,
+		Buffer.from(content, 'utf8'),
+	),
+});
 
 interface StockProfileStorage {
 	database: ProfileDatabaseBinding;
@@ -29,12 +56,27 @@ const resolveProfileStorageBinding = (
 	const stock = binding ? undefined : createStock();
 	const resourceFileSystem = binding?.resourceFileSystem;
 	const resourceDirectory = resourceFileSystem?.resourceDirectory() ?? stock!.resourceDirectory;
+	const privateData = binding?.privateData;
 
 	Setting.setConstant('resourceDirName', 'resources');
 	Setting.setConstant('resourceDir', resourceDirectory);
 	if (resourceFileSystem) {
 		Resource.fsDriver_ = resourceFileSystem;
 		EncryptionService.fsDriver_ = resourceFileSystem;
+	}
+	if (privateData) {
+		const handlerFactory = (key: string): (()=> SettingsFileHandler) => {
+			return () => makePrivateProfileSettingsHandler(privateData, key);
+		};
+		const profileKey = Setting.value('isSubProfile') ?
+			`profile:${filename(Setting.value('profileDir'))}` :
+			'profile:default';
+		Setting.setFileHandlerFactories(
+			handlerFactory(profileKey),
+			handlerFactory('root'),
+		);
+	} else {
+		Setting.setFileHandlerFactories();
 	}
 
 	return {
