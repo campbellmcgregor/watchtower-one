@@ -39,9 +39,9 @@ export interface WatchtowerElectronMainDependencies {
 }
 
 const loadPendingEncryptedJoplinRuntime = async (): Promise<JoplinProfileRuntime> => {
-	// Stock Joplin startup still creates locks, window state, and temporary
-	// files. Keep that runtime unavailable until those paths consume the
-	// encrypted/ephemeral binding.
+	// Stock Joplin startup still creates plugin files, caches, and general
+	// temporary/editor files. Keep that runtime unavailable until those paths
+	// consume the encrypted/ephemeral binding.
 	throw new Error('Encrypted Joplin runtime binding is unavailable');
 };
 
@@ -53,7 +53,10 @@ const runWatchtowerElectronMain = async (
 			dependencies.host.applicationDataDirectory(),
 			'Watchtower One',
 		);
+		const publicRuntimeDirectory = join(userDataDirectory, 'runtime');
+		const publicVaultLockFilePath = join(publicRuntimeDirectory, 'vault.lock');
 		dependencies.host.ensureDirectory(userDataDirectory);
+		dependencies.host.ensureDirectory(publicRuntimeDirectory);
 		dependencies.host.setUserDataDirectory(userDataDirectory);
 		await dependencies.host.waitUntilReady();
 		const view = await dependencies.host.createUnlockView(
@@ -70,6 +73,7 @@ const runWatchtowerElectronMain = async (
 					loadJoplinProfileRuntime: loadPendingEncryptedJoplinRuntime,
 					profileHostOptions: {
 						ephemeralSessionFactory: dependencies.ephemeralSessionFactory,
+						publicVaultLockFilePath,
 						resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 					},
 				}),

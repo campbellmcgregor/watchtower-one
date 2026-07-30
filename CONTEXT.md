@@ -35,6 +35,11 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
   sandbox or a replacement for Joplin's existing Node filesystem authority.
 - **Canonical Encrypted Store**: the SQLCipher database that owns persistent user-derived data unless an accepted ADR assigns a specific artifact to Public Bootstrap State, a reconstructible non-content cache, or Explicit Plaintext Egress.
 - **Public Bootstrap State**: the minimal reviewed, non-content state required to locate and identify a vault before unlock. It contains no note, resource, credential, sensitive setting, profile name, or Curated Plugin user data.
+- **Reviewed Public Runtime State**: a dedicated Watchtower runtime directory
+  structurally outside the profile vault. For the first release it contains
+  only the empty, timestamp-only `vault.lock` needed for single-vault
+  coordination. Profile paths, window geometry, logs, and user-derived content
+  are not permitted there.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.
 - **Ephemeral Runtime module**: the deep module that configures content-bearing Electron sessions, renderer caches, preview material, and temporary working state so they remain memory-only or reconstructible and non-content-bearing.
 - **Sync E2EE**: Joplin's existing item-level encryption used while synchronizing through Joplin Cloud, WebDAV, Dropbox, OneDrive, or filesystem targets. It does not provide local-at-rest protection.

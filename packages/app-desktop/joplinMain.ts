@@ -17,6 +17,7 @@ import {
 } from './watchtower/renderer/startEncryptedJoplinRenderer';
 import readPrivateRootSettings from './watchtower/profile/readPrivateRootSettings';
 import { setProfileConfigStorage } from '@joplin/lib/services/profileConfig';
+import makeEphemeralWindowStateFactory from './watchtower/profile/EphemeralWindowState';
 
 const getFlagValueFromArgs = (args: string[], flag: string, defaultValue: string|null) => {
 	if (!args) return null;
@@ -81,8 +82,10 @@ const startJoplinMain = async (
 
 	const wrapper = new ElectronAppWrapper(electronApp, {
 		env, profilePath: rootProfileDir, isDebugMode, initialCallbackUrl, isEndToEndTesting,
+		profileLockFilePath: profileStorage.publicVaultLockFilePath,
 		profileSession,
 		profileLogFileSystem: profileStorage.logFileSystem,
+		windowStateFactory: makeEphemeralWindowStateFactory(),
 	});
 
 	(globalThis as unknown as ExtendedGlobal).joplinBridge = (

@@ -82,6 +82,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 						closeAllConnections: async () => {},
 					}),
 				},
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
 			},
 			loadJoplinProfileRuntime: async () => ({
@@ -128,6 +129,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 							closeAllConnections: async () => {},
 						}),
 					},
+					publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 					resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
 				},
 				loadJoplinProfileRuntime: async () => {
@@ -203,6 +205,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 							closeAllConnections: async () => {},
 						}),
 					},
+					publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 					resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
 				},
 				loadJoplinProfileRuntime,
@@ -243,6 +246,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 							closeAllConnections: async () => {},
 						}),
 					},
+					publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 					resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
 				},
 				loadJoplinProfileRuntime: async () => ({

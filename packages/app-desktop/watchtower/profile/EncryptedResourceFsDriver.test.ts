@@ -178,6 +178,7 @@ describe('EncryptedResourceFsDriver', () => {
 			database: storage.database(capability!),
 			ephemeral: storage.ephemeral(capability!),
 			privateData: storage.privateData(capability!),
+			publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 			resourceFileSystem: driver,
 		});
 		resolveProfileStorageBinding(binding, () => {
