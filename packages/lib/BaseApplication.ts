@@ -71,7 +71,10 @@ import getAppName from './getAppName';
 import PerformanceLogger from './PerformanceLogger';
 import Synchronizer from './Synchronizer';
 import openProfileDatabase from './openProfileDatabase';
-import resolveProfileStorageBinding, { ProfileStorageBinding } from './profileStorageBinding';
+import resolveProfileStorageBinding, {
+	ProfileLogFileSystemBinding,
+	ProfileStorageBinding,
+} from './profileStorageBinding';
 
 const appLogger: LoggerWrapper = Logger.create('App');
 const perfLogger = PerformanceLogger.create();
@@ -97,6 +100,8 @@ export default class BaseApplication {
 	private scheduleAutoAddResourcesIID_: any = null;
 	protected database_: JoplinDatabase = null;
 	private profileConfig_: ProfileConfig = null;
+	private usesEphemeralLogStorage_ = false;
+	private readonly profileLogFileSystemBinding_ = new ProfileLogFileSystemBinding();
 
 	protected showStackTraces_ = false;
 	protected showPromptString_ = false;
@@ -117,6 +122,12 @@ export default class BaseApplication {
 	}
 
 	public async destroy() {
+		await this.destroyApplication_().finally(
+			() => this.profileLogFileSystemBinding_.dispose(),
+		);
+	}
+
+	private async destroyApplication_() {
 		if (this.scheduleAutoAddResourcesIID_) {
 			shim.clearTimeout(this.scheduleAutoAddResourcesIID_);
 			this.scheduleAutoAddResourcesIID_ = null;
@@ -670,6 +681,7 @@ export default class BaseApplication {
 	}
 
 	protected startRotatingLogMaintenance(profileDir: string) {
+		if (this.usesEphemeralLogStorage_) return;
 		this.rotatingLogs = new RotatingLogs(profileDir);
 		const processLogs = async () => {
 			try {
@@ -685,11 +697,26 @@ export default class BaseApplication {
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 	public async start(argv: string[], options: StartOptions = null): Promise<any> {
+		try {
+			return await this.startApplication_(argv, options);
+		} catch (error) {
+			await this.profileLogFileSystemBinding_.dispose();
+			throw error;
+		}
+	}
+
+	private async startApplication_(argv: string[], options: StartOptions): Promise<string[]> {
 		options = {
 			keychainEnabled: true,
 			setupGlobalLogger: true,
 			...options,
 		};
+		this.usesEphemeralLogStorage_ = !!options.profileStorage;
+		if (options.profileStorage) {
+			this.profileLogFileSystemBinding_.install(
+				options.profileStorage.logFileSystem,
+			);
+		}
 
 		const startTask = perfLogger.taskStart('BaseApplication/start');
 		const startFlags = await this.handleStartFlags_(argv);

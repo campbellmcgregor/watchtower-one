@@ -2,10 +2,13 @@ import FsDriverNode from './fs-driver-node';
 import Resource from './models/Resource';
 import Setting from './models/Setting';
 import resolveProfileStorageBinding, {
+	makeEphemeralProfileLogFileSystem,
 	makePrivateProfileConfigStorage,
+	ProfileLogFileSystemBinding,
 	ProfileResourceFileSystem,
 } from './profileStorageBinding';
 import EncryptionService from './services/e2ee/EncryptionService';
+import Logger, { TargetType } from '@joplin/utils/Logger';
 
 const { DatabaseDriverNode } = require('./database-driver-node.js');
 
@@ -44,7 +47,15 @@ describe('resolveProfileStorageBinding', () => {
 		Setting.setConstant('isSubProfile', false);
 
 		const resolved = resolveProfileStorageBinding(
-			{ database, resourceFileSystem, privateData, profileConfig },
+			{
+				database,
+				logFileSystem: {
+					appendFile: async () => {},
+				},
+				resourceFileSystem,
+				privateData,
+				profileConfig,
+			},
 			createStockStorage,
 		);
 
@@ -90,5 +101,110 @@ describe('resolveProfileStorageBinding', () => {
 		expect(storage.description).toBe('encrypted profile configuration');
 		expect(privateContent.get('profiles')?.toString('utf8')).toBe('{"currentProfileId":"default"}');
 		await expect(storage.read()).resolves.toBe('{"currentProfileId":"default"}');
+	});
+
+	test('routes Joplin file log targets through session-scoped ephemeral storage', async () => {
+		const artifacts = new Map<string, Buffer>();
+		const logFileSystem = makeEphemeralProfileLogFileSystem({
+			write: async (category, key, content) => {
+				expect(category).toBe('log');
+				artifacts.set(key, Buffer.from(content));
+			},
+			read: async (category, key) => {
+				expect(category).toBe('log');
+				return artifacts.get(key);
+			},
+		});
+		const previousFsDriver = Logger.fsDriver_;
+		Logger.fsDriver_ = logFileSystem;
+		try {
+			const logger = new Logger();
+			logger.addTarget(TargetType.File, {
+				path: 'C:\\public-profile\\log-main-process.txt',
+			});
+
+			logger.info('Private laboratory notebook opened');
+			logger.warn('Private laboratory notebook changed');
+			await logger.waitForFileWritesToComplete_();
+
+			expect([...artifacts.keys()]).toEqual(['log-main-process.txt']);
+			const content = artifacts.get('log-main-process.txt')?.toString('utf8');
+			expect(content).toContain('Private laboratory notebook opened');
+			expect(content).toContain('Private laboratory notebook changed');
+		} finally {
+			Logger.fsDriver_ = previousFsDriver;
+		}
+	});
+
+	test('bounds each ephemeral Joplin log while retaining its newest entries', async () => {
+		const artifacts = new Map<string, Buffer>();
+		const logFileSystem = makeEphemeralProfileLogFileSystem({
+			write: async (_category, key, content) => {
+				artifacts.set(key, Buffer.from(content));
+			},
+			read: async (_category, key) => artifacts.get(key),
+		});
+
+		await logFileSystem.appendFile(
+			'C:\\public-profile\\log.txt',
+			'a'.repeat(4 * 1024 * 1024),
+			'utf8',
+		);
+		await logFileSystem.appendFile(
+			'C:\\public-profile\\log.txt',
+			'b'.repeat(4 * 1024 * 1024),
+			'utf8',
+		);
+
+		const content = artifacts.get('log.txt')!;
+		expect(content.byteLength).toBe(5 * 1024 * 1024);
+		expect(content.subarray(0, 4).toString('utf8')).toBe('aaaa');
+		expect(content.subarray(-4).toString('utf8')).toBe('bbbb');
+	});
+
+	test('keeps bounded ephemeral logs valid UTF-8 at their retained boundary', async () => {
+		const artifacts = new Map<string, Buffer>();
+		const logFileSystem = makeEphemeralProfileLogFileSystem({
+			write: async (_category, key, content) => {
+				artifacts.set(key, Buffer.from(content));
+			},
+			read: async (_category, key) => artifacts.get(key),
+		});
+
+		await logFileSystem.appendFile(
+			'C:\\public-profile\\log.txt',
+			`${'x'.repeat(6 * 1024 * 1024)}😀${'z'.repeat(5 * 1024 * 1024 - 1)}`,
+			'utf8',
+		);
+
+		const content = artifacts.get('log.txt')!;
+		expect(content.byteLength).toBe(5 * 1024 * 1024 - 1);
+		expect(content.toString('utf8')).not.toContain('�');
+		expect(content.subarray(0, 4).toString('utf8')).toBe('zzzz');
+	});
+
+	test('restores the process logger after draining an ephemeral log session', async () => {
+		const artifacts = new Map<string, Buffer>();
+		const previousFsDriver = {
+			appendFile: async () => {},
+		};
+		Logger.fsDriver_ = previousFsDriver;
+		const binding = new ProfileLogFileSystemBinding();
+		binding.install(makeEphemeralProfileLogFileSystem({
+			write: async (_category, key, content) => {
+				artifacts.set(key, Buffer.from(content));
+			},
+			read: async (_category, key) => artifacts.get(key),
+		}));
+		const logger = new Logger();
+		logger.addTarget(TargetType.File, { path: 'C:\\public-profile\\log.txt' });
+
+		logger.info('last encrypted session entry');
+		await binding.dispose();
+
+		expect(artifacts.get('log.txt')?.toString('utf8')).toContain(
+			'last encrypted session entry',
+		);
+		expect(Logger.fsDriver_).toBe(previousFsDriver);
 	});
 });

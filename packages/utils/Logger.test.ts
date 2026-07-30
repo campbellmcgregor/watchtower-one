@@ -57,6 +57,36 @@ describe('Logger', () => {
 		jest.useRealTimers();
 	});
 
+	it('should support a file target with a scoped filesystem', async () => {
+		const globalWrites: string[] = [];
+		const scopedWrites: string[] = [];
+		const previousFsDriver = Logger.fsDriver_;
+		Logger.fsDriver_ = {
+			appendFile: async (_path, content) => {
+				globalWrites.push(content);
+			},
+		};
+		try {
+			const logger = new Logger();
+			logger.addTarget(TargetType.File, {
+				path: 'session-log.txt',
+				fileSystem: {
+					appendFile: async (_path, content) => {
+						scopedWrites.push(content);
+					},
+				},
+			});
+
+			logger.info('session-only entry');
+			await logger.waitForFileWritesToComplete_();
+
+			expect(scopedWrites.join('')).toContain('session-only entry');
+			expect(globalWrites).toEqual([]);
+		} finally {
+			Logger.fsDriver_ = previousFsDriver;
+		}
+	});
+
 	test.each([
 		[['one', 'two'], 'one two'],
 		[[true, false, undefined, null], '<true> <false> <undefined> <null>'],
