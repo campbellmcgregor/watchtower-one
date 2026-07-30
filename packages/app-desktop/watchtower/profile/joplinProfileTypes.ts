@@ -15,6 +15,7 @@ import {
 export interface JoplinEncryptedProfile {
 	database: EncryptedProfileDatabase;
 	ephemeralRuntime: EphemeralProfileRuntime;
+	publicVaultLockFilePath: string;
 	resources: ResourceContent;
 	resourceFileSystem: EncryptedResourceFsDriver;
 	privateData: PrivateProfileData;
@@ -31,5 +32,6 @@ export type LoadJoplinProfileRuntime = ()=> Promise<JoplinProfileRuntime>;
 
 export interface EncryptedJoplinProfileHostOptions {
 	ephemeralSessionFactory: EphemeralElectronSessionFactory;
+	publicVaultLockFilePath: string;
 	resourceDirectory: string;
 }

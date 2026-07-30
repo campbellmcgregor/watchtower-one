@@ -36,6 +36,9 @@ describe('EncryptedJoplinProfileHost', () => {
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
 				const binding = bindJoplinProfileStorage(profile);
+				expect(binding.publicVaultLockFilePath).toBe(
+					'C:\\WatchtowerPublicRuntime\\vault.lock',
+				);
 				const resolvedStorage = resolveProfileStorageBinding(binding, () => {
 					throw new Error('stock profile storage must remain unavailable');
 				});
@@ -103,6 +106,7 @@ describe('EncryptedJoplinProfileHost', () => {
 						},
 					}),
 				},
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
 			},
 		);

@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 
-import { mkdirp } from 'fs-extra';
+import { mkdirp, readFile } from 'fs-extra';
 import { FileLocker } from './fs';
 import { msleep, Second } from './time';
 
@@ -23,6 +23,7 @@ describe('fs', () => {
 		});
 
 		expect(await locker1.lock()).toBe(true);
+		expect((await readFile(filePath)).byteLength).toBe(0);
 		expect(await locker1.lock()).toBe(false);
 
 		locker1.unlockSync();

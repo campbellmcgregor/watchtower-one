@@ -26,6 +26,10 @@ import getAppName from '@joplin/lib/getAppName';
 import { execCommand } from '@joplin/utils';
 import selectJoplinElectronSession from './watchtower/profile/selectJoplinElectronSession';
 import type { ProfileLogFileSystem } from '@joplin/lib/profileStorageBinding';
+import type {
+	WindowStateFactory,
+	WindowStateOptions,
+} from './utils/window/windowStateTypes';
 
 interface RendererProcessQuitReply {
 	canClose: boolean;
@@ -43,11 +47,13 @@ interface SecondaryWindowData {
 export interface Options {
 	env: string;
 	profilePath: string|null;
+	profileLockFilePath?: string;
 	isDebugMode: boolean;
 	isEndToEndTesting: boolean;
 	initialCallbackUrl: string;
 	profileSession?: Session;
 	profileLogFileSystem?: ProfileLogFileSystem;
+	windowStateFactory?: WindowStateFactory;
 }
 
 export default class ElectronAppWrapper {
@@ -74,6 +80,7 @@ export default class ElectronAppWrapper {
 	private updatePollInterval_: ReturnType<typeof setTimeout>|null = null;
 	private joplinSession_: Session|null = null;
 	private suppliedProfileSession_: Session|undefined;
+	private readonly windowStateFactory_: WindowStateFactory;
 
 	private profileLocker_: FileLocker|null = null;
 	private ipcServer_: IpcServer|null = null;
@@ -83,7 +90,7 @@ export default class ElectronAppWrapper {
 	private ipcLogger_: LoggerWrapper;
 	private appLogger_: LoggerWrapper;
 
-	public constructor(electronApp: App, { env, profilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting, profileSession, profileLogFileSystem }: Options) {
+	public constructor(electronApp: App, { env, profilePath, profileLockFilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting, profileSession, profileLogFileSystem, windowStateFactory }: Options) {
 		this.electronApp_ = electronApp;
 		this.env_ = env;
 		this.isDebugMode_ = isDebugMode;
@@ -92,8 +99,13 @@ export default class ElectronAppWrapper {
 		this.isEndToEndTesting_ = isEndToEndTesting;
 		this.suppliedProfileSession_ = profileSession;
 		this.joplinSession_ = profileSession ?? null;
+		this.windowStateFactory_ = windowStateFactory ?? {
+			create: options => require('electron-window-state')(options),
+		};
 
-		this.profileLocker_ = new FileLocker(`${this.profilePath_}/lock`);
+		this.profileLocker_ = new FileLocker(
+			profileLockFilePath ?? `${this.profilePath_}/lock`,
+		);
 
 		const mainProcessLogger = new Logger();
 		this.mainProcessLoggerFilePath_ = `${profilePath}/log-main-process.txt`;
@@ -253,10 +265,7 @@ export default class ElectronAppWrapper {
 		// Set to true to view errors if the application does not start
 		const debugEarlyBugs = this.env_ === 'dev' || this.isDebugMode_;
 
-		const windowStateKeeper = require('electron-window-state');
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
-		const stateOptions: any = {
+		const stateOptions: WindowStateOptions = {
 			defaultWidth: Math.round(0.8 * screen.getPrimaryDisplay().workArea.width),
 			defaultHeight: Math.round(0.8 * screen.getPrimaryDisplay().workArea.height),
 			file: `window-state-${this.env_}.json`,
@@ -265,7 +274,7 @@ export default class ElectronAppWrapper {
 		if (this.profilePath_) stateOptions.path = this.profilePath_;
 
 		// Load the previous state with fallback to defaults
-		const windowState = windowStateKeeper(stateOptions);
+		const windowState = this.windowStateFactory_.create(stateOptions);
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 		const windowOptions: any = {
@@ -613,8 +622,8 @@ export default class ElectronAppWrapper {
 		// and restore the maximized or full screen state
 		windowState.manage(this.win_);
 
-		// HACK: Ensure the window is hidden, as `windowState.manage` may make the window
-		// visible with isMaximized set to true in window-state-${this.env_}.json.
+		// HACK: Ensure the window is hidden, as stock `windowState.manage` may make the
+		// window visible with persisted isMaximized state.
 		// https://github.com/laurent22/joplin/issues/2365
 		if (!windowOptions.show) {
 			this.win_.hide();

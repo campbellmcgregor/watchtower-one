@@ -55,6 +55,7 @@ describe('resolveProfileStorageBinding', () => {
 				resourceFileSystem,
 				privateData,
 				profileConfig,
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 			},
 			createStockStorage,
 		);

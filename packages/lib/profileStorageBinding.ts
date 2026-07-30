@@ -62,6 +62,7 @@ export interface ProfileStorageBinding {
 	logFileSystem: ProfileLogFileSystem;
 	profileConfig: ProfileConfigStorage;
 	privateData: ProfilePrivateData;
+	publicVaultLockFilePath: string;
 	resourceFileSystem: ProfileResourceFileSystem;
 }
 

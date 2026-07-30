@@ -118,6 +118,26 @@ The exact Public Bootstrap State and key-envelope metadata remain separate
 decisions. Adding any field to public persistence requires explicit review and
 runtime canary evidence.
 
+#### Reviewed Public Runtime State
+
+Watchtower's public runtime directory is structurally separate from both the
+encrypted vault and Joplin's logical profile identity. It may contain only the
+selected vault's `vault.lock` process-lock file. That lock:
+
+- is zero bytes and changes only filesystem timestamps while its process holds
+  the lock;
+- is removed on an orderly unlock of the file lock;
+- contains no profile identifier or user-derived filename component; and
+- is shared by default, alternate-instance, portable, and explicit-profile
+  invocations while they all select the same encrypted Watchtower vault.
+
+Separate process locks are permitted only when production composition derives
+both encrypted vault selection and lock identity from the same reviewed opaque
+vault identity. Window geometry, maximise/full-screen state, logs, profile
+paths, and user-derived content are forbidden in this directory. Packaged
+runtime tracing must verify the allowlist on clean exit, forced termination,
+and recovery on every claimed platform.
+
 ### Ephemeral Runtime module
 
 The Ephemeral Runtime module is a deep module at the process/session seam. Its

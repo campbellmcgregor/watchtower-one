@@ -20,6 +20,8 @@ describe('runWatchtowerElectronMain', () => {
 	const applicationDataDirectory = 'C:\\Users\\Alice\\AppData\\Roaming';
 	const userDataDirectory = join(applicationDataDirectory, 'Watchtower One');
 	const vaultDirectory = join(userDataDirectory, 'vault');
+	const publicRuntimeDirectory = join(userDataDirectory, 'runtime');
+	const publicVaultLockFilePath = join(publicRuntimeDirectory, 'vault.lock');
 	const unlockAssetDirectory = 'C:\\Watchtower\\unlock';
 	const sessionFactory = {} as EphemeralElectronSessionFactory;
 	const openHandle: VaultOpenHandle = {
@@ -106,6 +108,7 @@ describe('runWatchtowerElectronMain', () => {
 		expect(result.kind).toBe('unlocked');
 		expect(events).toEqual([
 			`directory-created:${userDataDirectory}`,
+			`directory-created:${publicRuntimeDirectory}`,
 			`user-data-assigned:${userDataDirectory}`,
 			'electron-ready',
 			`unlock-view-created:${unlockAssetDirectory}`,
@@ -120,6 +123,7 @@ describe('runWatchtowerElectronMain', () => {
 			envelopeDirectory: join(vaultDirectory, 'envelope'),
 			profileHostOptions: {
 				ephemeralSessionFactory: sessionFactory,
+				publicVaultLockFilePath,
 				resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 			},
 		});
