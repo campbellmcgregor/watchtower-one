@@ -32,6 +32,7 @@ interface TargetOptions {
 
 	// Default message format
 	format?: string | FormatFunction;
+	fileSystem?: FsDriver;
 }
 
 interface Target extends TargetOptions {
@@ -330,7 +331,11 @@ class Logger {
 				/* eslint-disable-next-line promise/prefer-await-to-then, @typescript-eslint/ban-types -- Old code before rule was applied, Old code before rule was applied */
 				writeToFileMutex_.acquire().then((r: Function) => {
 					release = r;
-					return Logger.fsDriver().appendFile(target.path as string, `${logLine}\n`, 'utf8');
+					return (target.fileSystem ?? Logger.fsDriver()).appendFile(
+						target.path as string,
+						`${logLine}\n`,
+						'utf8',
+					);
 					// eslint-disable-next-line promise/prefer-await-to-then, @typescript-eslint/no-explicit-any -- Old code before rule was applied, Old code before rule was applied
 				}).catch((error: any) => {
 					console.error('Cannot write to log file:', error);

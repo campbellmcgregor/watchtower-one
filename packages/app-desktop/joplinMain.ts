@@ -6,8 +6,6 @@ import type { Session } from 'electron';
 import ElectronAppWrapper from './ElectronAppWrapper';
 import { mkdirpSync } from 'fs-extra';
 import { initBridge } from './bridge';
-import Logger from '@joplin/utils/Logger';
-import FsDriverNode from '@joplin/lib/fs-driver-node';
 const envFromArgs = require('@joplin/lib/envFromArgs');
 const packageInfo = require('./packageInfo.js');
 import { isCallbackUrl } from '@joplin/lib/callbackUrlUtils';
@@ -52,8 +50,6 @@ const startJoplinMain = async (
 		process.exit(1);
 	});
 
-	Logger.fsDriver_ = new FsDriverNode();
-
 	const env = envFromArgs(process.argv);
 	const profileFromArgs = getFlagValueFromArgs(process.argv, '--profile', null);
 	const isDebugMode = !!process.argv && process.argv.indexOf('--debug') >= 0;
@@ -86,6 +82,7 @@ const startJoplinMain = async (
 	const wrapper = new ElectronAppWrapper(electronApp, {
 		env, profilePath: rootProfileDir, isDebugMode, initialCallbackUrl, isEndToEndTesting,
 		profileSession,
+		profileLogFileSystem: profileStorage.logFileSystem,
 	});
 
 	(globalThis as unknown as ExtendedGlobal).joplinBridge = (

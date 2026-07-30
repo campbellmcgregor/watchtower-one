@@ -25,6 +25,7 @@ import determineBaseAppDirs from '@joplin/lib/determineBaseAppDirs';
 import getAppName from '@joplin/lib/getAppName';
 import { execCommand } from '@joplin/utils';
 import selectJoplinElectronSession from './watchtower/profile/selectJoplinElectronSession';
+import type { ProfileLogFileSystem } from '@joplin/lib/profileStorageBinding';
 
 interface RendererProcessQuitReply {
 	canClose: boolean;
@@ -46,6 +47,7 @@ export interface Options {
 	isEndToEndTesting: boolean;
 	initialCallbackUrl: string;
 	profileSession?: Session;
+	profileLogFileSystem?: ProfileLogFileSystem;
 }
 
 export default class ElectronAppWrapper {
@@ -81,7 +83,7 @@ export default class ElectronAppWrapper {
 	private ipcLogger_: LoggerWrapper;
 	private appLogger_: LoggerWrapper;
 
-	public constructor(electronApp: App, { env, profilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting, profileSession }: Options) {
+	public constructor(electronApp: App, { env, profilePath, isDebugMode, initialCallbackUrl, isEndToEndTesting, profileSession, profileLogFileSystem }: Options) {
 		this.electronApp_ = electronApp;
 		this.env_ = env;
 		this.isDebugMode_ = isDebugMode;
@@ -97,6 +99,7 @@ export default class ElectronAppWrapper {
 		this.mainProcessLoggerFilePath_ = `${profilePath}/log-main-process.txt`;
 		mainProcessLogger.addTarget(TargetType.File, {
 			path: this.mainProcessLoggerFilePath_,
+			fileSystem: profileLogFileSystem,
 		});
 
 		this.ipcLogger_ = Logger.create('IPC', mainProcessLogger);

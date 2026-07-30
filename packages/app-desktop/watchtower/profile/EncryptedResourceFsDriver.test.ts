@@ -176,6 +176,7 @@ describe('EncryptedResourceFsDriver', () => {
 		const previousResourceFsDriver = Resource.fsDriver_;
 		const binding = bindJoplinProfileStorage({
 			database: storage.database(capability!),
+			ephemeral: storage.ephemeral(capability!),
 			privateData: storage.privateData(capability!),
 			resourceFileSystem: driver,
 		});
