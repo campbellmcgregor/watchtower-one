@@ -4,6 +4,20 @@ import { CurrentProfileVersion, defaultProfile, defaultProfileConfig, DefaultPro
 import { customAlphabet } from 'nanoid/non-secure';
 import { _ } from '../../locale';
 
+export interface ProfileConfigStorage {
+	readonly description: string;
+	read(): Promise<string|undefined>;
+	write(content: string): Promise<void>;
+}
+
+let profileConfigStorage: ProfileConfigStorage|undefined;
+
+export const setProfileConfigStorage = (
+	storage?: ProfileConfigStorage,
+) => {
+	profileConfigStorage = storage;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 export const migrateProfileConfig = (profileConfig: any, toVersion: number): ProfileConfig => {
 	let version = 2;
@@ -32,14 +46,19 @@ export const migrateProfileConfig = (profileConfig: any, toVersion: number): Pro
 };
 
 export const loadProfileConfig = async (profileConfigPath: string): Promise<ProfileConfig> => {
-	if (!(await shim.fsDriver().exists(profileConfigPath))) {
-		return defaultProfileConfig();
+	let configContent: string|undefined;
+	let description = profileConfigPath;
+	if (profileConfigStorage) {
+		configContent = await profileConfigStorage.read();
+		description = profileConfigStorage.description;
+	} else if (await shim.fsDriver().exists(profileConfigPath)) {
+		configContent = await shim.fsDriver().readFile(profileConfigPath, 'utf8');
 	}
+	if (configContent === undefined) return defaultProfileConfig();
 
 	try {
-		const configContent = await shim.fsDriver().readFile(profileConfigPath, 'utf8');
 		let parsed = JSON.parse(configContent) as ProfileConfig;
-		if (!parsed.profiles || !parsed.profiles.length) throw new Error(`Profile config should contain at least one profile: ${profileConfigPath}`);
+		if (!parsed.profiles || !parsed.profiles.length) throw new Error(`Profile config should contain at least one profile: ${description}`);
 
 		parsed = migrateProfileConfig(parsed, CurrentProfileVersion);
 
@@ -58,13 +77,18 @@ export const loadProfileConfig = async (profileConfigPath: string): Promise<Prof
 		if (!output.profiles.find(p => p.id === output.currentProfileId)) throw new Error(`Current profile ID is invalid: ${output.currentProfileId}`);
 		return output;
 	} catch (error) {
-		error.message = `Could not parse profile configuration: ${profileConfigPath}: ${error.message}`;
+		error.message = `Could not parse profile configuration: ${description}: ${error.message}`;
 		throw error;
 	}
 };
 
 export const saveProfileConfig = async (profileConfigPath: string, config: ProfileConfig) => {
-	await shim.fsDriver().writeFile(profileConfigPath, JSON.stringify(config, null, '\t'), 'utf8');
+	const content = JSON.stringify(config, null, '\t');
+	if (profileConfigStorage) {
+		await profileConfigStorage.write(content);
+	} else {
+		await shim.fsDriver().writeFile(profileConfigPath, content, 'utf8');
+	}
 };
 
 export const getCurrentProfile = (config: ProfileConfig): Profile => {

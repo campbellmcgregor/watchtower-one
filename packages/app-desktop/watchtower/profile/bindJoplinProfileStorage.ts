@@ -1,4 +1,7 @@
-import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
+import {
+	makePrivateProfileConfigStorage,
+	ProfileStorageBinding,
+} from '@joplin/lib/profileStorageBinding';
 import { JoplinEncryptedProfile } from './joplinProfileTypes';
 import { encryptedProfileDatabaseName } from './profileStorageTypes';
 
@@ -10,6 +13,7 @@ const bindJoplinProfileStorage = (
 			driver: profile.database,
 			name: encryptedProfileDatabaseName,
 		},
+		profileConfig: makePrivateProfileConfigStorage(profile.privateData),
 		privateData: profile.privateData,
 		resourceFileSystem: profile.resourceFileSystem,
 	};

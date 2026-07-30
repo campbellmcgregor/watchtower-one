@@ -7,6 +7,7 @@ import FileHandler, {
 	SettingsFileHandler,
 } from './models/settings/FileHandler';
 import { filename } from './path-utils';
+import type { ProfileConfigStorage } from './services/profileConfig';
 
 export interface ProfileResourceFileSystem extends FsDriverBase {
 	resourceDirectory(): string;
@@ -14,6 +15,7 @@ export interface ProfileResourceFileSystem extends FsDriverBase {
 
 export interface ProfileStorageBinding {
 	database: ProfileDatabaseBinding;
+	profileConfig: ProfileConfigStorage;
 	privateData: ProfilePrivateData;
 	resourceFileSystem: ProfileResourceFileSystem;
 }
@@ -36,6 +38,21 @@ export const makePrivateProfileSettingsHandler = (
 	write: content => privateData.write(
 		'settings',
 		key,
+		Buffer.from(content, 'utf8'),
+	),
+});
+
+export const makePrivateProfileConfigStorage = (
+	privateData: ProfilePrivateData,
+): ProfileConfigStorage => ({
+	description: 'encrypted profile configuration',
+	read: async () => {
+		const content = await privateData.read('settings', 'profiles');
+		return content ? Buffer.from(content).toString('utf8') : undefined;
+	},
+	write: content => privateData.write(
+		'settings',
+		'profiles',
 		Buffer.from(content, 'utf8'),
 	),
 });
