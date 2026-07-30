@@ -18,6 +18,7 @@ import {
 	requireEncryptedProfileStorage,
 } from './watchtower/renderer/startEncryptedJoplinRenderer';
 import readPrivateRootSettings from './watchtower/profile/readPrivateRootSettings';
+import { setProfileConfigStorage } from '@joplin/lib/services/profileConfig';
 
 const getFlagValueFromArgs = (args: string[], flag: string, defaultValue: string|null) => {
 	if (!args) return null;
@@ -36,6 +37,7 @@ const startJoplinMain = async (
 	profileSession: Session,
 ): Promise<ElectronAppWrapper> => {
 	profileStorage = requireEncryptedProfileStorage(profileStorage);
+	setProfileConfigStorage(profileStorage.profileConfig);
 	require('@electron/remote/main').initialize();
 
 	// Electron takes the application name from package.json `name` and

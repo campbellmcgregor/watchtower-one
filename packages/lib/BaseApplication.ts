@@ -58,6 +58,7 @@ import RSA from './services/e2ee/ppk/RSA.node';
 import Resource from './models/Resource';
 import { ProfileConfig } from './services/profileConfig/types';
 import initProfile from './services/profileConfig/initProfile';
+import { setProfileConfigStorage } from './services/profileConfig';
 import { parseShareCache } from './services/share/reducer';
 import RotatingLogs from './RotatingLogs';
 import { NoteEntity } from './services/database/types';
@@ -709,6 +710,7 @@ export default class BaseApplication {
 		const altInstanceId = initArgs.altInstanceId || '';
 
 		const { rootProfileDir, homeDir } = determineProfileAndBaseDir(options.rootProfileDir ?? initArgs.profileDir, appName, altInstanceId);
+		setProfileConfigStorage(options.profileStorage?.profileConfig);
 		const { profileDir, profileConfig, isSubProfile } = await initProfile(rootProfileDir);
 		this.profileConfig_ = profileConfig;
 

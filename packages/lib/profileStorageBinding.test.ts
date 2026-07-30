@@ -2,6 +2,7 @@ import FsDriverNode from './fs-driver-node';
 import Resource from './models/Resource';
 import Setting from './models/Setting';
 import resolveProfileStorageBinding, {
+	makePrivateProfileConfigStorage,
 	ProfileResourceFileSystem,
 } from './profileStorageBinding';
 import EncryptionService from './services/e2ee/EncryptionService';
@@ -39,10 +40,11 @@ describe('resolveProfileStorageBinding', () => {
 		const createStockStorage = jest.fn(() => {
 			throw new Error('stock profile storage must remain unavailable');
 		});
+		const profileConfig = makePrivateProfileConfigStorage(privateData);
 		Setting.setConstant('isSubProfile', false);
 
 		const resolved = resolveProfileStorageBinding(
-			{ database, resourceFileSystem, privateData },
+			{ database, resourceFileSystem, privateData, profileConfig },
 			createStockStorage,
 		);
 
@@ -68,5 +70,25 @@ describe('resolveProfileStorageBinding', () => {
 			'profile:default',
 			'root',
 		]);
+	});
+
+	test('adapts encrypted private data to profile configuration storage', async () => {
+		const privateContent = new Map<string, Buffer>();
+		const privateData = {
+			write: async (_scope: 'settings', key: string, content: Uint8Array) => {
+				privateContent.set(key, Buffer.from(content));
+			},
+			read: async (_scope: 'settings', key: string) => privateContent.get(key),
+			remove: async (_scope: 'settings', key: string) => {
+				privateContent.delete(key);
+			},
+		};
+		const storage = makePrivateProfileConfigStorage(privateData);
+
+		await storage.write('{"currentProfileId":"default"}');
+
+		expect(storage.description).toBe('encrypted profile configuration');
+		expect(privateContent.get('profiles')?.toString('utf8')).toBe('{"currentProfileId":"default"}');
+		await expect(storage.read()).resolves.toBe('{"currentProfileId":"default"}');
 	});
 });

@@ -1,9 +1,21 @@
 import { writeFile } from 'fs-extra';
-import { createNewProfile, getProfileFullPath, loadProfileConfig, migrateProfileConfig, saveProfileConfig } from '.';
+import {
+	createNewProfile,
+	getProfileFullPath,
+	loadProfileConfig,
+	migrateProfileConfig,
+	saveProfileConfig,
+	setProfileConfigStorage,
+} from '.';
 import { tempFilePath } from '../../testing/test-utils';
 import { CurrentProfileVersion, defaultProfile, defaultProfileConfig, DefaultProfileId, Profile, ProfileConfig } from './types';
+import initProfile from './initProfile';
 
 describe('profileConfig/index', () => {
+
+	afterEach(() => {
+		setProfileConfigStorage();
+	});
 
 	it('should load a default profile config', async () => {
 		const filePath = tempFilePath('json');
@@ -47,6 +59,48 @@ describe('profileConfig/index', () => {
 
 		const loadedConfig = await loadProfileConfig(filePath);
 		expect(config).toEqual(loadedConfig);
+	});
+
+	it('should load and save profile configuration through supplied private storage', async () => {
+		let privateContent: string|undefined;
+		setProfileConfigStorage({
+			description: 'encrypted profile configuration',
+			read: async () => privateContent,
+			write: async content => {
+				privateContent = content;
+			},
+		});
+		const config = createNewProfile(
+			defaultProfileConfig(),
+			'Private laboratory notebook',
+		).newConfig;
+
+		await saveProfileConfig('C:\\plaintext-profile\\profiles.json', config);
+		await expect(loadProfileConfig(
+			'C:\\plaintext-profile\\profiles.json',
+		)).resolves.toEqual(config);
+		expect(privateContent).toContain('Private laboratory notebook');
+	});
+
+	it('should select the active profile from private storage before resolving its directory', async () => {
+		const { newConfig, newProfile } = createNewProfile(
+			defaultProfileConfig(),
+			'Encrypted research profile',
+		);
+		newConfig.currentProfileId = newProfile.id;
+		setProfileConfigStorage({
+			description: 'encrypted profile configuration',
+			read: async () => JSON.stringify(newConfig),
+			write: async () => {},
+		});
+
+		const initialized = await initProfile('C:\\public-bootstrap');
+
+		expect(initialized.profileConfig).toEqual(newConfig);
+		expect(initialized.profileDir).toBe(
+			`C:\\public-bootstrap/profile-${newProfile.id}`,
+		);
+		expect(initialized.isSubProfile).toBe(true);
 	});
 
 	it('should get a profile full path', async () => {
