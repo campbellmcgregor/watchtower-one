@@ -5,8 +5,12 @@ on:
     paths:
       - .github/workflows/watchtower-profile-storage.yml
       - packages/app-desktop/bridge.ts
+      - packages/app-desktop/app.ts
       - packages/app-desktop/joplinMain.ts
       - packages/app-desktop/main-html.ts
+      - packages/app-desktop/services/plugins/PluginRunner*
+      - packages/app-desktop/services/plugins/PluginScriptLoader*
+      - packages/app-desktop/services/plugins/plugin_index.*
       - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/watchtower/renderer/**

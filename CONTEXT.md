@@ -41,7 +41,7 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
   coordination. Profile paths, window geometry, logs, and user-derived content
   are not permitted there.
 - **Resource Content module**: the deep module whose interface imports, reads or streams, exports, and deletes attachment bytes by resource identifier without exposing a persistent plaintext path or its SQL implementation.
-- **Ephemeral Runtime module**: the deep module that configures content-bearing Electron sessions, renderer caches, preview material, and temporary working state so they remain memory-only or reconstructible and non-content-bearing.
+- **Ephemeral Runtime module**: the deep module that configures content-bearing Electron sessions, renderer caches, plugin executable source, preview material, and temporary working state so they remain memory-only or reconstructible and non-content-bearing.
 - **Sync E2EE**: Joplin's existing item-level encryption used while synchronizing through Joplin Cloud, WebDAV, Dropbox, OneDrive, or filesystem targets. It does not provide local-at-rest protection.
 - **Recovery Secret**: a user-held credential that can independently recover the Local Vault Key without a Watchtower account.
 - **Curated Plugin**: a plugin admitted by Watchtower's signing, review, update, and revocation policy. Signing proves admission; it does not sandbox the plugin.
