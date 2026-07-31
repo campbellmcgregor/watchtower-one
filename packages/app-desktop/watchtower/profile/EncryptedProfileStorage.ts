@@ -263,11 +263,39 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 
 	public privateData(capability: VaultSessionCapability): PrivateProfileData {
 		let initialization: Promise<void>|undefined;
+		const invalidPluginDataPathCharacters = new Set('<>:"\\|?*');
+		const windowsReservedNames = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
+		const isPortablePluginDataSegment = (segment: string) => (
+			!!segment &&
+			segment !== '.' &&
+			segment !== '..' &&
+			segment.length <= 255 &&
+			!/[ .]$/.test(segment) &&
+			!windowsReservedNames.test(segment) &&
+			[...segment].every(character => (
+				character.charCodeAt(0) > 31 &&
+				character.charCodeAt(0) !== 127 &&
+				!invalidPluginDataPathCharacters.has(character)
+			))
+		);
+		const validateScope = (scope: PrivateProfileScope) => {
+			if (scope !== 'settings' && !/^plugin:[A-Za-z0-9._-]+$/.test(scope)) {
+				throw new Error('Private profile data address is invalid');
+			}
+		};
 		const validateAddress = (scope: PrivateProfileScope, key: string) => {
-			if (
-				(scope !== 'settings' && !/^plugin:[A-Za-z0-9._-]+$/.test(scope)) ||
-				!/^[A-Za-z0-9._:-]+$/.test(key)
-			) {
+			validateScope(scope);
+			const segments = key.split('/');
+			const validSettingsKey = (
+				scope === 'settings' &&
+				/^[A-Za-z0-9._:-]+$/.test(key)
+			);
+			const validPluginDataKey = (
+				scope !== 'settings' &&
+				key.length <= 1024 &&
+				segments.every(isPortablePluginDataSegment)
+			);
+			if (!validSettingsKey && !validPluginDataKey) {
 				throw new Error('Private profile data address is invalid');
 			}
 		};
@@ -332,6 +360,17 @@ export default class EncryptedProfileStorage implements VaultOpenHandle {
 					throw new Error('Private profile data failed its integrity check');
 				}
 				return content;
+			}),
+			list: async scope => withSession(async () => {
+				validateScope(scope);
+				await initialize();
+				const rows = await this.connection_.selectAll(`
+					SELECT data_key
+					FROM watchtower_private_profile_data
+					WHERE scope = ?
+					ORDER BY data_key
+				`, [scope]);
+				return rows.map(row => String(row.data_key));
 			}),
 			remove: async (scope, key) => withSession(async () => {
 				validateAddress(scope, key);

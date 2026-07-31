@@ -35,6 +35,36 @@ const makeConnection = (): EncryptedProfileConnection => {
 	};
 };
 
+const startPrivateProfileData = async () => {
+	const sqlite = new DatabaseDriverNode();
+	await sqlite.open({ name: ':memory:' });
+	const storage = new EncryptedProfileStorage({
+		selectOne: (sql, params) => sqlite.selectOne(sql, params),
+		selectAll: (sql, params) => sqlite.selectAll(sql, params),
+		exec: (sql, params) => sqlite.exec(sql, params),
+		close: async () => sqlite.close(),
+		terminate: () => false,
+	});
+	let capability: VaultSessionCapability|undefined;
+	const lifecycle = new PreProfileVaultBootstrap({
+		create: async () => ({ kind: 'opened', handle: storage }),
+		unlock: async () => ({ kind: 'opened', handle: storage }),
+		recover: async () => ({ kind: 'opened', handle: storage }),
+		abort: () => true,
+	});
+	await lifecycle.start('unlock', {
+		start: async sessionCapability => {
+			capability = sessionCapability;
+		},
+		stop: async () => ({ kind: 'stopped' }),
+		terminate: () => true,
+	});
+	return {
+		lifecycle,
+		privateData: storage.privateData(capability!),
+	};
+};
+
 describe('EncryptedProfileStorage', () => {
 
 	test('ordinary profile database work is available only during an active Vault Session', async () => {
@@ -203,31 +233,7 @@ describe('EncryptedProfileStorage', () => {
 	});
 
 	test('sensitive settings and curated-plugin data remain isolated inside profile storage', async () => {
-		const sqlite = new DatabaseDriverNode();
-		await sqlite.open({ name: ':memory:' });
-		const storage = new EncryptedProfileStorage({
-			selectOne: (sql, params) => sqlite.selectOne(sql, params),
-			selectAll: (sql, params) => sqlite.selectAll(sql, params),
-			exec: (sql, params) => sqlite.exec(sql, params),
-			close: async () => sqlite.close(),
-			terminate: () => false,
-		});
-		let capability: VaultSessionCapability|undefined;
-		const lifecycle = new PreProfileVaultBootstrap({
-			create: async () => ({ kind: 'opened', handle: storage }),
-			unlock: async () => ({ kind: 'opened', handle: storage }),
-			recover: async () => ({ kind: 'opened', handle: storage }),
-			abort: () => true,
-		});
-		await lifecycle.start('unlock', {
-			start: async sessionCapability => {
-				capability = sessionCapability;
-			},
-			stop: async () => ({ kind: 'stopped' }),
-			terminate: () => true,
-		});
-
-		const privateData = storage.privateData(capability!);
+		const { lifecycle, privateData } = await startPrivateProfileData();
 		await privateData.write(
 			'settings',
 			'editor.preferences',
@@ -246,6 +252,72 @@ describe('EncryptedProfileStorage', () => {
 			Buffer.from('watchtower-plugin-data-canary'),
 		);
 		await expect(privateData.read('settings', 'preferences')).resolves.toBeUndefined();
+		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
+	});
+
+	test('curated-plugin files are addressable by normalized relative path inside their isolated namespace', async () => {
+		const { lifecycle, privateData } = await startPrivateProfileData();
+		await privateData.write(
+			'plugin:watchtower.example',
+			'indexes/search/state.json',
+			Buffer.from('watchtower-plugin-index'),
+		);
+		await privateData.write(
+			'plugin:watchtower.example',
+			'preferences.json',
+			Buffer.from('watchtower-plugin-preferences'),
+		);
+		await privateData.write(
+			'plugin:watchtower.example',
+			'exports/weekly report.json',
+			Buffer.from('watchtower-plugin-report'),
+		);
+
+		await expect(privateData.list('plugin:watchtower.example')).resolves.toEqual([
+			'exports/weekly report.json',
+			'indexes/search/state.json',
+			'preferences.json',
+		]);
+		await expect(privateData.read(
+			'plugin:watchtower.example',
+			'indexes/search/state.json',
+		)).resolves.toEqual(Buffer.from('watchtower-plugin-index'));
+		await expect(privateData.write(
+			'plugin:watchtower.example',
+			'../outside-profile.txt',
+			Buffer.from('plaintext-escape'),
+		)).rejects.toThrow('Private profile data address is invalid');
+		await expect(privateData.write(
+			'plugin:watchtower.example',
+			'C:/Users/Alice/outside-profile.txt',
+			Buffer.from('plaintext-escape'),
+		)).rejects.toThrow('Private profile data address is invalid');
+		await expect(privateData.write(
+			'plugin:watchtower.example',
+			'/outside-profile.txt',
+			Buffer.from('plaintext-escape'),
+		)).rejects.toThrow('Private profile data address is invalid');
+		await privateData.write(
+			'plugin:another-plugin',
+			'indexes/search/state.json',
+			Buffer.from('another-plugin-index'),
+		);
+		await expect(privateData.read(
+			'plugin:another-plugin',
+			'indexes/search/state.json',
+		)).resolves.toEqual(Buffer.from('another-plugin-index'));
+		await expect(privateData.list('plugin:another-plugin')).resolves.toEqual([
+			'indexes/search/state.json',
+		]);
+
+		await privateData.remove(
+			'plugin:watchtower.example',
+			'indexes/search/state.json',
+		);
+		await expect(privateData.list('plugin:watchtower.example')).resolves.toEqual([
+			'exports/weekly report.json',
+			'preferences.json',
+		]);
 		await expect(lifecycle.end('close')).resolves.toEqual({ kind: 'locked' });
 	});
 
