@@ -42,6 +42,7 @@ export type PrivateProfileScope = 'settings'|`plugin:${string}`;
 export interface PrivateProfileData {
 	write(scope: PrivateProfileScope, key: string, content: Uint8Array): Promise<void>;
 	read(scope: PrivateProfileScope, key: string): Promise<Buffer|undefined>;
+	list(scope: PrivateProfileScope): Promise<string[]>;
 	remove(scope: PrivateProfileScope, key: string): Promise<void>;
 }
 

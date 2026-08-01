@@ -27,6 +27,7 @@ const sqlCipherTest = compatibilityPrebuildRoot ? test : test.skip;
 const noteCanary = 'WATCHTOWER_PROFILE_NOTE_CANARY_7A1B2C3D';
 const resourceCanary = 'WATCHTOWER_PROFILE_RESOURCE_CANARY_8B2C3D4E';
 const settingCanary = 'WATCHTOWER_PROFILE_SETTING_CANARY_9C3D4E5F';
+const pluginDataCanary = 'WATCHTOWER_PLUGIN_DATA_CANARY_0D4E5F6A';
 
 const rawKeyPragma = (key: Buffer) => `key = "x'${key.toString('hex')}'"`;
 
@@ -71,7 +72,7 @@ const scanDatabaseArtifacts = (databasePath: string) => {
 		.filter(path => statSync(path).isFile())
 		.flatMap(path => {
 			const bytes = readFileSync(path);
-			return [noteCanary, resourceCanary, settingCanary]
+			return [noteCanary, resourceCanary, settingCanary, pluginDataCanary]
 				.filter(canary => bytes.includes(Buffer.from(canary)))
 				.map(canary => ({ path, canary }));
 		});
@@ -110,6 +111,11 @@ sqlCipherTest('Joplin profile data survives an encrypted SQLCipher close and res
 			'sync.credentials',
 			Buffer.from(settingCanary),
 		);
+		await opened.storage.privateData(opened.capability).write(
+			'plugin:watchtower.example',
+			'indexes/search/state.json',
+			Buffer.from(pluginDataCanary),
+		);
 		await database.close();
 		await opened.lifecycle.end('close');
 
@@ -134,6 +140,13 @@ sqlCipherTest('Joplin profile data survives an encrypted SQLCipher close and res
 			'settings',
 			'sync.credentials',
 		)).resolves.toEqual(Buffer.from(settingCanary));
+		await expect(opened.storage.privateData(opened.capability).list(
+			'plugin:watchtower.example',
+		)).resolves.toEqual(['indexes/search/state.json']);
+		await expect(opened.storage.privateData(opened.capability).read(
+			'plugin:watchtower.example',
+			'indexes/search/state.json',
+		)).resolves.toEqual(Buffer.from(pluginDataCanary));
 		await database.close();
 		await opened.lifecycle.end('close');
 
