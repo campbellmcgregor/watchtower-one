@@ -9,6 +9,10 @@ module.exports = {
 	],
 	testEnvironment: 'node',
 	testMatch: [
+		'**/services/plugins/EncryptedPluginDataFileSystem.test.ts',
+		'**/services/plugins/PluginDataFsProxy.test.ts',
+		'**/services/plugins/PluginMessageRouter.test.ts',
+		'**/services/plugins/PluginModulePolicy.test.ts',
 		'**/services/plugins/PluginRunner.test.ts',
 		'**/services/plugins/PluginScriptLoader.test.ts',
 		'**/watchtower/desktop/makeEncryptedDesktopDependencies.test.ts',

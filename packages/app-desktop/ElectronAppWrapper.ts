@@ -1,5 +1,6 @@
 import Logger, { LoggerWrapper, TargetType } from '@joplin/utils/Logger';
 import { PluginMessage } from './services/plugins/PluginRunner';
+import pluginMessageRecipient from './services/plugins/PluginMessageRouter';
 import AutoUpdaterService, { defaultUpdateInterval, initialUpdateStartup } from './services/autoUpdater/AutoUpdaterService';
 import type ShimType from '@joplin/lib/shim';
 const shim: typeof ShimType = require('@joplin/lib/shim').default;
@@ -586,19 +587,19 @@ export default class ElectronAppWrapper {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 		ipcMain.on('pluginMessage', (_event: any, message: PluginMessage) => {
 			try {
-				if (message.target === 'mainWindow') {
-					this.win_.webContents.send('pluginMessage', message);
+				const recipient = pluginMessageRecipient(
+					_event.sender,
+					message,
+					{
+						mainWindow: this.win_,
+						pluginWindows: this.pluginWindows_,
+					},
+				);
+				if (!recipient) {
+					this.ipcLogger_.error(`Rejected plugin message with unbound identity: ${message.pluginId}`);
+					return;
 				}
-
-				if (message.target === 'plugin') {
-					const win = this.pluginWindows_[message.pluginId];
-					if (!win) {
-						this.ipcLogger_.error(`Trying to send IPC message to non-existing plugin window: ${message.pluginId}`);
-						return;
-					}
-
-					win.webContents.send('pluginMessage', message);
-				}
+				recipient.send('pluginMessage', message);
 			} catch (error) {
 				// An error might happen when the app is closing and a plugin
 				// sends a message. In which case, the above code would try to

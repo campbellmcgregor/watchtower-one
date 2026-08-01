@@ -66,10 +66,13 @@ export interface ProfileStorageBinding {
 	resourceFileSystem: ProfileResourceFileSystem;
 }
 
+export type ProfilePrivateDataScope = 'settings'|`plugin:${string}`;
+
 export interface ProfilePrivateData {
-	write(scope: 'settings', key: string, content: Uint8Array): Promise<void>;
-	read(scope: 'settings', key: string): Promise<Uint8Array|undefined>;
-	remove(scope: 'settings', key: string): Promise<void>;
+	write(scope: ProfilePrivateDataScope, key: string, content: Uint8Array): Promise<void>;
+	read(scope: ProfilePrivateDataScope, key: string): Promise<Uint8Array|undefined>;
+	list(scope: ProfilePrivateDataScope): Promise<string[]>;
+	remove(scope: ProfilePrivateDataScope, key: string): Promise<void>;
 }
 
 export const makePrivateProfileSettingsHandler = (

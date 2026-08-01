@@ -13,6 +13,9 @@ import {
 	FileBackedPluginScriptLoader,
 	type PluginScriptLoader,
 } from './PluginScriptLoader';
+import EncryptedPluginDataFileSystem, {
+	type EncryptedPluginDataRequest,
+} from './EncryptedPluginDataFileSystem';
 // import BackOffHandler from './BackOffHandler';
 const ipcRenderer = require('electron').ipcRenderer;
 
@@ -105,6 +108,7 @@ export default class PluginRunner extends BasePluginRunner {
 			shim.fsDriver(),
 			() => Setting.value('tempDir'),
 		),
+		private readonly pluginDataFileSystem_?: EncryptedPluginDataFileSystem,
 	) {
 		super();
 
@@ -145,7 +149,7 @@ export default class PluginRunner extends BasePluginRunner {
 			pathname: getAssetPath('services/plugins/plugin_index.html'),
 			protocol: 'file:',
 			slashes: true,
-		})}?pluginId=${encodeURIComponent(plugin.id)}&libraryData=${encodeURIComponent(JSON.stringify(libraryData))}`;
+		})}?pluginId=${encodeURIComponent(plugin.id)}&libraryData=${encodeURIComponent(JSON.stringify(libraryData))}&pluginData=${this.pluginDataFileSystem_ ? 'encrypted' : 'stock'}`;
 
 		if (plugin.devMode) {
 			pluginWindow.webContents.once('dom-ready', () => {
@@ -209,7 +213,22 @@ export default class PluginRunner extends BasePluginRunner {
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 				let error: any = null;
 				try {
-					result = await executeSandboxCall(plugin.id, pluginApi, fullPath, mappedArgs, this.eventHandler);
+					if (
+						this.pluginDataFileSystem_ &&
+						message.path === 'plugins.dataDir'
+					) {
+						result = this.pluginDataFileSystem_.dataDirectory(plugin.id);
+					} else if (
+						this.pluginDataFileSystem_ &&
+						message.path === '__watchtowerPluginDataFs__'
+					) {
+						result = await this.pluginDataFileSystem_.execute(
+							plugin.id,
+							mappedArgs[0] as EncryptedPluginDataRequest,
+						);
+					} else {
+						result = await executeSandboxCall(plugin.id, pluginApi, fullPath, mappedArgs, this.eventHandler);
+					}
 				} catch (e) {
 					error = e ? e : new Error('Unknown error');
 				}

@@ -10,7 +10,13 @@ on:
       - packages/app-desktop/main-html.ts
       - packages/app-desktop/services/plugins/PluginRunner*
       - packages/app-desktop/services/plugins/PluginScriptLoader*
+      - packages/app-desktop/services/plugins/EncryptedPluginDataFileSystem*
+      - packages/app-desktop/services/plugins/PluginDataFsProxy*
+      - packages/app-desktop/services/plugins/PluginMessageRouter*
+      - packages/app-desktop/services/plugins/PluginModulePolicy*
       - packages/app-desktop/services/plugins/plugin_index.*
+      - packages/app-desktop/ElectronAppWrapper.ts
+      - packages/lib/profileStorageBinding.ts
       - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/watchtower/renderer/**

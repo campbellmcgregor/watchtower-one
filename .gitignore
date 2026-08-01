@@ -576,7 +576,13 @@ packages/app-desktop/services/bridge.js
 packages/app-desktop/services/commands/stateToWhenClauseContext.js
 packages/app-desktop/services/commands/types.js
 packages/app-desktop/services/plugins/BackOffHandler.js
+packages/app-desktop/services/plugins/EncryptedPluginDataFileSystem.test.js
+packages/app-desktop/services/plugins/EncryptedPluginDataFileSystem.js
 packages/app-desktop/services/plugins/PlatformImplementation.js
+packages/app-desktop/services/plugins/PluginDataFsProxy.test.js
+packages/app-desktop/services/plugins/PluginMessageRouter.test.js
+packages/app-desktop/services/plugins/PluginMessageRouter.js
+packages/app-desktop/services/plugins/PluginModulePolicy.test.js
 packages/app-desktop/services/plugins/PluginRunner.test.js
 packages/app-desktop/services/plugins/PluginRunner.js
 packages/app-desktop/services/plugins/PluginScriptLoader.test.js
