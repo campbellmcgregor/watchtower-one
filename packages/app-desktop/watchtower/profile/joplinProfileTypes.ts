@@ -11,6 +11,7 @@ import {
 	PrivateProfileData,
 	ResourceContent,
 } from './profileStorageTypes';
+import type { ProfilePluginCodeDirectories } from '@joplin/lib/profileStorageBinding';
 
 export interface JoplinEncryptedProfile {
 	database: EncryptedProfileDatabase;
@@ -19,6 +20,7 @@ export interface JoplinEncryptedProfile {
 	resources: ResourceContent;
 	resourceFileSystem: EncryptedResourceFsDriver;
 	privateData: PrivateProfileData;
+	pluginCode: ProfilePluginCodeDirectories;
 	ephemeral: EphemeralProfileArtifacts;
 }
 
@@ -32,6 +34,7 @@ export type LoadJoplinProfileRuntime = ()=> Promise<JoplinProfileRuntime>;
 
 export interface EncryptedJoplinProfileHostOptions {
 	ephemeralSessionFactory: EphemeralElectronSessionFactory;
+	pluginCode: ProfilePluginCodeDirectories;
 	publicVaultLockFilePath: string;
 	resourceDirectory: string;
 }

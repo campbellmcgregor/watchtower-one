@@ -45,6 +45,10 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
 - **Sync E2EE**: Joplin's existing item-level encryption used while synchronizing through Joplin Cloud, WebDAV, Dropbox, OneDrive, or filesystem targets. It does not provide local-at-rest protection.
 - **Recovery Secret**: a user-held credential that can independently recover the Local Vault Key without a Watchtower account.
 - **Curated Plugin**: a plugin admitted by Watchtower's signing, review, update, and revocation policy. Signing proves admission; it does not sandbox the plugin.
+- **Public Plugin Code Store**: the structurally separate public directory that
+  may contain only admitted plugin packages and their deterministic executable
+  extraction cache. It contains no plugin settings, user data, logs, or
+  temporary working content and is not part of Reviewed Public Runtime State.
 - **Encrypted Plugin Data Filesystem**: the host-authenticated, plugin-scoped
   virtual filesystem exposed to a Curated Plugin for persistent user data. It
   is backed by the Canonical Encrypted Store and never supplies a persistent

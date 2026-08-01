@@ -750,6 +750,7 @@ export default class BaseApplication {
 		Setting.setConstant('tempDir', tempDir);
 		Setting.setConstant('pluginDataDir', `${profileDir}/plugin-data`);
 		Setting.setConstant('cacheDir', cacheDir);
+		Setting.setConstant('pluginCacheDir', cacheDir);
 		Setting.setConstant('pluginDir', `${rootProfileDir}/plugins`);
 		Setting.setConstant('homeDir', homeDir);
 

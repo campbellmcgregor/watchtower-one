@@ -7,7 +7,7 @@ import { JoplinEncryptedProfile } from './joplinProfileTypes';
 import { encryptedProfileDatabaseName } from './profileStorageTypes';
 
 const bindJoplinProfileStorage = (
-	profile: Pick<JoplinEncryptedProfile, 'database'|'ephemeral'|'privateData'|'publicVaultLockFilePath'|'resourceFileSystem'>,
+	profile: Pick<JoplinEncryptedProfile, 'database'|'ephemeral'|'pluginCode'|'privateData'|'publicVaultLockFilePath'|'resourceFileSystem'>,
 ): ProfileStorageBinding => {
 	return {
 		database: {
@@ -15,6 +15,7 @@ const bindJoplinProfileStorage = (
 			name: encryptedProfileDatabaseName,
 		},
 		logFileSystem: makeEphemeralProfileLogFileSystem(profile.ephemeral),
+		pluginCode: profile.pluginCode,
 		profileConfig: makePrivateProfileConfigStorage(profile.privateData),
 		privateData: profile.privateData,
 		publicVaultLockFilePath: profile.publicVaultLockFilePath,

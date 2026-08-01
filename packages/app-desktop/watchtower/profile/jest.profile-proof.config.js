@@ -16,6 +16,7 @@ module.exports = {
 		'**/services/plugins/PluginRunner.test.ts',
 		'**/services/plugins/PluginScriptLoader.test.ts',
 		'**/watchtower/desktop/makeEncryptedDesktopDependencies.test.ts',
+		'**/watchtower/desktop/runWatchtowerElectronMain.test.ts',
 		'**/watchtower/profile/SqlCipherEncryptedProfileConnection.integration.test.ts',
 		'**/watchtower/renderer/startEncryptedJoplinRenderer.test.ts',
 	],

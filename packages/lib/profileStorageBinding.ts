@@ -60,10 +60,16 @@ const boundedUtf16Suffix = (
 export interface ProfileStorageBinding {
 	database: ProfileDatabaseBinding;
 	logFileSystem: ProfileLogFileSystem;
+	pluginCode: ProfilePluginCodeDirectories;
 	profileConfig: ProfileConfigStorage;
 	privateData: ProfilePrivateData;
 	publicVaultLockFilePath: string;
 	resourceFileSystem: ProfileResourceFileSystem;
+}
+
+export interface ProfilePluginCodeDirectories {
+	cacheDirectory: string;
+	packageDirectory: string;
 }
 
 export type ProfilePrivateDataScope = 'settings'|`plugin:${string}`;
@@ -181,9 +187,15 @@ const resolveProfileStorageBinding = (
 	const resourceFileSystem = binding?.resourceFileSystem;
 	const resourceDirectory = resourceFileSystem?.resourceDirectory() ?? stock!.resourceDirectory;
 	const privateData = binding?.privateData;
+	const pluginCode = binding?.pluginCode;
 
+	Setting.setConstant('allowArbitraryPluginInstallation', !binding);
 	Setting.setConstant('resourceDirName', 'resources');
 	Setting.setConstant('resourceDir', resourceDirectory);
+	if (pluginCode) {
+		Setting.setConstant('pluginDir', pluginCode.packageDirectory);
+		Setting.setConstant('pluginCacheDir', pluginCode.cacheDirectory);
+	}
 	if (resourceFileSystem) {
 		Resource.fsDriver_ = resourceFileSystem;
 		EncryptionService.fsDriver_ = resourceFileSystem;

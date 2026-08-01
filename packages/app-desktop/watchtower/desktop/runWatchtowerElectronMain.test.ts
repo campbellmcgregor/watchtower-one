@@ -22,6 +22,7 @@ describe('runWatchtowerElectronMain', () => {
 	const vaultDirectory = join(userDataDirectory, 'vault');
 	const publicRuntimeDirectory = join(userDataDirectory, 'runtime');
 	const publicVaultLockFilePath = join(publicRuntimeDirectory, 'vault.lock');
+	const publicPluginCodeDirectory = join(userDataDirectory, 'code', 'plugins');
 	const unlockAssetDirectory = 'C:\\Watchtower\\unlock';
 	const sessionFactory = {} as EphemeralElectronSessionFactory;
 	const openHandle: VaultOpenHandle = {
@@ -123,6 +124,10 @@ describe('runWatchtowerElectronMain', () => {
 			envelopeDirectory: join(vaultDirectory, 'envelope'),
 			profileHostOptions: {
 				ephemeralSessionFactory: sessionFactory,
+				pluginCode: {
+					cacheDirectory: join(publicPluginCodeDirectory, 'cache'),
+					packageDirectory: join(publicPluginCodeDirectory, 'packages'),
+				},
 				publicVaultLockFilePath,
 				resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 			},

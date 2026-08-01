@@ -177,6 +177,10 @@ describe('EncryptedResourceFsDriver', () => {
 		const binding = bindJoplinProfileStorage({
 			database: storage.database(capability!),
 			ephemeral: storage.ephemeral(capability!),
+			pluginCode: {
+				cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
+				packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
+			},
 			privateData: storage.privateData(capability!),
 			publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 			resourceFileSystem: driver,
