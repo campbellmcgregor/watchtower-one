@@ -55,6 +55,7 @@ const runWatchtowerElectronMain = async (
 		);
 		const publicRuntimeDirectory = join(userDataDirectory, 'runtime');
 		const publicVaultLockFilePath = join(publicRuntimeDirectory, 'vault.lock');
+		const publicPluginCodeDirectory = join(userDataDirectory, 'code', 'plugins');
 		dependencies.host.ensureDirectory(userDataDirectory);
 		dependencies.host.ensureDirectory(publicRuntimeDirectory);
 		dependencies.host.setUserDataDirectory(userDataDirectory);
@@ -73,6 +74,10 @@ const runWatchtowerElectronMain = async (
 					loadJoplinProfileRuntime: loadPendingEncryptedJoplinRuntime,
 					profileHostOptions: {
 						ephemeralSessionFactory: dependencies.ephemeralSessionFactory,
+						pluginCode: {
+							cacheDirectory: join(publicPluginCodeDirectory, 'cache'),
+							packageDirectory: join(publicPluginCodeDirectory, 'packages'),
+						},
 						publicVaultLockFilePath,
 						resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 					},

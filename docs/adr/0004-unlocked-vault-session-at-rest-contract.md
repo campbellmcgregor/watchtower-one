@@ -137,6 +137,14 @@ The exact Public Bootstrap State and key-envelope metadata remain separate
 decisions. Adding any field to public persistence requires explicit review and
 runtime canary evidence.
 
+Signed curated-plugin packages and their deterministic extracted executable
+assets live in a dedicated Public Plugin Code Store outside the vault, the
+logical Joplin profile, and the lock-only Reviewed Public Runtime State. The
+package directory and extraction cache are distinct. Neither may contain
+plugin settings, user data, logs, databases, or temporary working content.
+Plugin admission and signature enforcement must reject untrusted packages
+before this store can be enabled in a distributable runtime.
+
 #### Reviewed Public Runtime State
 
 Watchtower's public runtime directory is structurally separate from both the

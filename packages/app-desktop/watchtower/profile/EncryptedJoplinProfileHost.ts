@@ -112,6 +112,7 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 			await runtime.start({
 				database,
 				ephemeralRuntime,
+				pluginCode: this.options_.pluginCode,
 				publicVaultLockFilePath: this.options_.publicVaultLockFilePath,
 				resources,
 				resourceFileSystem: new EncryptedResourceFsDriver(

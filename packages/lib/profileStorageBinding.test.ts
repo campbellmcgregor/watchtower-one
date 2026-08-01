@@ -36,6 +36,7 @@ describe('resolveProfileStorageBinding', () => {
 				privateContent.set(key, Buffer.from(content));
 			},
 			read: async (_scope: 'settings', key: string) => privateContent.get(key),
+			list: async () => [...privateContent.keys()].sort(),
 			remove: async (_scope: 'settings', key: string) => {
 				privateContent.delete(key);
 			},
@@ -49,6 +50,10 @@ describe('resolveProfileStorageBinding', () => {
 		const resolved = resolveProfileStorageBinding(
 			{
 				database,
+				pluginCode: {
+					packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
+					cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
+				},
 				logFileSystem: {
 					appendFile: async () => {},
 				},
@@ -65,6 +70,9 @@ describe('resolveProfileStorageBinding', () => {
 		expect(resolved.resourceFileSystem).toBe(resourceFileSystem);
 		expect(resolved.resourceDirectory).toBe(resourceFileSystem.resourceDirectory());
 		expect(Setting.value('resourceDir')).toBe(resourceFileSystem.resourceDirectory());
+		expect(Setting.value('pluginDir')).toBe('C:\\WatchtowerPublicCode\\plugins\\packages');
+		expect(Setting.value('pluginCacheDir')).toBe('C:\\WatchtowerPublicCode\\plugins\\cache');
+		expect(Setting.value('allowArbitraryPluginInstallation')).toBe(false);
 		expect(Resource.fsDriver()).toBe(resourceFileSystem);
 		expect(EncryptionService.fsDriver_).toBe(resourceFileSystem);
 
@@ -91,6 +99,7 @@ describe('resolveProfileStorageBinding', () => {
 				privateContent.set(key, Buffer.from(content));
 			},
 			read: async (_scope: 'settings', key: string) => privateContent.get(key),
+			list: async () => [...privateContent.keys()].sort(),
 			remove: async (_scope: 'settings', key: string) => {
 				privateContent.delete(key);
 			},

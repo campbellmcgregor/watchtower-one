@@ -8,6 +8,9 @@ import { Action, createStore } from 'redux';
 import MockPlatformImplementation from './testing/MockPlatformImplementation';
 import createTestPlugin from '../../testing/plugins/createTestPlugin';
 import Plugin from './Plugin';
+import shim from '../../shim';
+import { join } from 'path';
+import RepositoryApi from './RepositoryApi';
 
 const createMockReduxStore = () => {
 	return createStore((state: State = defaultState, action: Action<string>) => {
@@ -31,6 +34,7 @@ describe('loadPlugins', () => {
 	});
 
 	afterEach(async () => {
+		Setting.setConstant('allowArbitraryPluginInstallation', true);
 		for (const id of PluginService.instance().pluginIds) {
 			await PluginService.instance().unloadPlugin(id);
 		}
@@ -77,6 +81,53 @@ describe('loadPlugins', () => {
 		// Should have tried to stop at most the disabled plugin (which is a no-op).
 		expect(pluginRunner.stopCalledTimes).toBe(1);
 		expect(pluginRunner.runningPluginIds).toMatchObject([enabledPluginId]);
+	});
+
+	test('extracts plugin executable code into the supplied public code cache', async () => {
+		const sourceDirectory = join(Setting.value('tempDir'), 'watchtower-plugin-package');
+		const packagePath = join(Setting.value('tempDir'), 'watchtower.test.plugin.jpl');
+		const publicCodeCache = join(Setting.value('tempDir'), 'watchtower-public-plugin-code');
+		await shim.fsDriver().mkdir(sourceDirectory);
+		await shim.fsDriver().writeFile(join(sourceDirectory, 'manifest.json'), JSON.stringify({
+			...defaultManifestProperties,
+			id: 'watchtower.test.plugin',
+			name: 'Watchtower Test Plugin',
+		}), 'utf8');
+		await shim.fsDriver().writeFile(join(sourceDirectory, 'index.js'), 'joplin.plugins.register({ onStart: async () => {} });', 'utf8');
+		await shim.fsDriver().tarCreate({
+			strict: true,
+			portable: true,
+			file: packagePath,
+			cwd: sourceDirectory,
+		}, ['manifest.json', 'index.js']);
+		Setting.setConstant('pluginCacheDir', publicCodeCache);
+
+		const plugin = await PluginService.instance().loadPluginFromPackage(
+			Setting.value('pluginDir'),
+			packagePath,
+		);
+
+		expect(plugin.id).toBe('watchtower.test.plugin');
+		expect(plugin.baseDir).toBe(join(publicCodeCache, 'watchtower.test.plugin'));
+		await expect(shim.fsDriver().exists(join(
+			publicCodeCache,
+			'watchtower.test.plugin',
+			'manifest.json',
+		))).resolves.toBe(true);
+	});
+
+	test('rejects ordinary plugin installation when arbitrary packages are disabled', async () => {
+		Setting.setConstant('allowArbitraryPluginInstallation', false);
+		const downloadPlugin = jest.fn();
+
+		await expect(PluginService.instance().installPlugin(
+			join(Setting.value('tempDir'), 'unsigned-plugin.jpl'),
+		)).rejects.toThrow('Arbitrary plugin installation is disabled');
+		await expect(PluginService.instance().installPluginFromRepo(
+			{ downloadPlugin } as unknown as RepositoryApi,
+			'unsigned.plugin',
+		)).rejects.toThrow('Arbitrary plugin installation is disabled');
+		expect(downloadPlugin).not.toHaveBeenCalled();
 	});
 
 	test('should reload all plugins when reloadAll is true', async () => {

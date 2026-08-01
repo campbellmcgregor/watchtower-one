@@ -17,6 +17,11 @@ on:
       - packages/app-desktop/services/plugins/plugin_index.*
       - packages/app-desktop/ElectronAppWrapper.ts
       - packages/lib/profileStorageBinding.ts
+      - packages/lib/profileStorageBinding.test.ts
+      - packages/lib/BaseApplication.ts
+      - packages/lib/models/Setting.ts
+      - packages/lib/services/plugins/PluginService.ts
+      - packages/lib/services/plugins/loadPlugins.test.ts
       - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/watchtower/renderer/**
@@ -118,6 +123,10 @@ jobs:
           WATCHTOWER_SQLCIPHER_PREBUILD_ROOT: ${{ github.workspace }}\node-sqlcipher
         run: |
           corepack yarn watchtowerProfileStorageProof
+
+      - name: Run the public plugin code-path proof
+        run: |
+          corepack yarn workspace @joplin/lib test --runInBand profileStorageBinding.test.js services/plugins/loadPlugins.test.js
 
       - name: Run the pre-profile unlock-window proof
         run: |

@@ -29,6 +29,10 @@ const makeConnection = (events?: string[]): EncryptedProfileConnection => ({
 });
 
 describe('makeEncryptedDesktopDependencies', () => {
+	const pluginCode = {
+		cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
+		packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
+	};
 	let vaultDirectory = '';
 	const browserSession = {} as Session;
 
@@ -73,6 +77,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
 			profileHostOptions: {
+				pluginCode,
 				ephemeralSessionFactory: {
 					fromPartition: async () => ({
 						browserSession,
@@ -120,6 +125,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 					return new EncryptedProfileStorage(makeConnection(events));
 				},
 				profileHostOptions: {
+					pluginCode,
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
 							browserSession,
@@ -196,6 +202,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 				envelopeDirectory: vaultDirectory,
 				openProfileStorage,
 				profileHostOptions: {
+					pluginCode,
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
 							browserSession,
@@ -237,6 +244,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 				databasePath: join(vaultDirectory, 'profile.sqlite'),
 				envelopeDirectory: vaultDirectory,
 				profileHostOptions: {
+					pluginCode,
 					ephemeralSessionFactory: {
 						fromPartition: async () => ({
 							browserSession,

@@ -293,7 +293,7 @@ export default class PluginService extends BaseService {
 		const fname = filename(path);
 		const hash = await shim.fsDriver().md5File(path);
 
-		const unpackDir = `${Setting.value('cacheDir')}/${fname}`;
+		const unpackDir = `${Setting.value('pluginCacheDir')}/${fname}`;
 		const manifestFilePath = `${unpackDir}/manifest.json`;
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
@@ -596,6 +596,7 @@ export default class PluginService extends BaseService {
 	}
 
 	public async installPluginFromRepo(repoApi: RepositoryApi, pluginId: string): Promise<Plugin> {
+		this.assertArbitraryPluginInstallationAllowed();
 		const pluginPath = await repoApi.downloadPlugin(pluginId);
 		const plugin = await this.installPlugin(pluginPath);
 
@@ -608,6 +609,7 @@ export default class PluginService extends BaseService {
 	}
 
 	public async installPlugin(jplPath: string, loadPlugin = true): Promise<Plugin | null> {
+		this.assertArbitraryPluginInstallationAllowed();
 		logger.info(`Installing plugin: "${jplPath}"`);
 
 		// Before moving the plugin to the profile directory, we load it
@@ -642,6 +644,12 @@ export default class PluginService extends BaseService {
 			if (!this.plugins_[plugin.id]) this.setPluginAt(plugin.id, plugin);
 			return plugin;
 		} else { return null; }
+	}
+
+	private assertArbitraryPluginInstallationAllowed() {
+		if (!Setting.value('allowArbitraryPluginInstallation')) {
+			throw new Error('Arbitrary plugin installation is disabled');
+		}
 	}
 
 	private async pluginPath(pluginId: string) {

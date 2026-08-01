@@ -36,6 +36,10 @@ describe('EncryptedJoplinProfileHost', () => {
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
 				const binding = bindJoplinProfileStorage(profile);
+				expect(binding.pluginCode).toEqual({
+					cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
+					packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
+				});
 				expect(binding.publicVaultLockFilePath).toBe(
 					'C:\\WatchtowerPublicRuntime\\vault.lock',
 				);
@@ -105,6 +109,10 @@ describe('EncryptedJoplinProfileHost', () => {
 							events.push('ephemeral-connections-closed');
 						},
 					}),
+				},
+				pluginCode: {
+					cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
+					packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
 				},
 				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',

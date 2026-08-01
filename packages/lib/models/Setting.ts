@@ -45,6 +45,7 @@ interface CacheItem {
 }
 
 export interface Constants {
+	allowArbitraryPluginInstallation: boolean;
 	env: Env;
 	isDemo: boolean;
 	appName: string;
@@ -58,6 +59,7 @@ export interface Constants {
 	tempDir: string;
 	pluginDataDir: string;
 	cacheDir: string;
+	pluginCacheDir: string;
 	pluginDir: string;
 	homeDir: string;
 	flagOpenDevTools: boolean;
@@ -288,6 +290,7 @@ class Setting extends BaseModel {
 	// Contains constants that are set by the application and
 	// cannot be modified by the user:
 	public static constants_: Constants = {
+		allowArbitraryPluginInstallation: true,
 		env: Env.Undefined,
 		isDemo: false,
 		appName: 'joplin',
@@ -302,6 +305,7 @@ class Setting extends BaseModel {
 		tempDir: '',
 		pluginDataDir: '',
 		cacheDir: '',
+		pluginCacheDir: '',
 		pluginDir: '',
 		homeDir: '',
 		flagOpenDevTools: false,
