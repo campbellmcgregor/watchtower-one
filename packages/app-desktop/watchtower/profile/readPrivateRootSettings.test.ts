@@ -10,6 +10,7 @@ describe('readPrivateRootSettings', () => {
 				autoUploadCrashDumps: true,
 			})),
 			write: async () => {},
+			list: async () => [],
 			remove: async () => {},
 		};
 
@@ -24,6 +25,7 @@ describe('readPrivateRootSettings', () => {
 		const privateData: ProfilePrivateData = {
 			read: async () => Buffer.from('{ malformed'),
 			write,
+			list: async () => [],
 			remove,
 		};
 

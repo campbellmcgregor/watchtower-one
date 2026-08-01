@@ -5,6 +5,7 @@ import PluginService, { PluginSettings } from '@joplin/lib/services/plugins/Plug
 import resourceEditWatcherReducer, { defaultState as resourceEditWatcherDefaultState } from '@joplin/lib/services/ResourceEditWatcher/reducer';
 import PluginRunner from './services/plugins/PluginRunner';
 import { EphemeralPluginScriptLoader } from './services/plugins/PluginScriptLoader';
+import EncryptedPluginDataFileSystem from './services/plugins/EncryptedPluginDataFileSystem';
 import PlatformImplementation from './services/plugins/PlatformImplementation';
 import type ShimType from '@joplin/lib/shim';
 const shim: typeof ShimType = require('@joplin/lib/shim').default;
@@ -274,10 +275,14 @@ class Application extends BaseApplication {
 		this.initPluginServiceDone_ = true;
 
 		const service = PluginService.instance();
+		const profileStorage = bridge().profileStorage();
 
 		const pluginRunner = new PluginRunner(
-			bridge().profileStorage() ?
+			profileStorage ?
 				new EphemeralPluginScriptLoader() :
+				undefined,
+			profileStorage ?
+				new EncryptedPluginDataFileSystem(profileStorage.privateData) :
 				undefined,
 		);
 		service.initialize(packageInfo.version, PlatformImplementation.instance(), pluginRunner, this.store());

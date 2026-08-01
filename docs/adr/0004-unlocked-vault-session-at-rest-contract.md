@@ -75,6 +75,25 @@ performance and plaintext trace evidence. Runtime and forced-termination
 evidence must verify the database, journal, WAL, SHM, temporary, backup, and
 recovery paths rather than relying on configuration alone.
 
+#### Encrypted Plugin Data Filesystem
+
+During an encrypted Vault Session, `joplin.plugins.dataDir` is a virtual,
+operating-system-independent root. The plugin host maps the supported
+asynchronous file operations beneath that root to a namespace in the Canonical
+Encrypted Store. The host derives that namespace from the registered plugin
+identity and authenticates the Electron message sender; plugin input cannot
+select another plugin's namespace or receive a persistent host path.
+
+The first compatibility surface covers directory creation and listing, file
+read and write, JSON read and write, existence checks, metadata, and recursive
+removal. Additional operations require an explicit compatibility test before
+admission. When no encrypted profile binding exists, the downstream hook falls
+back to stock Joplin behavior so the upstream seam remains reviewable.
+
+This filesystem is an encrypted persistence adapter, not a plugin sandbox.
+Curated plugins remain trusted profile-capable code and still require signing,
+review, revocation, and packaged runtime plaintext tracing.
+
 ### Memory-only material
 
 The following may exist only in trusted process memory during an unlocked Vault

@@ -1,6 +1,7 @@
 (function(globalObject) {
 	// TODO: Not sure if that will work once packaged in Electron
 	const sandboxProxy = require('../../vendor/lib/@joplin/lib/services/plugins/sandboxProxy.js');
+	const assertPluginModuleAvailable = require('./PluginModulePolicy.js');
 	const ipcRenderer = require('electron').ipcRenderer;
 
 	const ipcRendererSend = (message, args) => {
@@ -15,6 +16,7 @@
 	const urlParams = new URLSearchParams(window.location.search);
 	const pluginId = urlParams.get('pluginId');
 	const libraryData = JSON.parse(decodeURIComponent(urlParams.get('libraryData')));
+	const pluginDataMode = urlParams.get('pluginData');
 
 	let eventId_ = 1;
 	const eventHandlers_ = {};
@@ -46,27 +48,7 @@
 	const callbackPromises = {};
 	let callbackIndex = 1;
 
-	const target = (path, args) => {
-		if (path === 'require' || path === 'plugins.require') { // plugins.require is deprecated
-			const modulePath = args && args.length ? args[0] : null;
-			if (!modulePath) throw new Error('No module path specified on `require` call');
-
-			if (modulePath === 'sqlite3') {
-				return require('sqlite3');
-			}
-
-			if (modulePath === 'fs-extra') {
-				return require('fs-extra');
-			}
-
-			// 7zip-bin is required by one of the default plugins (simple-backup)
-			if (modulePath === '7zip-bin') {
-				return { path7za: libraryData.pathTo7za };
-			}
-
-			throw new Error(`Module not found: ${modulePath}`);
-		}
-
+	const callHost = (path, args) => {
 		const callbackId = `cb_${pluginId}_${Date.now()}_${callbackIndex++}`;
 		const promise = new Promise((resolve, reject) => {
 			callbackPromises[callbackId] = { resolve, reject };
@@ -81,6 +63,38 @@
 		});
 
 		return promise;
+	};
+
+	const target = (path, args) => {
+		if (path === 'require' || path === 'plugins.require') { // plugins.require is deprecated
+			const modulePath = args && args.length ? args[0] : null;
+			if (!modulePath) throw new Error('No module path specified on `require` call');
+			assertPluginModuleAvailable(modulePath, pluginDataMode);
+
+			if (modulePath === 'sqlite3') {
+				return require('sqlite3');
+			}
+
+			if (modulePath === 'fs-extra') {
+				if (pluginDataMode === 'encrypted') {
+					const createPluginDataFsProxy = require('./PluginDataFsProxy.js');
+					return createPluginDataFsProxy(
+						`/watchtower-plugin-data/${pluginId}`,
+						request => callHost('__watchtowerPluginDataFs__', [request]),
+					);
+				}
+				return require('fs-extra');
+			}
+
+			// 7zip-bin is required by one of the default plugins (simple-backup)
+			if (modulePath === '7zip-bin') {
+				return { path7za: libraryData.pathTo7za };
+			}
+
+			throw new Error(`Module not found: ${modulePath}`);
+		}
+
+		return callHost(path, args);
 	};
 
 	ipcRenderer.on('pluginMessage', async (_event, message) => {
