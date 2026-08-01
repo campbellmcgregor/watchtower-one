@@ -18,6 +18,7 @@ import {
 	switchClient,
 } from '@joplin/lib/testing/test-utils';
 import bindJoplinProfileStorage from './bindJoplinProfileStorage';
+import EphemeralProfileFsDriver from './EphemeralProfileFsDriver';
 import resolveProfileStorageBinding from '@joplin/lib/profileStorageBinding';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
@@ -174,9 +175,10 @@ describe('EncryptedResourceFsDriver', () => {
 		const encryptionService = new EncryptionService();
 		const previousFsDriver = EncryptionService.fsDriver_;
 		const previousResourceFsDriver = Resource.fsDriver_;
+		const ephemeral = storage.ephemeral(capability!);
 		const binding = bindJoplinProfileStorage({
 			database: storage.database(capability!),
-			ephemeral: storage.ephemeral(capability!),
+			ephemeral,
 			pluginCode: {
 				cacheDirectory: 'C:\\WatchtowerPublicCode\\plugins\\cache',
 				packageDirectory: 'C:\\WatchtowerPublicCode\\plugins\\packages',
@@ -184,6 +186,7 @@ describe('EncryptedResourceFsDriver', () => {
 			privateData: storage.privateData(capability!),
 			publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
 			resourceFileSystem: driver,
+			runtimeFileSystem: new EphemeralProfileFsDriver(ephemeral),
 		});
 		resolveProfileStorageBinding(binding, () => {
 			throw new Error('stock profile storage must remain unavailable');

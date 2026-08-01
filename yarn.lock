@@ -10498,6 +10498,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emnapi/core@npm:^1.4.3":
+  version: 1.11.3
+  resolution: "@emnapi/core@npm:1.11.3"
+  dependencies:
+    "@emnapi/wasi-threads": "npm:1.2.3"
+    tslib: "npm:^2.4.0"
+  checksum: 10/6ed871d5bbd0f6e25a09fe91583e886e4b90ae9344fa9292c78f0891b0b2a7d84899ea65a7d576450b9ac50440c698dad1907907e3d686ec9460ed876a9363a2
+  languageName: node
+  linkType: hard
+
+"@emnapi/runtime@npm:^1.4.3":
+  version: 1.11.3
+  resolution: "@emnapi/runtime@npm:1.11.3"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  checksum: 10/ec834cc0fe248e06dd84f6dee10162133f8a692636189e99aa992303c791d4be1679536ee91aeee6661c4478609768cee9c085acd858caa92784c67acaab44a5
+  languageName: node
+  linkType: hard
+
 "@emnapi/runtime@npm:^1.4.4":
   version: 1.4.5
   resolution: "@emnapi/runtime@npm:1.4.5"
@@ -10513,6 +10532,15 @@ __metadata:
   dependencies:
     tslib: "npm:^2.4.0"
   checksum: 10/26725e202d4baefdc4a6ba770f703dfc80825a27c27a08c22bac1e1ce6f8f75c47b4fe9424d9b63239463c33ef20b650f08d710da18dfa1164a95e5acb865dba
+  languageName: node
+  linkType: hard
+
+"@emnapi/wasi-threads@npm:1.2.3":
+  version: 1.2.3
+  resolution: "@emnapi/wasi-threads@npm:1.2.3"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  checksum: 10/d9fef5c321a6df1988e813e0b621ed1e01d274c23d3028ff9511af97f8935adc921ae60a35167ccf4e0414fecc040b66b9b13458e7c00cfaad622457e1b03529
   languageName: node
   linkType: hard
 
@@ -12697,6 +12725,7 @@ __metadata:
     "@joplin/renderer": "npm:~3.6"
     "@joplin/tools": "npm:~3.6"
     "@joplin/utils": "npm:~3.6"
+    "@node-rs/argon2": "npm:2.0.2"
     "@playwright/test": "npm:1.57.0"
     "@sentry/electron": "npm:4.24.0"
     "@signalapp/sqlcipher": "npm:3.3.9"
@@ -14877,10 +14906,172 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@napi-rs/wasm-runtime@npm:^0.2.5":
+  version: 0.2.12
+  resolution: "@napi-rs/wasm-runtime@npm:0.2.12"
+  dependencies:
+    "@emnapi/core": "npm:^1.4.3"
+    "@emnapi/runtime": "npm:^1.4.3"
+    "@tybys/wasm-util": "npm:^0.10.0"
+  checksum: 10/5fd518182427980c28bc724adf06c5f32f9a8915763ef560b5f7d73607d30cd15ac86d0cbd2eb80d4cfab23fc80d0876d89ca36a9daadcb864bc00917c94187c
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.4.0":
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
   checksum: 10/e156e65794c473794c52fa9d06baf1eb20903d0d96719530f523cc4450f6c721a957c544796e6efd0197b2296e7cd70efeb312f861465e17940a3e3c7e0febc6
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-android-arm-eabi@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-android-arm-eabi@npm:2.0.2"
+  conditions: os=android & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-android-arm64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-android-arm64@npm:2.0.2"
+  conditions: os=android & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-darwin-arm64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-darwin-arm64@npm:2.0.2"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-darwin-x64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-darwin-x64@npm:2.0.2"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-freebsd-x64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-freebsd-x64@npm:2.0.2"
+  conditions: os=freebsd & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-linux-arm-gnueabihf@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-linux-arm-gnueabihf@npm:2.0.2"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-linux-arm64-gnu@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-linux-arm64-gnu@npm:2.0.2"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-linux-arm64-musl@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-linux-arm64-musl@npm:2.0.2"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-linux-x64-gnu@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-linux-x64-gnu@npm:2.0.2"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-linux-x64-musl@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-linux-x64-musl@npm:2.0.2"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-wasm32-wasi@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-wasm32-wasi@npm:2.0.2"
+  dependencies:
+    "@napi-rs/wasm-runtime": "npm:^0.2.5"
+  conditions: cpu=wasm32
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-win32-arm64-msvc@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-win32-arm64-msvc@npm:2.0.2"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-win32-ia32-msvc@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-win32-ia32-msvc@npm:2.0.2"
+  conditions: os=win32 & cpu=ia32
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2-win32-x64-msvc@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2-win32-x64-msvc@npm:2.0.2"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@node-rs/argon2@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@node-rs/argon2@npm:2.0.2"
+  dependencies:
+    "@node-rs/argon2-android-arm-eabi": "npm:2.0.2"
+    "@node-rs/argon2-android-arm64": "npm:2.0.2"
+    "@node-rs/argon2-darwin-arm64": "npm:2.0.2"
+    "@node-rs/argon2-darwin-x64": "npm:2.0.2"
+    "@node-rs/argon2-freebsd-x64": "npm:2.0.2"
+    "@node-rs/argon2-linux-arm-gnueabihf": "npm:2.0.2"
+    "@node-rs/argon2-linux-arm64-gnu": "npm:2.0.2"
+    "@node-rs/argon2-linux-arm64-musl": "npm:2.0.2"
+    "@node-rs/argon2-linux-x64-gnu": "npm:2.0.2"
+    "@node-rs/argon2-linux-x64-musl": "npm:2.0.2"
+    "@node-rs/argon2-wasm32-wasi": "npm:2.0.2"
+    "@node-rs/argon2-win32-arm64-msvc": "npm:2.0.2"
+    "@node-rs/argon2-win32-ia32-msvc": "npm:2.0.2"
+    "@node-rs/argon2-win32-x64-msvc": "npm:2.0.2"
+  dependenciesMeta:
+    "@node-rs/argon2-android-arm-eabi":
+      optional: true
+    "@node-rs/argon2-android-arm64":
+      optional: true
+    "@node-rs/argon2-darwin-arm64":
+      optional: true
+    "@node-rs/argon2-darwin-x64":
+      optional: true
+    "@node-rs/argon2-freebsd-x64":
+      optional: true
+    "@node-rs/argon2-linux-arm-gnueabihf":
+      optional: true
+    "@node-rs/argon2-linux-arm64-gnu":
+      optional: true
+    "@node-rs/argon2-linux-arm64-musl":
+      optional: true
+    "@node-rs/argon2-linux-x64-gnu":
+      optional: true
+    "@node-rs/argon2-linux-x64-musl":
+      optional: true
+    "@node-rs/argon2-wasm32-wasi":
+      optional: true
+    "@node-rs/argon2-win32-arm64-msvc":
+      optional: true
+    "@node-rs/argon2-win32-ia32-msvc":
+      optional: true
+    "@node-rs/argon2-win32-x64-msvc":
+      optional: true
+  checksum: 10/8f2c6c2b0e5254aadef7e99b96eb3c49bb3a342d31b1f0b16bf155f468593c4a9ba16fe043feecf5b7a38f92e6780428a656ca166386268b38bd559091bd6955
   languageName: node
   linkType: hard
 
@@ -18376,6 +18567,15 @@ __metadata:
     "@tufjs/canonical-json": "npm:1.0.0"
     minimatch: "npm:^9.0.0"
   checksum: 10/2c63e9cfc04a4ce8888e9cc9668a7207e3047d64c50dccc3d2c30057d8bd6c4e89256b6094d2109549278da72c75e20cd8717bb5f4b544dc2323288a2a96607f
+  languageName: node
+  linkType: hard
+
+"@tybys/wasm-util@npm:^0.10.0":
+  version: 0.10.3
+  resolution: "@tybys/wasm-util@npm:0.10.3"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  checksum: 10/6cf39f7a2926b1c8bc6fe3f9f03318a33dd6dae81bdbd059983f9c6ee22d10a827f12564d648c05a2d4926e03c86cbe2799fb20609ee65e9efc39603039b4765
   languageName: node
   linkType: hard
 

@@ -16,6 +16,7 @@ import shim, { MessageBoxType } from '@joplin/lib/shim';
 import { openFileWithExternalEditor } from '@joplin/lib/services/ExternalEditWatcher/utils';
 import CommandService from '@joplin/lib/services/CommandService';
 import SyncTargetRegistry from '@joplin/lib/SyncTargetRegistry';
+import { assertExternalEditingAllowed } from '@joplin/lib/services/externalEditingPolicy';
 const fs = require('fs-extra');
 const { writeFile } = require('fs-extra');
 const { clipboard } = require('electron');
@@ -44,6 +45,7 @@ export async function openItemById(itemId: string, dispatch: Function, hash = ''
 	if (!item) throw new Error(`No item with ID ${itemId}`);
 
 	if (item.type_ === BaseModel.TYPE_RESOURCE) {
+		assertExternalEditingAllowed();
 		const resource = item as ResourceEntity;
 		const localState = await Resource.localState(resource);
 		if (localState.fetch_status !== Resource.FETCH_STATUS_DONE || !!resource.encryption_blob_encrypted) {
@@ -105,7 +107,7 @@ export function menuItems(dispatch: Function): ContextMenuItems {
 			isActive: (itemType: ContextMenuItemType, options: ContextMenuOptions) => (
 				(!options.textToCopy && (itemType === ContextMenuItemType.Image || itemType === ContextMenuItemType.Resource || itemType === ContextMenuItemType.NoteLink))
 				|| (!!options.linkToOpen && itemType === ContextMenuItemType.Link)
-			),
+			) && (Setting.value('allowExternalEditing') || itemType === ContextMenuItemType.NoteLink || itemType === ContextMenuItemType.Link),
 		},
 		openNoteInNewWindow: {
 			label: _('Open in new window'),
@@ -157,10 +159,11 @@ export function menuItems(dispatch: Function): ContextMenuItems {
 		revealInFolder: {
 			label: _('Reveal file in folder'),
 			onAction: async (options: ContextMenuOptions) => {
+				assertExternalEditingAllowed();
 				const { resourcePath } = await resourceInfo(options);
 				bridge().showItemInFolder(resourcePath);
 			},
-			isActive: (itemType: ContextMenuItemType, options: ContextMenuOptions) => !options.textToCopy && (itemType === ContextMenuItemType.Image || itemType === ContextMenuItemType.Resource),
+			isActive: (itemType: ContextMenuItemType, options: ContextMenuOptions) => Setting.value('allowExternalEditing') && !options.textToCopy && (itemType === ContextMenuItemType.Image || itemType === ContextMenuItemType.Resource),
 		},
 		separator2: makeSeparator(),
 		recognizeHandwrittenImage: {
@@ -200,6 +203,7 @@ export function menuItems(dispatch: Function): ContextMenuItems {
 		copyOcrText: {
 			label: _('View OCR text'),
 			onAction: async (options: ContextMenuOptions) => {
+				assertExternalEditingAllowed();
 				const { resource } = await resourceInfo(options);
 
 				if (resource.ocr_status === ResourceOcrStatus.Done) {
@@ -211,7 +215,7 @@ export function menuItems(dispatch: Function): ContextMenuItems {
 				}
 			},
 			isActive: (itemType: ContextMenuItemType, options: ContextMenuOptions) => {
-				return itemType === ContextMenuItemType.Resource || (itemType === ContextMenuItemType.Image && options.resourceId);
+				return Setting.value('allowExternalEditing') && (itemType === ContextMenuItemType.Resource || (itemType === ContextMenuItemType.Image && options.resourceId));
 			},
 		},
 		createAccessibleDocument: {

@@ -6,6 +6,7 @@ import Logger from '@joplin/utils/Logger';
 import Setting from '../../models/Setting';
 import Resource from '../../models/Resource';
 import { ResourceEntity } from '../database/types';
+import { assertExternalEditingAllowed } from '../externalEditingPolicy';
 const EventEmitter = require('events');
 const chokidar = require('chokidar');
 
@@ -246,6 +247,7 @@ export default class ResourceEditWatcher {
 	}
 
 	private async watch(resourceId: string): Promise<WatchedItem> {
+		assertExternalEditingAllowed();
 		const sourceWindowId = this.getActiveWindowId_();
 		let watchedItem = this.watchedItemByResourceId(resourceId);
 
@@ -311,6 +313,7 @@ export default class ResourceEditWatcher {
 	// That way, even if it is changed, the real resource file on drive won't be
 	// affected.
 	public async openAsReadOnly(resourceId: string) {
+		assertExternalEditingAllowed();
 		const { editFilePath } = await this.copyResourceToEditablePath(resourceId);
 		await shim.fsDriver().chmod(editFilePath, 0o0666);
 		this.openItem_(editFilePath);

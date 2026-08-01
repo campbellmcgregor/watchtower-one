@@ -12,6 +12,7 @@ import {
 	JoplinProfileRuntime,
 } from './joplinProfileTypes';
 import type { Session } from 'electron';
+import type { ProfileRuntimeFileSystem } from '@joplin/lib/profileStorageBinding';
 
 const { DatabaseDriverNode } = require('@joplin/lib/database-driver-node.js');
 
@@ -33,6 +34,8 @@ describe('EncryptedJoplinProfileHost', () => {
 			terminate: () => false,
 		});
 		let activeDatabase: JoplinDatabase|undefined;
+		let temporaryPath = '';
+		let runtimeFileSystem: ProfileRuntimeFileSystem|undefined;
 		const runtime: JoplinProfileRuntime = {
 			start: async profile => {
 				const binding = bindJoplinProfileStorage(profile);
@@ -46,6 +49,15 @@ describe('EncryptedJoplinProfileHost', () => {
 				const resolvedStorage = resolveProfileStorageBinding(binding, () => {
 					throw new Error('stock profile storage must remain unavailable');
 				});
+				runtimeFileSystem = binding.runtimeFileSystem;
+				temporaryPath = `${runtimeFileSystem.temporaryDirectory()}/preview/note.html`;
+				await runtimeFileSystem.mkdir(`${runtimeFileSystem.temporaryDirectory()}/preview`);
+				await runtimeFileSystem.writeFile(
+					temporaryPath,
+					'<h1>ephemeral-profile-canary</h1>',
+					'utf8',
+				);
+				events.push(String(await runtimeFileSystem.readFile(temporaryPath, 'utf8')));
 				expect(EncryptionService.fsDriver_).toBe(Resource.fsDriver());
 				activeDatabase = await openProfileDatabase({
 					binding: resolvedStorage.database,
@@ -133,6 +145,7 @@ describe('EncryptedJoplinProfileHost', () => {
 		expect(events).toEqual([
 			'vault-opened',
 			'joplin-loaded',
+			'<h1>ephemeral-profile-canary</h1>',
 			'joplin-started',
 			'ephemeral-session-active',
 			'resource-through-joplin-adapter',
@@ -144,6 +157,7 @@ describe('EncryptedJoplinProfileHost', () => {
 		expect(events).toEqual([
 			'vault-opened',
 			'joplin-loaded',
+			'<h1>ephemeral-profile-canary</h1>',
 			'joplin-started',
 			'ephemeral-session-active',
 			'resource-through-joplin-adapter',
@@ -155,6 +169,9 @@ describe('EncryptedJoplinProfileHost', () => {
 			'ephemeral-cache-cleared',
 			'storage-closed',
 		]);
+		await expect(runtimeFileSystem!.readFile(temporaryPath, 'utf8')).rejects.toThrow(
+			'Vault Session',
+		);
 	});
 
 });

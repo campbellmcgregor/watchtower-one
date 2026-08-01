@@ -109,6 +109,8 @@ jest.mock('electron', () => {
 import createElectronPreProfileUnlockView, {
 	unlockCancelChannel,
 	unlockFeedbackChannel,
+	unlockRecoveryConfirmChannel,
+	unlockRecoverySecretChannel,
 	unlockSubmitChannel,
 } from './ElectronPreProfileUnlockView';
 
@@ -163,6 +165,7 @@ describe('ElectronPreProfileUnlockView', () => {
 
 		await expect(submissionPromise).resolves.toEqual({
 			kind: 'submitted',
+			operation: 'unlock',
 			passphrase: 'correct private atlas words',
 			signal: expect.any(AbortSignal),
 		});
@@ -197,6 +200,32 @@ describe('ElectronPreProfileUnlockView', () => {
 		);
 		expect(submission.signal.aborted).toBe(true);
 
+		await view.close();
+	});
+
+	test('shows and authenticates first-run Recovery Secret confirmation', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const confirmation = view.confirmRecoverySecret!(
+			'WT1-RECOVERY-SECRET',
+		);
+		expect(window.webContents.send).toHaveBeenCalledWith(
+			unlockRecoverySecretChannel,
+			'WT1-RECOVERY-SECRET',
+		);
+		electronHarness.ipcMain.emit(
+			unlockRecoveryConfirmChannel,
+			{ sender: new EventEmitter() },
+			'foreign-secret',
+		);
+		electronHarness.ipcMain.emit(
+			unlockRecoveryConfirmChannel,
+			{ sender: window.webContents },
+			'WT1-RECOVERY-SECRET',
+		);
+		await expect(confirmation).resolves.toBe('WT1-RECOVERY-SECRET');
 		await view.close();
 	});
 

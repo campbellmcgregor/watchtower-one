@@ -1,4 +1,5 @@
 import {
+	profileApplicationArgv,
 	startEncryptedJoplinRenderer,
 } from './startEncryptedJoplinRenderer';
 import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
@@ -24,6 +25,19 @@ jest.mock('electron', () => ({
 }));
 
 describe('startEncryptedJoplinRenderer', () => {
+	test('removes harness-only arguments before Joplin parses a test launch', () => {
+		expect(profileApplicationArgv([
+			'Watchtower One.exe',
+			'--inspect=0',
+			'--running-tests',
+			'--watchtower-data-root',
+			'C:\\isolated-proof',
+		])).toEqual([
+			'Watchtower One.exe',
+			'--running-tests',
+		]);
+	});
+
 	test('does not initialize Joplin when encrypted profile storage is unavailable', async () => {
 		let applicationStarted = false;
 

@@ -2,20 +2,30 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
 	unlockCancelChannel,
 	unlockFeedbackChannel,
+	unlockRecoveryConfirmChannel,
+	unlockRecoverySecretChannel,
 	unlockSubmitChannel,
 } from './unlockIpcChannels';
 
 export interface WatchtowerUnlockApi {
 	cancel(): void;
-	onFeedback(callback: (feedback: { kind: 'wrongCredential' })=> void): void;
-	submit(passphrase: string): void;
+	confirmRecoverySecret(confirmation: string): void;
+	onFeedback(callback: (feedback: { kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists' })=> void): void;
+	onRecoverySecret(callback: (recoverySecret: string)=> void): void;
+	submit(operation: 'unlock'|'create', passphrase: string): void;
 }
 
 const api: WatchtowerUnlockApi = Object.freeze({
 	cancel: () => {
 		ipcRenderer.send(unlockCancelChannel);
 	},
-	onFeedback: (callback: (feedback: { kind: 'wrongCredential' })=> void) => {
+	confirmRecoverySecret: (confirmation: string) => {
+		if (typeof confirmation !== 'string') {
+			throw new TypeError('Recovery Secret confirmation must be a string');
+		}
+		ipcRenderer.send(unlockRecoveryConfirmChannel, confirmation);
+	},
+	onFeedback: (callback: (feedback: { kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists' })=> void) => {
 		if (typeof callback !== 'function') {
 			throw new TypeError('Unlock feedback callback is required');
 		}
@@ -24,17 +34,25 @@ const api: WatchtowerUnlockApi = Object.freeze({
 				typeof feedback === 'object' &&
 				feedback !== null &&
 				'kind' in feedback &&
-				feedback.kind === 'wrongCredential'
+				['wrongCredential', 'passphraseRejected', 'alreadyExists'].includes(String(feedback.kind))
 			) {
-				callback(Object.freeze({ kind: 'wrongCredential' }));
+				callback(Object.freeze({ kind: feedback.kind as 'wrongCredential'|'passphraseRejected'|'alreadyExists' }));
 			}
 		});
 	},
-	submit: (passphrase: string) => {
-		if (typeof passphrase !== 'string') {
+	onRecoverySecret: (callback: (recoverySecret: string)=> void) => {
+		if (typeof callback !== 'function') {
+			throw new TypeError('Recovery Secret callback is required');
+		}
+		ipcRenderer.on(unlockRecoverySecretChannel, (_event, recoverySecret: unknown) => {
+			if (typeof recoverySecret === 'string') callback(recoverySecret);
+		});
+	},
+	submit: (operation: 'unlock'|'create', passphrase: string) => {
+		if ((operation !== 'unlock' && operation !== 'create') || typeof passphrase !== 'string') {
 			throw new TypeError('Unlock passphrase must be a string');
 		}
-		ipcRenderer.send(unlockSubmitChannel, passphrase);
+		ipcRenderer.send(unlockSubmitChannel, { operation, passphrase });
 	},
 });
 

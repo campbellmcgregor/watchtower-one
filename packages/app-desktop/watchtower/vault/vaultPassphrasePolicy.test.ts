@@ -1,9 +1,17 @@
 import VaultPassphrasePolicy, {
+	resolvePassphraseBlocklistPath,
 	VaultPassphraseMemoryProfile,
 	VaultPassphrasePolicyError,
 } from './vaultPassphrasePolicy';
 
 describe('VaultPassphrasePolicy', () => {
+	test('resolves the blocklist beside a bundled desktop entry point', () => {
+		expect(resolvePassphraseBlocklistPath(
+			'C:\\application',
+			path => path.endsWith('watchtower\\vault\\assets\\compromised-passphrases-v1.bin'),
+		)).toBe('C:\\application\\watchtower\\vault\\assets\\compromised-passphrases-v1.bin');
+	});
+
 	test('rejects an exact compromised passphrase without a network lookup', async () => {
 		await expect(VaultPassphrasePolicy.prepareForVaultCreation(
 			'password1234',

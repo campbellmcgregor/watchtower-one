@@ -743,14 +743,14 @@ export default class BaseApplication {
 
 		const resourceDirName = 'resources';
 		const stockResourceDir = `${profileDir}/${resourceDirName}`;
-		const tempDir = `${profileDir}/tmp`;
-		const cacheDir = `${profileDir}/cache`;
+		const stockTempDir = `${profileDir}/tmp`;
+		const stockCacheDir = `${profileDir}/cache`;
 
 		Setting.setConstant('env', initArgs.env as Env);
-		Setting.setConstant('tempDir', tempDir);
+		Setting.setConstant('tempDir', stockTempDir);
 		Setting.setConstant('pluginDataDir', `${profileDir}/plugin-data`);
-		Setting.setConstant('cacheDir', cacheDir);
-		Setting.setConstant('pluginCacheDir', cacheDir);
+		Setting.setConstant('cacheDir', stockCacheDir);
+		Setting.setConstant('pluginCacheDir', stockCacheDir);
 		Setting.setConstant('pluginDir', `${rootProfileDir}/plugins`);
 		Setting.setConstant('homeDir', homeDir);
 
@@ -765,6 +765,8 @@ export default class BaseApplication {
 			}),
 		);
 		const resourceDir = profileStorage.resourceDirectory;
+		const tempDir = Setting.value('tempDir');
+		const cacheDir = Setting.value('cacheDir');
 
 		SyncTargetRegistry.addClass(SyncTargetNone);
 		SyncTargetRegistry.addClass(SyncTargetFilesystem);
@@ -785,19 +787,22 @@ export default class BaseApplication {
 			// dir cannot be deleted.
 		}
 
-		await fs.mkdirp(profileDir, 0o755);
+		if (!options.profileStorage) await fs.mkdirp(profileDir, 0o755);
 		if (profileStorage.resourceFileSystem) {
 			await profileStorage.resourceFileSystem.mkdir(resourceDir);
 		} else {
 			await fs.mkdirp(resourceDir, 0o755);
 		}
-		await fs.mkdirp(tempDir, 0o755);
-		await fs.mkdirp(cacheDir, 0o755);
+		await shim.fsDriver().mkdir(tempDir);
+		await shim.fsDriver().mkdir(cacheDir);
 
 		// Clean up any remaining watched files (they start with "edit-")
-		await shim.fsDriver().removeAllThatStartWith(profileDir, 'edit-');
+		if (!options.profileStorage) {
+			await shim.fsDriver().removeAllThatStartWith(profileDir, 'edit-');
+		}
 
-		const extraFlags = await this.readFlagsFromFile(`${profileDir}/flags.txt`);
+		const extraFlags = options.profileStorage ? {} :
+			await this.readFlagsFromFile(`${profileDir}/flags.txt`);
 		initArgs = { ...initArgs, ...extraFlags };
 
 		const globalLogger = Logger.globalLogger;

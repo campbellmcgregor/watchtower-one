@@ -27,8 +27,17 @@ export interface EncryptedDesktopUnlockCommand {
 	passphrase: string;
 }
 
+export interface EncryptedDesktopCreateCommand {
+	kind: 'create';
+	passphrase: string;
+	confirmRecoverySecret(recoverySecret: string): Promise<string|undefined>;
+}
+
+export type EncryptedDesktopCommand =
+	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand;
+
 export interface EncryptedDesktopDependencyOptions {
-	command: EncryptedDesktopUnlockCommand;
+	command: EncryptedDesktopCommand;
 	databasePath: string;
 	envelopeDirectory: string;
 	loadJoplinProfileRuntime: LoadJoplinProfileRuntime;
@@ -87,6 +96,73 @@ export const makeEncryptedDesktopDependencies = (
 	const openProfileStorage = options.openProfileStorage ??
 		(keyRing => openSqlCipherProfileStorage(databasePath, keyRing));
 	let activeStorage: EncryptedProfileStorage|undefined;
+	const openWithKeyRing = async (
+		keyRing: VaultSessionKeyRing,
+		signal: AbortSignal,
+	): Promise<VaultOpenResult> => {
+		if (signal.aborted) {
+			keyRing.dispose();
+			return failedClosed();
+		}
+		try {
+			const storage = await openProfileStorage(keyRing);
+			if (signal.aborted) {
+				storage.terminate();
+				keyRing.dispose();
+				return failedClosed();
+			}
+			activeStorage = storage;
+			return {
+				kind: 'opened',
+				handle: new EncryptedProfileVaultHandle(
+					storage,
+					keyRing,
+					() => {
+						if (activeStorage === storage) activeStorage = undefined;
+					},
+				),
+			};
+		} catch (error) {
+			keyRing.dispose();
+			if (
+				error instanceof SqlCipherProfileConfigurationError &&
+				error.code === 'incompatibleSqlCipherBuild'
+			) {
+				return { kind: 'failedClosed', reason: 'unsupportedVersion' };
+			}
+			return failedClosed();
+		}
+	};
+
+	const create = async (signal: AbortSignal): Promise<VaultOpenResult> => {
+		if (options.command.kind !== 'create' || signal.aborted) return failedClosed();
+		let passphrase = pendingPassphrase;
+		pendingPassphrase = '';
+		if (!passphrase) return { kind: 'rejected', reason: 'passphraseRejected' };
+		const begun = await credentialLifecycle.beginCreate({
+			passphrase,
+			memoryProfile: 'standard',
+		});
+		passphrase = '';
+		if (begun.kind === 'rejected') return begun;
+		if (begun.kind === 'failedClosed' || signal.aborted) return failedClosed();
+		let recoverySecret = begun.recoverySecret;
+		const confirmation = await options.command.confirmRecoverySecret(recoverySecret);
+		recoverySecret = '';
+		if (!confirmation || signal.aborted) return failedClosed();
+		const confirmed = await credentialLifecycle.confirmCreate({
+			creationId: begun.creationId,
+			recoverySecret: confirmation,
+		});
+		if (confirmed.kind === 'rejected') {
+			if (confirmed.reason === 'wrongCredential') {
+				return { kind: 'rejected', reason: 'wrongCredential' };
+			}
+			return failedClosed();
+		}
+		if (confirmed.kind === 'failedClosed') return failedClosed();
+		return openWithKeyRing(confirmed.keyRing, signal);
+	};
 
 	const unlock = async (signal: AbortSignal): Promise<VaultOpenResult> => {
 		if (signal.aborted) return failedClosed();
@@ -108,44 +184,12 @@ export const makeEncryptedDesktopDependencies = (
 			return failedClosed();
 		}
 		if (result.kind === 'failedClosed') return failedClosed();
-		if (signal.aborted) {
-			result.keyRing.dispose();
-			return failedClosed();
-		}
-
-		try {
-			const storage = await openProfileStorage(result.keyRing);
-			if (signal.aborted) {
-				storage.terminate();
-				result.keyRing.dispose();
-				return failedClosed();
-			}
-			activeStorage = storage;
-			return {
-				kind: 'opened',
-				handle: new EncryptedProfileVaultHandle(
-					storage,
-					result.keyRing,
-					() => {
-						if (activeStorage === storage) activeStorage = undefined;
-					},
-				),
-			};
-		} catch (error) {
-			result.keyRing.dispose();
-			if (
-				error instanceof SqlCipherProfileConfigurationError &&
-				error.code === 'incompatibleSqlCipherBuild'
-			) {
-				return { kind: 'failedClosed', reason: 'unsupportedVersion' };
-			}
-			return failedClosed();
-		}
+		return openWithKeyRing(result.keyRing, signal);
 	};
 
 	const unavailable = async (): Promise<VaultOpenResult> => failedClosed();
 	const accessAdapter: VaultAccessAdapter = {
-		create: unavailable,
+		create,
 		unlock,
 		recover: unavailable,
 		abort: () => false,
@@ -162,8 +206,12 @@ export const makeEncryptedDesktopDependencies = (
 	);
 
 	return {
-		operation: 'unlock',
+		operation: options.command.kind,
 		accessAdapter,
 		profileHost,
+		options: {
+			operationTimeoutMs: 60_000,
+			profileStartTimeoutMs: 120_000,
+		},
 	};
 };

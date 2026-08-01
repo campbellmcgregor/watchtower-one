@@ -4,13 +4,10 @@ import './utils/sourceMapSetup';
 import { app as electronApp } from 'electron';
 import type { Session } from 'electron';
 import ElectronAppWrapper from './ElectronAppWrapper';
-import { mkdirpSync } from 'fs-extra';
 import { initBridge } from './bridge';
 const envFromArgs = require('@joplin/lib/envFromArgs');
 const packageInfo = require('./packageInfo.js');
 import { isCallbackUrl } from '@joplin/lib/callbackUrlUtils';
-import determineBaseAppDirs from '@joplin/lib/determineBaseAppDirs';
-import registerCustomProtocols from './utils/customProtocols/registerCustomProtocols';
 import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
 import {
 	requireEncryptedProfileStorage,
@@ -18,6 +15,7 @@ import {
 import readPrivateRootSettings from './watchtower/profile/readPrivateRootSettings';
 import { setProfileConfigStorage } from '@joplin/lib/services/profileConfig';
 import makeEphemeralWindowStateFactory from './watchtower/profile/EphemeralWindowState';
+import publicJoplinRuntimeDirectory from './watchtower/profile/publicJoplinRuntimeDirectory';
 
 const getFlagValueFromArgs = (args: string[], flag: string, defaultValue: string|null) => {
 	if (!args) return null;
@@ -52,7 +50,6 @@ const startJoplinMain = async (
 	});
 
 	const env = envFromArgs(process.argv);
-	const profileFromArgs = getFlagValueFromArgs(process.argv, '--profile', null);
 	const isDebugMode = !!process.argv && process.argv.indexOf('--debug') >= 0;
 	const isEndToEndTesting = !!process.argv?.includes('--running-tests');
 	const altInstanceId = getFlagValueFromArgs(process.argv, '--alt-instance-id', '');
@@ -62,11 +59,7 @@ const startJoplinMain = async (
 	const appId = `net.cozic.joplin${env === 'dev' ? 'dev' : ''}-desktop`;
 	let appName = env === 'dev' ? 'joplindev' : 'joplin';
 	if (appId.indexOf('-desktop') >= 0) appName += '-desktop';
-	const { rootProfileDir } = determineBaseAppDirs(profileFromArgs, appName, altInstanceId);
-
-	// We create the profile dir as soon as we know where it's going to be located since it's used in
-	// various places early in the initialisation code.
-	mkdirpSync(rootProfileDir);
+	const rootProfileDir = publicJoplinRuntimeDirectory(profileStorage);
 
 	// Required for correct display of Windows notifications. Should be done near the beginning of startup. See
 	// https://www.electron.build/nsis.html#guid-vs-application-name
@@ -76,8 +69,6 @@ const startJoplinMain = async (
 	const autoUploadCrashDumps = !!rootSettings.autoUploadCrashDumps;
 
 	electronApp.setAsDefaultProtocolClient('joplin');
-	void registerCustomProtocols();
-
 	const initialCallbackUrl = process.argv.find((arg) => isCallbackUrl(arg));
 
 	const wrapper = new ElectronAppWrapper(electronApp, {

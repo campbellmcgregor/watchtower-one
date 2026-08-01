@@ -4,7 +4,7 @@ import type {
 	VaultOpenHandle,
 } from '../vault/PreProfileVaultBootstrap';
 import type {
-	EncryptedDesktopUnlockCommand,
+	EncryptedDesktopCommand,
 } from './makeEncryptedDesktopDependencies';
 import runPreProfileUnlockFlow from './runPreProfileUnlockFlow';
 import type { PreProfileUnlockView } from './runPreProfileUnlockFlow';
@@ -20,9 +20,9 @@ describe('runPreProfileUnlockFlow', () => {
 
 	const makeAttempt = (
 		profileStarts: string[],
-		commands: EncryptedDesktopUnlockCommand[],
+		commands: EncryptedDesktopCommand[],
 	) => async (
-		command: EncryptedDesktopUnlockCommand,
+		command: EncryptedDesktopCommand,
 		signal: AbortSignal,
 	): Promise<WatchtowerDesktopStart> => {
 		commands.push(command);
@@ -70,7 +70,7 @@ describe('runPreProfileUnlockFlow', () => {
 			},
 			close: jest.fn(),
 		};
-		const commands: EncryptedDesktopUnlockCommand[] = [];
+		const commands: EncryptedDesktopCommand[] = [];
 		const profileStarts: string[] = [];
 
 		const result = await runPreProfileUnlockFlow(
@@ -148,7 +148,7 @@ describe('runPreProfileUnlockFlow', () => {
 			},
 		};
 		const startAttempt = async (
-			_command: EncryptedDesktopUnlockCommand,
+			_command: EncryptedDesktopCommand,
 			signal: AbortSignal,
 		) => await startWatchtowerDesktop({
 			operation: 'unlock',
@@ -189,7 +189,7 @@ describe('runPreProfileUnlockFlow', () => {
 			close: jest.fn(),
 		};
 		const startAttempt = async (
-			_command: EncryptedDesktopUnlockCommand,
+			_command: EncryptedDesktopCommand,
 			signal: AbortSignal,
 		) => {
 			controller.abort();

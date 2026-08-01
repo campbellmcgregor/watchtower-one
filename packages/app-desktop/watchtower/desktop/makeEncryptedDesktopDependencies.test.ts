@@ -71,7 +71,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 			passphrase: 'transient private atlas words',
 		};
 
-		makeEncryptedDesktopDependencies({
+		const dependencies = makeEncryptedDesktopDependencies({
 			command,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
@@ -98,6 +98,52 @@ describe('makeEncryptedDesktopDependencies', () => {
 		});
 
 		expect(command.passphrase).toBe('');
+		expect(dependencies.options).toEqual({
+			operationTimeoutMs: 60_000,
+			profileStartTimeoutMs: 120_000,
+		});
+	});
+
+	test('creates the first vault only after the user confirms its recovery secret', async () => {
+		let displayedRecoverySecret = '';
+		const command = {
+			kind: 'create' as const,
+			passphrase: 'first private atlas notebook words',
+			confirmRecoverySecret: async (recoverySecret: string) => {
+				displayedRecoverySecret = recoverySecret;
+				return recoverySecret;
+			},
+		};
+		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
+			command,
+			databasePath: join(vaultDirectory, 'profile.sqlite'),
+			envelopeDirectory: vaultDirectory,
+			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
+			profileHostOptions: {
+				pluginCode,
+				ephemeralSessionFactory: {
+					fromPartition: async () => ({
+						browserSession,
+						storagePath: null,
+						clearCache: async () => {},
+						clearStorageData: async () => {},
+						closeAllConnections: async () => {},
+					}),
+				},
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
+				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
+			},
+			loadJoplinProfileRuntime: async () => ({
+				start: async () => {},
+				stop: async () => ({ kind: 'stopped' }),
+				terminate: () => true,
+			}),
+		}));
+
+		expect(started.result).toEqual({ kind: 'unlocked' });
+		expect(displayedRecoverySecret).toMatch(/^WT1-/);
+		expect(command.passphrase).toBe('');
+		await started.lifecycle.end('close');
 	});
 
 	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {

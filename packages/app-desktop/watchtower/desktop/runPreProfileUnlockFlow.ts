@@ -3,29 +3,30 @@ import type {
 	VaultStartResult,
 } from '../vault/PreProfileVaultBootstrap';
 import type {
-	EncryptedDesktopUnlockCommand,
+	EncryptedDesktopCommand,
 } from './makeEncryptedDesktopDependencies';
 import type {
 	WatchtowerDesktopStart,
 } from './startWatchtowerDesktop';
 
 export type PreProfileUnlockFeedback = {
-	kind: 'wrongCredential';
+	kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
 };
 
 export type PreProfileUnlockSubmission =
-	{ kind: 'submitted'; passphrase: string; signal: AbortSignal }|
+	{ kind: 'submitted'; operation?: 'unlock'|'create'; passphrase: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
 
 export interface PreProfileUnlockView {
 	requestPassphrase(
 		feedback?: PreProfileUnlockFeedback,
 	): Promise<PreProfileUnlockSubmission>;
+	confirmRecoverySecret?(recoverySecret: string): Promise<string|undefined>;
 	close(): Promise<void>|void;
 }
 
 export type StartEncryptedDesktopUnlock = (
-	command: EncryptedDesktopUnlockCommand,
+	command: EncryptedDesktopCommand,
 	signal: AbortSignal,
 )=> Promise<WatchtowerDesktopStart>;
 
@@ -46,8 +47,14 @@ const runPreProfileUnlockFlow = async (
 			const submission = await view.requestPassphrase(feedback);
 			if (submission.kind === 'cancelled') return submission;
 
-			const command: EncryptedDesktopUnlockCommand = {
-				kind: 'unlock',
+			const command = submission.operation === 'create' ? {
+				kind: 'create' as const,
+				passphrase: submission.passphrase,
+				confirmRecoverySecret: async (recoverySecret: string) => {
+					return view.confirmRecoverySecret?.(recoverySecret);
+				},
+			} : {
+				kind: 'unlock' as const,
 				passphrase: submission.passphrase,
 			};
 			let started: WatchtowerDesktopStart;
@@ -60,9 +67,13 @@ const runPreProfileUnlockFlow = async (
 
 			if (
 				started.result.kind === 'rejected' &&
-				started.result.reason === 'wrongCredential'
+				[
+					'wrongCredential',
+					'passphraseRejected',
+					'alreadyExists',
+				].includes(started.result.reason)
 			) {
-				feedback = { kind: 'wrongCredential' };
+				feedback = { kind: started.result.reason as PreProfileUnlockFeedback['kind'] };
 				continue;
 			}
 			if (

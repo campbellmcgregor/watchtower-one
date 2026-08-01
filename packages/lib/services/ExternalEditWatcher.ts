@@ -7,6 +7,7 @@ import { NoteEntity } from './database/types';
 import Note from '../models/Note';
 import { openFileWithExternalEditor } from './ExternalEditWatcher/utils';
 import AsyncActionQueue from '../AsyncActionQueue';
+import { assertExternalEditingAllowed } from './externalEditingPolicy';
 const EventEmitter = require('events');
 const chokidar = require('chokidar');
 const { ErrorNotFound } = require('./rest/utils/errors');
@@ -114,6 +115,7 @@ export default class ExternalEditWatcher {
 	}
 
 	public watch(fileToWatch: string) {
+		assertExternalEditingAllowed();
 		if (!this.chokidar_) return;
 
 		if (!this.watcher_) {
@@ -259,6 +261,7 @@ export default class ExternalEditWatcher {
 	}
 
 	public async openAndWatch(note: NoteEntity) {
+		assertExternalEditingAllowed();
 		if (!note || !note.id) {
 			this.logger().warn('ExternalEditWatcher: Cannot open note: ', note);
 			return;

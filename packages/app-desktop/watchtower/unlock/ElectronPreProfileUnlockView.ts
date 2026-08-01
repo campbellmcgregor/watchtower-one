@@ -16,12 +16,16 @@ import type {
 import {
 	unlockCancelChannel,
 	unlockFeedbackChannel,
+	unlockRecoveryConfirmChannel,
+	unlockRecoverySecretChannel,
 	unlockSubmitChannel,
 } from './unlockIpcChannels';
 
 export {
 	unlockCancelChannel,
 	unlockFeedbackChannel,
+	unlockRecoveryConfirmChannel,
+	unlockRecoverySecretChannel,
 	unlockSubmitChannel,
 } from './unlockIpcChannels';
 
@@ -35,15 +39,21 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 	private disposed_ = false;
 	private activeAttempt_: AbortController|undefined;
 	private pending_: PendingSubmission|undefined;
+	private pendingRecoveryConfirmation_: ((confirmation: string|undefined)=> void)|undefined;
 	private shown_ = false;
 	private windowClosed_ = false;
 
 	private readonly submitListener_ = (
 		event: IpcMainEvent,
-		passphrase: unknown,
+		submitted: unknown,
 	) => {
+		const operation = typeof submitted === 'object' && submitted !== null &&
+			'operation' in submitted ? submitted.operation : 'unlock';
+		const passphrase = typeof submitted === 'object' && submitted !== null &&
+			'passphrase' in submitted ? submitted.passphrase : submitted;
 		if (
 			event.sender !== this.window_.webContents ||
+			(operation !== 'unlock' && operation !== 'create') ||
 			typeof passphrase !== 'string' ||
 			!this.pending_
 		) return;
@@ -53,9 +63,24 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 		this.activeAttempt_ = pending.controller;
 		pending.resolve({
 			kind: 'submitted',
+			operation,
 			passphrase,
 			signal: pending.controller.signal,
 		});
+	};
+
+	private readonly recoveryConfirmationListener_ = (
+		event: IpcMainEvent,
+		confirmation: unknown,
+	) => {
+		if (
+			event.sender !== this.window_.webContents ||
+			typeof confirmation !== 'string' ||
+			!this.pendingRecoveryConfirmation_
+		) return;
+		const resolve = this.pendingRecoveryConfirmation_;
+		this.pendingRecoveryConfirmation_ = undefined;
+		resolve(confirmation);
 	};
 
 	private readonly cancelListener_ = (event: IpcMainEvent) => {
@@ -69,6 +94,7 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 	) {
 		ipcMain.on(unlockSubmitChannel, this.submitListener_);
 		ipcMain.on(unlockCancelChannel, this.cancelListener_);
+		ipcMain.on(unlockRecoveryConfirmChannel, this.recoveryConfirmationListener_);
 		this.window_.on('closed', () => {
 			this.windowClosed_ = true;
 			this.resolveCancellation_();
@@ -81,6 +107,21 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 		pending?.controller.abort();
 		pending?.resolve({ kind: 'cancelled' });
 		this.activeAttempt_?.abort();
+		this.pendingRecoveryConfirmation_?.(undefined);
+		this.pendingRecoveryConfirmation_ = undefined;
+	}
+
+	public confirmRecoverySecret(recoverySecret: string): Promise<string|undefined> {
+		if (this.disposed_ || this.windowClosed_) {
+			throw new Error('Pre-profile unlock view is closed');
+		}
+		if (this.pendingRecoveryConfirmation_) {
+			throw new Error('Recovery Secret confirmation is already pending');
+		}
+		this.window_.webContents.send(unlockRecoverySecretChannel, recoverySecret);
+		return new Promise(resolve => {
+			this.pendingRecoveryConfirmation_ = resolve;
+		});
 	}
 
 	public requestPassphrase(
@@ -112,6 +153,7 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 		this.resolveCancellation_();
 		ipcMain.removeListener(unlockSubmitChannel, this.submitListener_);
 		ipcMain.removeListener(unlockCancelChannel, this.cancelListener_);
+		ipcMain.removeListener(unlockRecoveryConfirmChannel, this.recoveryConfirmationListener_);
 		if (!this.windowClosed_) this.window_.destroy();
 
 		const cleanupErrors: unknown[] = [];
@@ -153,7 +195,7 @@ const createElectronPreProfileUnlockView = async (
 
 	const window = new BrowserWindow({
 		width: 460,
-		height: 360,
+		height: 500,
 		resizable: false,
 		show: false,
 		title: 'Unlock Watchtower One',

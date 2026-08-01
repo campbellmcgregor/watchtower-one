@@ -93,6 +93,21 @@
 				color: #082f49;
 			}
 			button:disabled { cursor: wait; opacity: 0.65; }
+			#create {
+				background: #334155;
+				color: #e2e8f0;
+			}
+			.recovery-secret {
+				background: #182230;
+				border: 1px solid #475467;
+				border-radius: 8px;
+				display: block;
+				font-family: ui-monospace, "Cascadia Mono", monospace;
+				margin: 14px 0;
+				overflow-wrap: anywhere;
+				padding: 12px;
+				user-select: text;
+			}
 		</style>
 	</head>
 	<body>
@@ -119,9 +134,24 @@
 				</p>
 				<div class="actions">
 					<button id="cancel" type="button">Cancel</button>
+					<button id="create" type="button">Create new vault</button>
 					<button id="unlock" type="submit">Unlock</button>
 				</div>
 			</form>
+			<section id="recovery" hidden>
+				<h1>Save your Recovery Secret</h1>
+				<p class="intro">
+					Keep this somewhere separate and safe. It can recover your vault if
+					you forget the passphrase. Watchtower cannot recover it for you.
+				</p>
+				<code id="recovery-secret" class="recovery-secret"></code>
+				<label for="recovery-confirmation">Re-enter the Recovery Secret</label>
+				<input id="recovery-confirmation" autocomplete="off" spellcheck="false">
+				<div class="actions">
+					<button id="recovery-cancel" type="button">Cancel</button>
+					<button id="recovery-confirm" type="button">Create encrypted vault</button>
+				</div>
+			</section>
 		</main>
 		<script src="./renderer.js"></script>
 	</body>

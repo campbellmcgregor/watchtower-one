@@ -8,6 +8,7 @@ import bridge from '../services/bridge';
 const prettyBytes = require('pretty-bytes');
 import Resource from '@joplin/lib/models/Resource';
 import { LoadOptions } from '@joplin/lib/models/utils/types';
+import { externalEditingAllowed } from '@joplin/lib/services/externalEditingPolicy';
 
 interface Style {
 	width: number;
@@ -254,6 +255,7 @@ class ResourceScreenComponent extends React.Component<Props, State> {
 	}
 
 	public openResource(resource: InnerResource) {
+		if (!externalEditingAllowed()) return;
 		const resourcePath = Resource.fullPath(resource);
 		const ok = bridge().openItem(resourcePath);
 		if (!ok) {

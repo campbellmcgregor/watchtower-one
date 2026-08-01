@@ -453,7 +453,7 @@ describe('PreProfileVaultBootstrap', () => {
 					},
 				}),
 			}),
-		}), { operationTimeoutMs: 100 });
+		}), { operationTimeoutMs: 100, profileStartTimeoutMs: 250 });
 
 		const startPromise = bootstrap.start('create', makeProfileHost({
 			start: async () => await new Promise<void>(() => {}),
@@ -462,7 +462,9 @@ describe('PreProfileVaultBootstrap', () => {
 				return true;
 			},
 		}));
-		await jest.advanceTimersByTimeAsync(100);
+		await jest.advanceTimersByTimeAsync(249);
+		expect(events).toEqual([]);
+		await jest.advanceTimersByTimeAsync(1);
 
 		await expect(startPromise).resolves.toEqual({
 			kind: 'failedClosed',

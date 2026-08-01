@@ -9,6 +9,7 @@ import EncryptedProfileStorage from './EncryptedProfileStorage';
 import { EncryptedProfileDatabase } from './profileStorageTypes';
 import EncryptedResourceFsDriver from './EncryptedResourceFsDriver';
 import EphemeralProfileRuntime from './EphemeralProfileRuntime';
+import EphemeralProfileFsDriver from './EphemeralProfileFsDriver';
 import {
 	EncryptedJoplinProfileHostOptions,
 	JoplinProfileRuntime,
@@ -109,6 +110,7 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 			this.sessionAuthority_ = sessionAuthority;
 			this.runtime_ = runtime;
 			const resources = storage.resources(scopedCapability);
+			const ephemeral = storage.ephemeral(scopedCapability);
 			await runtime.start({
 				database,
 				ephemeralRuntime,
@@ -120,7 +122,8 @@ export default class EncryptedJoplinProfileHost implements ProfileHost {
 					resources,
 				),
 				privateData: storage.privateData(scopedCapability),
-				ephemeral: storage.ephemeral(scopedCapability),
+				ephemeral,
+				runtimeFileSystem: new EphemeralProfileFsDriver(ephemeral),
 			}, signal);
 		} catch (error) {
 			this.runtime_?.terminate();
