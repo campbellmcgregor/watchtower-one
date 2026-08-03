@@ -147,12 +147,14 @@ jobs:
       - name: Build the packaged Watchtower proof application
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           corepack yarn workspace @joplin/app-desktop build
-          corepack yarn workspace @joplin/app-desktop bundle
           corepack yarn workspace @joplin/app-desktop electronRebuild
           $source = '${{ github.workspace }}\node-sqlcipher\prebuilds\win32-x64\@signalapp+sqlcipher.node'
           $destination = '${{ github.workspace }}\packages\app-desktop\node_modules\@signalapp\sqlcipher\prebuilds\win32-x64\@signalapp+sqlcipher.node'
           Copy-Item -LiteralPath $source -Destination $destination -Force
+          corepack yarn workspace @joplin/app-desktop bundle
           corepack yarn workspace @joplin/app-desktop exec electron-builder --win dir --x64
 
       - name: Run the packaged create, close, scan, and reopen proof
