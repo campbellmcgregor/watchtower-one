@@ -11,12 +11,13 @@ import type {
 
 export type PreProfileUnlockFeedback = {
 	kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-	operation?: 'recover';
+	operation?: 'recover'|'changePassphrase';
 };
 
 export type PreProfileUnlockSubmission =
 	{ kind: 'submitted'; operation?: 'unlock'|'create'; passphrase: string; signal: AbortSignal }|
 	{ kind: 'submitted'; operation: 'recover'; recoverySecret: string; newPassphrase: string; signal: AbortSignal }|
+	{ kind: 'submitted'; operation: 'changePassphrase'; currentPassphrase: string; newPassphrase: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
 
 export interface PreProfileUnlockView {
@@ -59,6 +60,10 @@ const runPreProfileUnlockFlow = async (
 				kind: 'recover',
 				recoverySecret: submission.recoverySecret,
 				newPassphrase: submission.newPassphrase,
+			} : submission.operation === 'changePassphrase' ? {
+				kind: 'changePassphrase',
+				currentPassphrase: submission.currentPassphrase,
+				newPassphrase: submission.newPassphrase,
 			} : {
 				kind: 'unlock' as const,
 				passphrase: submission.passphrase,
@@ -72,7 +77,18 @@ const runPreProfileUnlockFlow = async (
 					command.newPassphrase = '';
 					submission.recoverySecret = '';
 					submission.newPassphrase = '';
-				} else if (command.kind !== 'recover' && submission.operation !== 'recover') {
+				} else if (
+					command.kind === 'changePassphrase' &&
+					submission.operation === 'changePassphrase'
+				) {
+					command.currentPassphrase = '';
+					command.newPassphrase = '';
+					submission.currentPassphrase = '';
+					submission.newPassphrase = '';
+				} else if (
+					command.kind !== 'recover' && command.kind !== 'changePassphrase' &&
+					submission.operation !== 'recover' && submission.operation !== 'changePassphrase'
+				) {
 					command.passphrase = '';
 					submission.passphrase = '';
 				}
@@ -88,7 +104,8 @@ const runPreProfileUnlockFlow = async (
 			) {
 				feedback = {
 					kind: started.result.reason as PreProfileUnlockFeedback['kind'],
-					...(command.kind === 'recover' ? { operation: 'recover' as const } : {}),
+					...(command.kind === 'recover' || command.kind === 'changePassphrase' ?
+						{ operation: command.kind } : {}),
 				};
 				continue;
 			}

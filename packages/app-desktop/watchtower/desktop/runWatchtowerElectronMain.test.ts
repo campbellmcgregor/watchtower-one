@@ -121,7 +121,9 @@ describe('runWatchtowerElectronMain', () => {
 				receivedOptions = options;
 				events.push(`credential-received:${
 					options.command.kind === 'recover' ?
-						options.command.recoverySecret : options.command.passphrase
+						options.command.recoverySecret :
+						options.command.kind === 'changePassphrase' ?
+							options.command.currentPassphrase : options.command.passphrase
 				}`);
 				return unlockedDependencies(events);
 			},

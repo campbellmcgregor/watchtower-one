@@ -235,6 +235,32 @@ describe('ElectronPreProfileUnlockView', () => {
 		await view.close();
 	});
 
+	test('collects current and replacement passphrases for one rotation attempt', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const submissionPromise = view.requestPassphrase();
+		electronHarness.ipcMain.emit(
+			unlockSubmitChannel,
+			{ sender: window.webContents },
+			{
+				operation: 'changePassphrase',
+				currentPassphrase: 'current private atlas words',
+				newPassphrase: 'replacement private atlas words',
+			},
+		);
+
+		await expect(submissionPromise).resolves.toEqual({
+			kind: 'submitted',
+			operation: 'changePassphrase',
+			currentPassphrase: 'current private atlas words',
+			newPassphrase: 'replacement private atlas words',
+			signal: expect.any(AbortSignal),
+		});
+		await view.close();
+	});
+
 	test('shows and authenticates first-run Recovery Secret confirmation', async () => {
 		const view = await createElectronPreProfileUnlockView(
 			'C:\\WatchtowerApplication\\unlock',

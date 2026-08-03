@@ -102,6 +102,11 @@
 				color: #bae6fd;
 				padding-left: 0;
 			}
+			#change-passphrase {
+				background: transparent;
+				color: #bae6fd;
+				padding-left: 0;
+			}
 			.recovery-secret {
 				background: #182230;
 				border: 1px solid #475467;
@@ -139,9 +144,29 @@
 				</p>
 				<div class="actions">
 					<button id="recover" type="button">Use Recovery Secret</button>
+					<button id="change-passphrase" type="button">Change passphrase</button>
 					<button id="cancel" type="button">Cancel</button>
 					<button id="create" type="button">Create new vault</button>
 					<button id="unlock" type="submit">Unlock</button>
+				</div>
+			</form>
+			<form id="change-passphrase-form" autocomplete="off" hidden>
+				<h1>Change vault passphrase</h1>
+				<p class="intro">
+					Confirm your current passphrase and choose a replacement.
+					Your encrypted notes will not be rewritten.
+				</p>
+				<label for="current-passphrase">Current vault passphrase</label>
+				<input id="current-passphrase" type="password" autocomplete="off" required>
+				<label for="new-passphrase">New vault passphrase</label>
+				<input id="new-passphrase" type="password" autocomplete="off" required>
+				<p id="change-passphrase-error" class="message" role="alert" hidden></p>
+				<p id="change-passphrase-progress" class="message" role="status" hidden>
+					Changing securely. This may take about five seconds.
+				</p>
+				<div class="actions">
+					<button id="change-passphrase-back" type="button">Back</button>
+					<button id="change-passphrase-submit" type="submit">Change and unlock</button>
 				</div>
 			</form>
 			<form id="recover-form" autocomplete="off" hidden>

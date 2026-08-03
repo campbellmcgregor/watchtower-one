@@ -12,7 +12,7 @@ export interface WatchtowerUnlockApi {
 	confirmRecoverySecret(confirmation: string): void;
 	onFeedback(callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover';
+		operation?: 'recover'|'changePassphrase';
 	})=> void): void;
 	onRecoverySecret(callback: (recoverySecret: string)=> void): void;
 	submit(
@@ -22,6 +22,10 @@ export interface WatchtowerUnlockApi {
 	submit(
 		operation: 'recover',
 		credential: { recoverySecret: string; newPassphrase: string },
+	): void;
+	submit(
+		operation: 'changePassphrase',
+		credential: { currentPassphrase: string; newPassphrase: string },
 	): void;
 }
 
@@ -37,7 +41,7 @@ const api: WatchtowerUnlockApi = Object.freeze({
 	},
 	onFeedback: (callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover';
+		operation?: 'recover'|'changePassphrase';
 	})=> void) => {
 		if (typeof callback !== 'function') {
 			throw new TypeError('Unlock feedback callback is required');
@@ -51,8 +55,9 @@ const api: WatchtowerUnlockApi = Object.freeze({
 			) {
 				callback(Object.freeze({
 					kind: feedback.kind as 'wrongCredential'|'passphraseRejected'|'alreadyExists',
-					...('operation' in feedback && feedback.operation === 'recover' ?
-						{ operation: 'recover' as const } : {}),
+					...('operation' in feedback &&
+						(feedback.operation === 'recover' || feedback.operation === 'changePassphrase') ?
+						{ operation: feedback.operation } : {}),
 				}));
 			}
 		});
@@ -66,16 +71,30 @@ const api: WatchtowerUnlockApi = Object.freeze({
 		});
 	},
 	submit: (
-		operation: 'unlock'|'create'|'recover',
-		credential: string|{ recoverySecret: string; newPassphrase: string },
+		operation: 'unlock'|'create'|'recover'|'changePassphrase',
+		credential: string|{ recoverySecret: string; newPassphrase: string }|
+		{ currentPassphrase: string; newPassphrase: string },
 	) => {
 		if (operation === 'recover') {
 			if (
 				typeof credential !== 'object' || credential === null ||
+				!('recoverySecret' in credential) ||
 				typeof credential.recoverySecret !== 'string' ||
 				typeof credential.newPassphrase !== 'string'
 			) {
 				throw new TypeError('Recovery credentials must be strings');
+			}
+			ipcRenderer.send(unlockSubmitChannel, { operation, ...credential });
+			return;
+		}
+		if (operation === 'changePassphrase') {
+			if (
+				typeof credential !== 'object' || credential === null ||
+				!('currentPassphrase' in credential) ||
+				typeof credential.currentPassphrase !== 'string' ||
+				typeof credential.newPassphrase !== 'string'
+			) {
+				throw new TypeError('Passphrase rotation credentials must be strings');
 			}
 			ipcRenderer.send(unlockSubmitChannel, { operation, ...credential });
 			return;

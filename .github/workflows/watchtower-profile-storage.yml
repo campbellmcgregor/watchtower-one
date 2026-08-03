@@ -168,7 +168,7 @@ jobs:
           corepack yarn workspace @joplin/app-desktop bundle
           corepack yarn workspace @joplin/app-desktop exec electron-builder --win dir --x64
 
-      - name: Run packaged restart, recovery, forced-termination, and failed-closed proof
+      - name: Run packaged restart, recovery, rotation, forced-termination, and failed-closed proof
         run: |
           corepack yarn workspace @joplin/app-desktop playwright test --config ../../watchtower/runtime-trace/playwright.first-run.config.ts --reporter=line
 
@@ -181,6 +181,7 @@ jobs:
             packages/app-desktop/test-results/watchtower-first-run/plaintext-scan.json
             packages/app-desktop/test-results/watchtower-first-run/forced-termination-plaintext-scan.json
             packages/app-desktop/test-results/watchtower-first-run/recovery-plaintext-scan.json
+            packages/app-desktop/test-results/watchtower-first-run/passphrase-rotation-plaintext-scan.json
             packages/app-desktop/test-results/watchtower-first-run/corrupt-envelope-plaintext-scan.json
             packages/app-desktop/test-results/watchtower-first-run/usable-note-window.png
           retention-days: 14

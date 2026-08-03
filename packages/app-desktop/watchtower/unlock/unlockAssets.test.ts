@@ -32,6 +32,10 @@ interface UnlockApi {
 		recoverySecret: string;
 		newPassphrase: string;
 	}): void;
+	submit(operation: 'changePassphrase', credentials: {
+		currentPassphrase: string;
+		newPassphrase: string;
+	}): void;
 }
 
 describe('pre-profile unlock assets', () => {
@@ -65,6 +69,10 @@ describe('pre-profile unlock assets', () => {
 			recoverySecret: 'WT1-RECOVERY-SECRET',
 			newPassphrase: 'replacement private atlas words',
 		});
+		api.submit('changePassphrase', {
+			currentPassphrase: 'current private atlas words',
+			newPassphrase: 'rotated private atlas words',
+		});
 		api.confirmRecoverySecret('WT1-RECOVERY-SECRET');
 		api.cancel();
 		expect(ipcSend.mock.calls).toEqual([
@@ -76,6 +84,11 @@ describe('pre-profile unlock assets', () => {
 				operation: 'recover',
 				recoverySecret: 'WT1-RECOVERY-SECRET',
 				newPassphrase: 'replacement private atlas words',
+			}],
+			[unlockSubmitChannel, {
+				operation: 'changePassphrase',
+				currentPassphrase: 'current private atlas words',
+				newPassphrase: 'rotated private atlas words',
 			}],
 			[unlockRecoveryConfirmChannel, 'WT1-RECOVERY-SECRET'],
 			[unlockCancelChannel],
@@ -112,7 +125,16 @@ describe('pre-profile unlock assets', () => {
 				<button id="unlock" type="submit">Unlock</button>
 				<button id="create" type="button">Create</button>
 				<button id="recover" type="button">Recover</button>
+				<button id="change-passphrase" type="button">Change</button>
 				<button id="cancel" type="button">Cancel</button>
+			</form>
+			<form id="change-passphrase-form" hidden>
+				<input id="current-passphrase" type="password">
+				<input id="new-passphrase" type="password">
+				<p id="change-passphrase-error" hidden></p>
+				<p id="change-passphrase-progress" hidden></p>
+				<button id="change-passphrase-back" type="button">Back</button>
+				<button id="change-passphrase-submit" type="submit">Change</button>
 			</form>
 			<form id="recover-form" hidden>
 				<input id="recover-secret">
@@ -176,6 +198,21 @@ describe('pre-profile unlock assets', () => {
 		expect(submit).toHaveBeenLastCalledWith('recover', {
 			recoverySecret: 'WT1-RECOVERY-SECRET',
 			newPassphrase: 'replacement private atlas words',
+		});
+
+		document.querySelector<HTMLButtonElement>('#change-passphrase')!.click();
+		const currentPassphrase = document.querySelector<HTMLInputElement>('#current-passphrase')!;
+		const newPassphrase = document.querySelector<HTMLInputElement>('#new-passphrase')!;
+		currentPassphrase.value = 'current private atlas words';
+		newPassphrase.value = 'rotated private atlas words';
+		document.querySelector<HTMLFormElement>('#change-passphrase-form')!.dispatchEvent(
+			new Event('submit', { bubbles: true, cancelable: true }),
+		);
+		expect(currentPassphrase.value).toBe('');
+		expect(newPassphrase.value).toBe('');
+		expect(submit).toHaveBeenLastCalledWith('changePassphrase', {
+			currentPassphrase: 'current private atlas words',
+			newPassphrase: 'rotated private atlas words',
 		});
 
 		showRecoverySecret!('WT1-RECOVERY-SECRET');
