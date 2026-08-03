@@ -124,6 +124,7 @@ jobs:
       - name: Build Jest runtime workspace dependencies
         run: |
           corepack yarn workspace @joplin/fork-htmlparser2 build
+          corepack yarn workspace @joplin/fork-uslug build
           corepack yarn workspace @joplin/utils build
           corepack yarn workspace @joplin/renderer tsc
           corepack yarn workspace @joplin/lib tsc
