@@ -45,9 +45,16 @@ export interface EncryptedDesktopChangePassphraseCommand {
 	newPassphrase: string;
 }
 
+export interface EncryptedDesktopReplaceRecoverySecretCommand {
+	kind: 'replaceRecoverySecret';
+	passphrase: string;
+	confirmRecoverySecret(recoverySecret: string): Promise<string|undefined>;
+}
+
 export type EncryptedDesktopCommand =
 	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand|
-	EncryptedDesktopRecoverCommand|EncryptedDesktopChangePassphraseCommand;
+	EncryptedDesktopRecoverCommand|EncryptedDesktopChangePassphraseCommand|
+	EncryptedDesktopReplaceRecoverySecretCommand;
 
 export interface EncryptedDesktopDependencyOptions {
 	command: EncryptedDesktopCommand;
@@ -193,6 +200,35 @@ export const makeEncryptedDesktopDependencies = (
 
 	const unlock = async (signal: AbortSignal): Promise<VaultOpenResult> => {
 		if (signal.aborted) return failedClosed();
+		if (options.command.kind === 'replaceRecoverySecret') {
+			let passphrase = pendingPassphrase;
+			pendingPassphrase = '';
+			if (!passphrase) return { kind: 'rejected', reason: 'wrongCredential' };
+			const begun = await credentialLifecycle.beginRecoverySecretReplacement({
+				passphrase,
+			});
+			passphrase = '';
+			if (begun.kind === 'rejected') {
+				return { kind: 'rejected', reason: begun.reason };
+			}
+			if (begun.kind === 'failedClosed' || signal.aborted) return failedClosed();
+			let recoverySecret = begun.recoverySecret;
+			const confirmation = await options.command.confirmRecoverySecret(recoverySecret);
+			recoverySecret = '';
+			if (!confirmation || signal.aborted) return failedClosed();
+			const confirmed = await credentialLifecycle.confirmRecoverySecretReplacement({
+				rotationId: begun.rotationId,
+				recoverySecret: confirmation,
+			});
+			if (confirmed.kind === 'rejected') {
+				if (confirmed.reason === 'wrongCredential') {
+					return { kind: 'rejected', reason: 'wrongCredential' };
+				}
+				return failedClosed();
+			}
+			if (confirmed.kind === 'failedClosed') return failedClosed();
+			return openWithKeyRing(confirmed.keyRing, signal);
+		}
 		if (options.command.kind === 'changePassphrase') {
 			let currentPassphrase = pendingPassphrase;
 			let newPassphrase = pendingNewPassphrase;
@@ -292,7 +328,8 @@ export const makeEncryptedDesktopDependencies = (
 	);
 
 	return {
-		operation: options.command.kind === 'changePassphrase' ?
+		operation: options.command.kind === 'changePassphrase' ||
+			options.command.kind === 'replaceRecoverySecret' ?
 			'unlock' : options.command.kind,
 		accessAdapter,
 		profileHost,

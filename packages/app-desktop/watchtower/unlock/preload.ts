@@ -12,9 +12,12 @@ export interface WatchtowerUnlockApi {
 	confirmRecoverySecret(confirmation: string): void;
 	onFeedback(callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover'|'changePassphrase';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
 	})=> void): void;
-	onRecoverySecret(callback: (recoverySecret: string)=> void): void;
+	onRecoverySecret(callback: (
+		recoverySecret: string,
+		purpose: 'create'|'replace',
+	)=> void): void;
 	submit(
 		operation: 'unlock'|'create',
 		credential: string,
@@ -27,6 +30,7 @@ export interface WatchtowerUnlockApi {
 		operation: 'changePassphrase',
 		credential: { currentPassphrase: string; newPassphrase: string },
 	): void;
+	submit(operation: 'replaceRecoverySecret', credential: string): void;
 }
 
 const api: WatchtowerUnlockApi = Object.freeze({
@@ -41,7 +45,7 @@ const api: WatchtowerUnlockApi = Object.freeze({
 	},
 	onFeedback: (callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover'|'changePassphrase';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
 	})=> void) => {
 		if (typeof callback !== 'function') {
 			throw new TypeError('Unlock feedback callback is required');
@@ -56,22 +60,34 @@ const api: WatchtowerUnlockApi = Object.freeze({
 				callback(Object.freeze({
 					kind: feedback.kind as 'wrongCredential'|'passphraseRejected'|'alreadyExists',
 					...('operation' in feedback &&
-						(feedback.operation === 'recover' || feedback.operation === 'changePassphrase') ?
+						(feedback.operation === 'recover' ||
+						feedback.operation === 'changePassphrase' ||
+						feedback.operation === 'replaceRecoverySecret') ?
 						{ operation: feedback.operation } : {}),
 				}));
 			}
 		});
 	},
-	onRecoverySecret: (callback: (recoverySecret: string)=> void) => {
+	onRecoverySecret: (callback: (
+		recoverySecret: string,
+		purpose: 'create'|'replace',
+	)=> void) => {
 		if (typeof callback !== 'function') {
 			throw new TypeError('Recovery Secret callback is required');
 		}
-		ipcRenderer.on(unlockRecoverySecretChannel, (_event, recoverySecret: unknown) => {
-			if (typeof recoverySecret === 'string') callback(recoverySecret);
+		ipcRenderer.on(unlockRecoverySecretChannel, (
+			_event,
+			recoverySecret: unknown,
+			purpose: unknown,
+		) => {
+			if (
+				typeof recoverySecret === 'string' &&
+				(purpose === 'create' || purpose === 'replace')
+			) callback(recoverySecret, purpose);
 		});
 	},
 	submit: (
-		operation: 'unlock'|'create'|'recover'|'changePassphrase',
+		operation: 'unlock'|'create'|'recover'|'changePassphrase'|'replaceRecoverySecret',
 		credential: string|{ recoverySecret: string; newPassphrase: string }|
 		{ currentPassphrase: string; newPassphrase: string },
 	) => {
@@ -99,7 +115,10 @@ const api: WatchtowerUnlockApi = Object.freeze({
 			ipcRenderer.send(unlockSubmitChannel, { operation, ...credential });
 			return;
 		}
-		if ((operation !== 'unlock' && operation !== 'create') || typeof credential !== 'string') {
+		if (
+			(operation !== 'unlock' && operation !== 'create' &&
+			operation !== 'replaceRecoverySecret') || typeof credential !== 'string'
+		) {
 			throw new TypeError('Unlock passphrase must be a string');
 		}
 		ipcRenderer.send(unlockSubmitChannel, { operation, passphrase: credential });

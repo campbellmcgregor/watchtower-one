@@ -25,9 +25,15 @@ jest.mock('electron', () => ({
 interface UnlockApi {
 	cancel(): void;
 	confirmRecoverySecret(confirmation: string): void;
-	onFeedback(callback: (feedback: { kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists' })=> void): void;
-	onRecoverySecret(callback: (recoverySecret: string)=> void): void;
-	submit(operation: 'unlock'|'create', passphrase: string): void;
+	onFeedback(callback: (feedback: {
+		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+	})=> void): void;
+	onRecoverySecret(callback: (
+		recoverySecret: string,
+		purpose: 'create'|'replace',
+	)=> void): void;
+	submit(operation: 'unlock'|'create'|'replaceRecoverySecret', passphrase: string): void;
 	submit(operation: 'recover', credentials: {
 		recoverySecret: string;
 		newPassphrase: string;
@@ -73,6 +79,7 @@ describe('pre-profile unlock assets', () => {
 			currentPassphrase: 'current private atlas words',
 			newPassphrase: 'rotated private atlas words',
 		});
+		api.submit('replaceRecoverySecret', 'current private atlas words');
 		api.confirmRecoverySecret('WT1-RECOVERY-SECRET');
 		api.cancel();
 		expect(ipcSend.mock.calls).toEqual([
@@ -89,6 +96,10 @@ describe('pre-profile unlock assets', () => {
 				operation: 'changePassphrase',
 				currentPassphrase: 'current private atlas words',
 				newPassphrase: 'rotated private atlas words',
+			}],
+			[unlockSubmitChannel, {
+				operation: 'replaceRecoverySecret',
+				passphrase: 'current private atlas words',
 			}],
 			[unlockRecoveryConfirmChannel, 'WT1-RECOVERY-SECRET'],
 			[unlockCancelChannel],
@@ -112,8 +123,8 @@ describe('pre-profile unlock assets', () => {
 			expect.any(Function),
 		);
 		const receiveRecoverySecret = ipcOn.mock.calls[1][1];
-		receiveRecoverySecret({}, 'WT1-RECOVERY-SECRET');
-		expect(recoveryCallback).toHaveBeenCalledWith('WT1-RECOVERY-SECRET');
+		receiveRecoverySecret({}, 'WT1-RECOVERY-SECRET', 'replace');
+		expect(recoveryCallback).toHaveBeenCalledWith('WT1-RECOVERY-SECRET', 'replace');
 	});
 
 	test('the form clears its password field before submission and renders opaque feedback', () => {
@@ -126,7 +137,15 @@ describe('pre-profile unlock assets', () => {
 				<button id="create" type="button">Create</button>
 				<button id="recover" type="button">Recover</button>
 				<button id="change-passphrase" type="button">Change</button>
+				<button id="replace-recovery-secret" type="button">Replace recovery</button>
 				<button id="cancel" type="button">Cancel</button>
+			</form>
+			<form id="replace-recovery-secret-form" hidden>
+				<input id="replace-recovery-passphrase" type="password">
+				<p id="replace-recovery-error" hidden></p>
+				<p id="replace-recovery-progress" hidden></p>
+				<button id="replace-recovery-back" type="button">Back</button>
+				<button id="replace-recovery-submit" type="submit">Replace</button>
 			</form>
 			<form id="change-passphrase-form" hidden>
 				<input id="current-passphrase" type="password">
@@ -145,6 +164,7 @@ describe('pre-profile unlock assets', () => {
 				<button id="recover-submit" type="submit">Recover</button>
 			</form>
 			<section id="recovery" hidden>
+				<h1 id="recovery-heading">Save your Recovery Secret</h1>
 				<code id="recovery-secret"></code>
 				<input id="recovery-confirmation">
 				<button id="recovery-confirm" type="button">Confirm</button>
@@ -154,8 +174,14 @@ describe('pre-profile unlock assets', () => {
 		const submit = jest.fn();
 		const cancel = jest.fn();
 		const confirmRecoverySecret = jest.fn();
-		let showFeedback: ((feedback: { kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists' })=> void)|undefined;
-		let showRecoverySecret: ((recoverySecret: string)=> void)|undefined;
+		let showFeedback: ((feedback: {
+			kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
+			operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+		})=> void)|undefined;
+		let showRecoverySecret: ((
+			recoverySecret: string,
+			purpose: 'create'|'replace',
+		)=> void)|undefined;
 		Object.assign(window, {
 			watchtowerUnlock: {
 				cancel,
@@ -215,8 +241,28 @@ describe('pre-profile unlock assets', () => {
 			newPassphrase: 'rotated private atlas words',
 		});
 
-		showRecoverySecret!('WT1-RECOVERY-SECRET');
+		document.querySelector<HTMLButtonElement>('#replace-recovery-secret')!.click();
+		const replaceRecoveryPassphrase = document.querySelector<HTMLInputElement>(
+			'#replace-recovery-passphrase',
+		)!;
+		replaceRecoveryPassphrase.value = 'current private atlas words';
+		document.querySelector<HTMLFormElement>('#replace-recovery-secret-form')!.dispatchEvent(
+			new Event('submit', { bubbles: true, cancelable: true }),
+		);
+		expect(replaceRecoveryPassphrase.value).toBe('');
+		expect(submit).toHaveBeenLastCalledWith(
+			'replaceRecoverySecret',
+			'current private atlas words',
+		);
+
+		showRecoverySecret!('WT1-RECOVERY-SECRET', 'replace');
 		expect(document.querySelector<HTMLElement>('#recovery')!.hidden).toBe(false);
+		expect(document.querySelector('#recovery-heading')!.textContent).toBe(
+			'Save your replacement Recovery Secret',
+		);
+		expect(document.querySelector('#recovery-confirm')!.textContent).toBe(
+			'Replace Recovery Secret',
+		);
 		expect(document.querySelector('#recovery-secret')!.textContent).toBe(
 			'WT1-RECOVERY-SECRET',
 		);

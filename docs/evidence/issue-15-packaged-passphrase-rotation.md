@@ -34,8 +34,6 @@ The Windows CI artifact `watchtower-packaged-first-run-win32-x64` now includes
 
 ## Remaining Issue 15 scope
 
-This slice does not close Issue #15. User-facing Recovery Secret replacement
-and authenticated vault retirement/deletion remain. The lifecycle-level
-forced-termination tests already cover pending and committed Recovery Secret
-replacement barriers; the next slice must expose that operation without
-persisting the authorizing passphrase or newly generated Recovery Secret.
+This slice does not close Issue #15. Recovery Secret replacement is recorded
+separately in `issue-15-packaged-recovery-secret-replacement.md`.
+Authenticated vault retirement/deletion remains.

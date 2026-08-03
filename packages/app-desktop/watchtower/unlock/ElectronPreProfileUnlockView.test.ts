@@ -261,6 +261,30 @@ describe('ElectronPreProfileUnlockView', () => {
 		await view.close();
 	});
 
+	test('collects one passphrase authorization for Recovery Secret replacement', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const submissionPromise = view.requestPassphrase();
+		electronHarness.ipcMain.emit(
+			unlockSubmitChannel,
+			{ sender: window.webContents },
+			{
+				operation: 'replaceRecoverySecret',
+				passphrase: 'current private atlas words',
+			},
+		);
+
+		await expect(submissionPromise).resolves.toEqual({
+			kind: 'submitted',
+			operation: 'replaceRecoverySecret',
+			passphrase: 'current private atlas words',
+			signal: expect.any(AbortSignal),
+		});
+		await view.close();
+	});
+
 	test('shows and authenticates first-run Recovery Secret confirmation', async () => {
 		const view = await createElectronPreProfileUnlockView(
 			'C:\\WatchtowerApplication\\unlock',
@@ -272,6 +296,7 @@ describe('ElectronPreProfileUnlockView', () => {
 		expect(window.webContents.send).toHaveBeenCalledWith(
 			unlockRecoverySecretChannel,
 			'WT1-RECOVERY-SECRET',
+			'create',
 		);
 		electronHarness.ipcMain.emit(
 			unlockRecoveryConfirmChannel,
@@ -284,6 +309,29 @@ describe('ElectronPreProfileUnlockView', () => {
 			'WT1-RECOVERY-SECRET',
 		);
 		await expect(confirmation).resolves.toBe('WT1-RECOVERY-SECRET');
+		await view.close();
+	});
+
+	test('labels replacement Recovery Secret confirmation separately', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const confirmation = view.confirmRecoverySecret!(
+			'WT1-REPLACEMENT-RECOVERY-SECRET',
+			'replace',
+		);
+		expect(window.webContents.send).toHaveBeenCalledWith(
+			unlockRecoverySecretChannel,
+			'WT1-REPLACEMENT-RECOVERY-SECRET',
+			'replace',
+		);
+		electronHarness.ipcMain.emit(
+			unlockRecoveryConfirmChannel,
+			{ sender: window.webContents },
+			'WT1-REPLACEMENT-RECOVERY-SECRET',
+		);
+		await expect(confirmation).resolves.toBe('WT1-REPLACEMENT-RECOVERY-SECRET');
 		await view.close();
 	});
 

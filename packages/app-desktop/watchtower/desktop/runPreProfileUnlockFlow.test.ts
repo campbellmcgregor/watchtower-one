@@ -170,6 +170,35 @@ describe('runPreProfileUnlockFlow', () => {
 		});
 	});
 
+	test('authorizes Recovery Secret replacement and clears the passphrase', async () => {
+		const submission = {
+			kind: 'submitted' as const,
+			operation: 'replaceRecoverySecret' as const,
+			passphrase: 'current private atlas words',
+			signal: activeSignal(),
+		};
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => submission,
+			confirmRecoverySecret: async recoverySecret => recoverySecret,
+			close: jest.fn(),
+		};
+		const received: EncryptedDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+			received.push(command);
+			return {
+				lifecycle: undefined as never,
+				result: { kind: 'unlocked' as const },
+			};
+		});
+
+		await runPreProfileUnlockFlow(view, startAttempt);
+		expect(received).toHaveLength(1);
+		expect(received[0]).toMatchObject({
+			kind: 'replaceRecoverySecret',
+			passphrase: '',
+		});
+	});
+
 	test('a corrupt vault is terminal and exposes only the opaque start result', async () => {
 		const submission = {
 			kind: 'submitted' as const,
