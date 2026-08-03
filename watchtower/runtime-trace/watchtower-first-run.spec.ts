@@ -304,6 +304,7 @@ test('survives restart, forced termination, recovery, and credential rotation wi
 		'envelope',
 		'vault-key-envelope.json',
 	);
+	const committedEnvelope = await readFile(envelopePath);
 	await writeFile(envelopePath, '{"incomplete":', 'utf8');
 	const corruptApplication = await launch();
 	const corruptProcess = corruptApplication.process();
@@ -341,4 +342,63 @@ test('survives restart, forced termination, recovery, and credential rotation wi
 		'profile.sqlite',
 	));
 	expect(databaseHeader.subarray(0, 16).toString('utf8')).not.toBe('SQLite format 3\0');
+
+	await writeFile(envelopePath, committedEnvelope);
+	const retirementApplication = await launch();
+	const retirementProcess = retirementApplication.process();
+	const retirementProcessExited = new Promise<number | null>(resolveExitCode => {
+		if (retirementProcess.exitCode !== null) resolveExitCode(retirementProcess.exitCode);
+		else retirementProcess.once('exit', resolveExitCode);
+	});
+	const retirementUnlock = await retirementApplication.firstWindow();
+	await retirementUnlock.locator('#retire-vault').click();
+	await expect(retirementUnlock.locator('#retire-vault-form')).toBeVisible();
+	await retirementUnlock.locator('#retire-passphrase').fill(rotatedPassphrase);
+	await retirementUnlock.locator('#retire-confirmation').fill('DELETE MY VAULT');
+	const retirementApplicationClosed = retirementApplication.waitForEvent('close');
+	await retirementUnlock.locator('#retire-submit').click();
+	await retirementApplicationClosed;
+	expect(await retirementProcessExited).toBe(0);
+
+	await scanForPlaintext(
+		'watchtower-vault-retired-and-removed',
+		'vault-retirement-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementRecoverySecret: replacementRecoverySecret!,
+			replacementPassphrase,
+			rotatedPassphrase,
+		},
+	);
+
+	await mkdir(join(runRoot, 'Watchtower One', 'vault', 'envelope'), { recursive: true });
+	await writeFile(envelopePath, committedEnvelope);
+	const restoredApplication = await launch();
+	const restoredProcess = restoredApplication.process();
+	const restoredProcessExited = new Promise<number | null>(resolveExitCode => {
+		if (restoredProcess.exitCode !== null) resolveExitCode(restoredProcess.exitCode);
+		else restoredProcess.once('exit', resolveExitCode);
+	});
+	const restoredUnlock = await restoredApplication.firstWindow();
+	const restoredApplicationClosed = restoredApplication.waitForEvent('close');
+	await restoredUnlock.locator('#passphrase').fill(rotatedPassphrase);
+	await restoredUnlock.locator('#unlock').click();
+	await restoredApplicationClosed;
+	expect(await restoredProcessExited).toBe(1);
+	await expect(readFile(envelopePath)).rejects.toMatchObject({ code: 'ENOENT' });
+
+	await scanForPlaintext(
+		'watchtower-retired-envelope-restoration-failed-closed',
+		'retired-envelope-restoration-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementRecoverySecret: replacementRecoverySecret!,
+			replacementPassphrase,
+			rotatedPassphrase,
+		},
+	);
 });

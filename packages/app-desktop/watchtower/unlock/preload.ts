@@ -12,7 +12,7 @@ export interface WatchtowerUnlockApi {
 	confirmRecoverySecret(confirmation: string): void;
 	onFeedback(callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault';
 	})=> void): void;
 	onRecoverySecret(callback: (
 		recoverySecret: string,
@@ -31,6 +31,10 @@ export interface WatchtowerUnlockApi {
 		credential: { currentPassphrase: string; newPassphrase: string },
 	): void;
 	submit(operation: 'replaceRecoverySecret', credential: string): void;
+	submit(
+		operation: 'retireVault',
+		credential: { passphrase: string; confirmation: string },
+	): void;
 }
 
 const api: WatchtowerUnlockApi = Object.freeze({
@@ -45,7 +49,7 @@ const api: WatchtowerUnlockApi = Object.freeze({
 	},
 	onFeedback: (callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault';
 	})=> void) => {
 		if (typeof callback !== 'function') {
 			throw new TypeError('Unlock feedback callback is required');
@@ -62,7 +66,8 @@ const api: WatchtowerUnlockApi = Object.freeze({
 					...('operation' in feedback &&
 						(feedback.operation === 'recover' ||
 						feedback.operation === 'changePassphrase' ||
-						feedback.operation === 'replaceRecoverySecret') ?
+						feedback.operation === 'replaceRecoverySecret' ||
+						feedback.operation === 'retireVault') ?
 						{ operation: feedback.operation } : {}),
 				}));
 			}
@@ -87,9 +92,10 @@ const api: WatchtowerUnlockApi = Object.freeze({
 		});
 	},
 	submit: (
-		operation: 'unlock'|'create'|'recover'|'changePassphrase'|'replaceRecoverySecret',
+		operation: 'unlock'|'create'|'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault',
 		credential: string|{ recoverySecret: string; newPassphrase: string }|
-		{ currentPassphrase: string; newPassphrase: string },
+		{ currentPassphrase: string; newPassphrase: string }|
+		{ passphrase: string; confirmation: string },
 	) => {
 		if (operation === 'recover') {
 			if (
@@ -111,6 +117,18 @@ const api: WatchtowerUnlockApi = Object.freeze({
 				typeof credential.newPassphrase !== 'string'
 			) {
 				throw new TypeError('Passphrase rotation credentials must be strings');
+			}
+			ipcRenderer.send(unlockSubmitChannel, { operation, ...credential });
+			return;
+		}
+		if (operation === 'retireVault') {
+			if (
+				typeof credential !== 'object' || credential === null ||
+				!('passphrase' in credential) || !('confirmation' in credential) ||
+				typeof credential.passphrase !== 'string' ||
+				typeof credential.confirmation !== 'string'
+			) {
+				throw new TypeError('Vault retirement credentials must be strings');
 			}
 			ipcRenderer.send(unlockSubmitChannel, { operation, ...credential });
 			return;

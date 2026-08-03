@@ -23,6 +23,13 @@ The first release has no Watchtower account, Watchtower Sync, Instant Response, 
   composes policy, independently wrapped credentials, confirmation, monotonic
   wrapper generations, and atomic persistence. Restart selects only a complete
   committed generation and never falls back to plaintext.
+- **Vault Retirement Registry**: the structurally separate, per-vault local
+  denial ledger that records passphrase-authenticated retirement before the
+  encrypted vault directory is removed. Its versioned marker is authenticated
+  with the metadata domain key at commit and contains no content or retained
+  key. Restoring an old envelope fails closed while the marker remains; this
+  is not a hardware-backed guarantee against rollback of the complete
+  Watchtower data root.
 - **Credential-to-profile handoff**: the trusted desktop bootstrap operation
   that opens SQLCipher from a live Vault Session key ring and makes the
   resulting encrypted storage available to the profile host without exposing
@@ -88,8 +95,9 @@ unlocked Vault Session at-rest contract. ADR-0005 defines the independently
 wrapped Local Vault Key, domain-separated key schedule, mandatory user-held
 recovery, credential rotation, and minimal envelope portion of Public Bootstrap
 State. The Windows adapter now has packaged ordinary-restart, forced-process-
-termination, encrypted-recovery, corrupt-envelope refusal, and plaintext-
-canary scan evidence. Stock plaintext backup,
+termination, encrypted-recovery, credential-rotation, vault-retirement,
+restored-envelope refusal, corrupt-envelope refusal, and plaintext-canary scan
+evidence. Stock plaintext backup,
 content-bearing crash/diagnostic persistence, and external editing are disabled;
 user-directed export and print require an Explicit Plaintext Egress warning.
 The complete release allowlist and macOS/Linux adapters remain release gates.

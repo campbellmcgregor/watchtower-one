@@ -113,6 +113,15 @@
 				color: #bae6fd;
 				padding-left: 0;
 			}
+			#retire-vault {
+				background: transparent;
+				color: #fda4af;
+				padding-left: 0;
+			}
+			#retire-submit {
+				background: #be123c;
+				color: #fff;
+			}
 			.recovery-secret {
 				background: #182230;
 				border: 1px solid #475467;
@@ -152,6 +161,7 @@
 					<button id="recover" type="button">Use Recovery Secret</button>
 					<button id="change-passphrase" type="button">Change passphrase</button>
 					<button id="replace-recovery-secret" type="button">Replace Recovery Secret</button>
+					<button id="retire-vault" type="button">Delete local vault</button>
 					<button id="cancel" type="button">Cancel</button>
 					<button id="create" type="button">Create new vault</button>
 					<button id="unlock" type="submit">Unlock</button>
@@ -172,6 +182,28 @@
 				<div class="actions">
 					<button id="replace-recovery-back" type="button">Back</button>
 					<button id="replace-recovery-submit" type="submit">Generate replacement</button>
+				</div>
+			</form>
+			<form id="retire-vault-form" autocomplete="off" hidden>
+				<h1>Delete this local vault</h1>
+				<p class="intro">
+					This permanently retires its local encryption keys, then removes the
+					encrypted profile from this device. It does not delete synced copies,
+					backups, or guarantee physical erasure from an SSD.
+				</p>
+				<label for="retire-passphrase">Current vault passphrase</label>
+				<input id="retire-passphrase" type="password" autocomplete="off" required>
+				<label for="retire-confirmation">
+					Type <strong>DELETE MY VAULT</strong> to confirm
+				</label>
+				<input id="retire-confirmation" autocomplete="off" spellcheck="false" required>
+				<p id="retire-error" class="message" role="alert" hidden></p>
+				<p id="retire-progress" class="message" role="status" hidden>
+					Retiring the vault before removing its encrypted files.
+				</p>
+				<div class="actions">
+					<button id="retire-back" type="button">Back</button>
+					<button id="retire-submit" type="submit">Retire and delete local vault</button>
 				</div>
 			</form>
 			<form id="change-passphrase-form" autocomplete="off" hidden>

@@ -18,6 +18,7 @@ import {
 	VaultSessionKeyRing,
 } from '../vault/vaultKeyEnvelope';
 import VaultKeyEnvelopeStore from '../vault/vaultKeyEnvelopeStore';
+import VaultRetirementRegistry from '../vault/VaultRetirementRegistry';
 import {
 	WatchtowerDesktopDependencies,
 } from './startWatchtowerDesktop';
@@ -58,6 +59,7 @@ export type EncryptedDesktopCommand =
 
 export interface EncryptedDesktopDependencyOptions {
 	command: EncryptedDesktopCommand;
+	userDataDirectory: string;
 	databasePath: string;
 	envelopeDirectory: string;
 	loadJoplinProfileRuntime: LoadJoplinProfileRuntime;
@@ -126,6 +128,7 @@ export const makeEncryptedDesktopDependencies = (
 	} = options;
 	const credentialLifecycle = new VaultCredentialLifecycle(
 		new VaultKeyEnvelopeStore(envelopeDirectory),
+		new VaultRetirementRegistry(options.userDataDirectory),
 	);
 	const openProfileStorage = options.openProfileStorage ??
 		(keyRing => openSqlCipherProfileStorage(databasePath, keyRing));

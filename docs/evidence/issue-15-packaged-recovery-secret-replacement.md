@@ -34,9 +34,7 @@ The Windows CI artifact `watchtower-packaged-first-run-win32-x64` includes the
 replacement plaintext scan alongside the restart, forced-termination,
 recovery, passphrase-rotation, and corrupt-envelope evidence.
 
-## Remaining Issue 15 scope
+## Issue 15 completion
 
-This slice does not close Issue #15. Authenticated vault retirement/deletion
-remains. It must prevent a previously copied, otherwise authentic envelope
-from reviving a retired vault without claiming physical secure erasure on
-SSDs.
+Authenticated local retirement and restored-envelope refusal are recorded in
+`issue-15-packaged-vault-retirement.md`.

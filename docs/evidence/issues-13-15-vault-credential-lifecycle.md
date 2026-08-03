@@ -60,9 +60,8 @@ The packaged forced-termination and corrupt-envelope cases are recorded in
 passphrase-rotation flows are recorded in `issue-15-packaged-recovery.md` and
 `issue-15-packaged-passphrase-rotation.md`; packaged Recovery Secret
 replacement is recorded in `issue-15-packaged-recovery-secret-replacement.md`.
-Vault retirement remains Issue #15 work. Hard lock/close
-remains owned by the pre-profile process lifecycle rather
-than by the credential-envelope module. Rejecting restoration of a previously copied,
-otherwise authentic envelope requires the independent retirement marker in
-authenticated encrypted metadata; the envelope file alone cannot prove
-freshness after an offline rollback.
+Packaged retirement and restored-envelope refusal are recorded in
+`issue-15-packaged-vault-retirement.md`. Hard lock/close remains owned by the
+pre-profile process lifecycle rather than by the credential-envelope module.
+The independent retirement registry supplies local offline-restoration denial;
+the envelope file alone cannot prove freshness after rollback.

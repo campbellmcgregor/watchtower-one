@@ -5,6 +5,7 @@ import {
 	makeEncryptedDesktopDependencies,
 } from './watchtower/desktop/makeEncryptedDesktopDependencies';
 import runWatchtowerElectronMain from './watchtower/desktop/runWatchtowerElectronMain';
+import retireEncryptedDesktopVault from './watchtower/desktop/retireEncryptedDesktopVault';
 import {
 	makeElectronSessionFactory,
 } from './watchtower/profile/ephemeralProfileRuntimeTypes';
@@ -64,6 +65,7 @@ void runWatchtowerElectronMain({
 	unlockAssetDirectory: join(__dirname, 'watchtower', 'unlock'),
 	ephemeralSessionFactory: makeElectronSessionFactory(),
 	makeEncryptedDesktopDependencies,
+	retireEncryptedDesktopVault,
 }).catch(error => {
 	// The composition root already requested a failed-closed quit. Stderr is
 	// retained for packaged diagnostics without creating a profile log file.

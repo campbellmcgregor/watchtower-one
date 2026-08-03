@@ -3,11 +3,11 @@ import type {
 	VaultAccessAdapter,
 	VaultOpenHandle,
 } from '../vault/PreProfileVaultBootstrap';
-import type {
-	EncryptedDesktopCommand,
-} from './makeEncryptedDesktopDependencies';
 import runPreProfileUnlockFlow from './runPreProfileUnlockFlow';
-import type { PreProfileUnlockView } from './runPreProfileUnlockFlow';
+import type {
+	PreProfileDesktopCommand,
+	PreProfileUnlockView,
+} from './runPreProfileUnlockFlow';
 import { startWatchtowerDesktop } from './startWatchtowerDesktop';
 import type { WatchtowerDesktopStart } from './startWatchtowerDesktop';
 
@@ -20,9 +20,9 @@ describe('runPreProfileUnlockFlow', () => {
 
 	const makeAttempt = (
 		profileStarts: string[],
-		commands: EncryptedDesktopCommand[],
+		commands: PreProfileDesktopCommand[],
 	) => async (
-		command: EncryptedDesktopCommand,
+		command: PreProfileDesktopCommand,
 		signal: AbortSignal,
 	): Promise<WatchtowerDesktopStart> => {
 		commands.push(command);
@@ -71,7 +71,7 @@ describe('runPreProfileUnlockFlow', () => {
 			},
 			close: jest.fn(),
 		};
-		const commands: EncryptedDesktopCommand[] = [];
+		const commands: PreProfileDesktopCommand[] = [];
 		const profileStarts: string[] = [];
 
 		const result = await runPreProfileUnlockFlow(
@@ -119,8 +119,8 @@ describe('runPreProfileUnlockFlow', () => {
 			requestPassphrase: async () => submission,
 			close: jest.fn(),
 		};
-		const received: EncryptedDesktopCommand[] = [];
-		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+		const received: PreProfileDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: PreProfileDesktopCommand) => {
 			received.push(command);
 			return {
 				lifecycle: undefined as never,
@@ -152,8 +152,8 @@ describe('runPreProfileUnlockFlow', () => {
 			requestPassphrase: async () => submission,
 			close: jest.fn(),
 		};
-		const received: EncryptedDesktopCommand[] = [];
-		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+		const received: PreProfileDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: PreProfileDesktopCommand) => {
 			received.push(command);
 			return {
 				lifecycle: undefined as never,
@@ -182,8 +182,8 @@ describe('runPreProfileUnlockFlow', () => {
 			confirmRecoverySecret: async recoverySecret => recoverySecret,
 			close: jest.fn(),
 		};
-		const received: EncryptedDesktopCommand[] = [];
-		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+		const received: PreProfileDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: PreProfileDesktopCommand) => {
 			received.push(command);
 			return {
 				lifecycle: undefined as never,
@@ -197,6 +197,38 @@ describe('runPreProfileUnlockFlow', () => {
 			kind: 'replaceRecoverySecret',
 			passphrase: '',
 		});
+	});
+
+	test('hands exact destructive confirmation to retirement and clears both values', async () => {
+		const submission = {
+			kind: 'submitted' as const,
+			operation: 'retireVault' as const,
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+			signal: activeSignal(),
+		};
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => submission,
+			close: jest.fn(),
+		};
+		const received: PreProfileDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: PreProfileDesktopCommand) => {
+			received.push(command);
+			return { result: { kind: 'retired' as const } };
+		});
+
+		await expect(runPreProfileUnlockFlow(view, startAttempt)).resolves.toEqual({
+			kind: 'retired',
+		});
+		expect(received).toHaveLength(1);
+		expect(received[0]).toMatchObject({
+			kind: 'retireVault',
+			passphrase: '',
+			confirmation: '',
+		});
+		expect(submission.passphrase).toBe('');
+		expect(submission.confirmation).toBe('');
+		expect(view.close).toHaveBeenCalledTimes(1);
 	});
 
 	test('a corrupt vault is terminal and exposes only the opaque start result', async () => {
@@ -244,7 +276,7 @@ describe('runPreProfileUnlockFlow', () => {
 			},
 		};
 		const startAttempt = async (
-			_command: EncryptedDesktopCommand,
+			_command: PreProfileDesktopCommand,
 			signal: AbortSignal,
 		) => await startWatchtowerDesktop({
 			operation: 'unlock',
@@ -285,7 +317,7 @@ describe('runPreProfileUnlockFlow', () => {
 			close: jest.fn(),
 		};
 		const startAttempt = async (
-			_command: EncryptedDesktopCommand,
+			_command: PreProfileDesktopCommand,
 			signal: AbortSignal,
 		) => {
 			controller.abort();

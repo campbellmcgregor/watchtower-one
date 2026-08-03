@@ -205,6 +205,40 @@ Local Vault Key itself may be compromised, version 1 creates a new vault with
 new root and recovery keys and migrates through a staged, verified encrypted
 transfer. The old vault is not reported deleted or securely erased.
 
+### Vault retirement and local anti-restoration
+
+User-requested local deletion is an authenticated **vault retirement**, not a
+physical secure-erasure claim. It requires the current passphrase and exact
+destructive confirmation in the trusted pre-profile UI. Watchtower then:
+
+1. opens the committed Vault Key Envelope with the passphrase;
+2. derives only the `vault-metadata-authentication` domain key;
+3. writes, flushes, reopens, and AEAD-verifies a versioned per-vault retirement
+   marker outside the vault directory;
+4. atomically activates and directory-flushes that marker; and
+5. removes the exact encrypted `vault` directory and disposes the key ring.
+
+The marker contains the random public vault identifier plus authenticated
+ciphertext; it contains no Local Vault Key, derived key, credential, note, or
+resource data. Marker presence is irreversible local denial state: malformed
+or tampered marker bytes still fail closed instead of making a retired vault
+active. A forced termination before marker activation leaves the original
+vault usable. A forced termination after activation leaves the vault retired,
+and the next access attempt resumes exact-directory cleanup before Joplin can
+start.
+
+The registry retains one marker per retired vault identifier, so a new vault
+can use a new random identifier without reviving an old one. Restoring an old
+otherwise valid envelope or encrypted profile into the current data root is
+rejected while its registry marker remains.
+
+This local registry does not resist an administrator who deletes the registry
+or rolls back the complete Watchtower data root. Preventing that stronger
+rollback requires an external monotonic anchor such as platform hardware,
+account infrastructure, or a Watchtower service and is outside version 1. The
+operation also does not delete sync targets or user-controlled backups and
+does not claim that SSD blocks are physically erased.
+
 ### Runtime custody and locking
 
 The Vault Lifecycle module owns root and derived keys in bounded native memory.
@@ -232,7 +266,9 @@ Issue #15 must implement public seams for:
 - change passphrase;
 - replace Recovery Secret;
 - inspect supported public format metadata without exposing user content; and
-- hard-lock/close with explicit success or failed-closed results.
+- hard-lock/close with explicit success or failed-closed results; and
+- passphrase-authenticated vault retirement with exact destructive
+  confirmation and a durable anti-restoration marker.
 
 Tests and packaged evidence must prove:
 
@@ -250,7 +286,10 @@ Tests and packaged evidence must prove:
 - closing and locking terminate the content-bearing process tree; and
 - runtime plaintext tracing finds no key material in command lines,
   environment variables, logs, crash artifacts, profile files, or temporary
-  paths.
+  paths; and
+- forced termination during retirement exposes either the original active
+  encrypted vault or durable retirement, while restoring only a retired
+  envelope fails closed before Joplin starts.
 
 Cryptographic implementations require published test vectors, independent
 review, dependency provenance, and cross-platform interfaces. Versioned formats

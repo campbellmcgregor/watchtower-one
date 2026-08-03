@@ -1,11 +1,12 @@
 import { createHash } from 'crypto';
 import { fork } from 'child_process';
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import VaultCredentialLifecycle from './VaultCredentialLifecycle';
 import VaultKeyEnvelope from './vaultKeyEnvelope';
 import VaultKeyEnvelopeStore from './vaultKeyEnvelopeStore';
+import VaultRetirementRegistry from './VaultRetirementRegistry';
 
 // cspell:ignore sqlcipher
 
@@ -352,6 +353,73 @@ describe('VaultCredentialLifecycle', () => {
 			replacement.recoverySecret,
 		);
 		newRecovery.dispose();
+	});
+
+	test('authenticates irreversible retirement and rejects a restored committed envelope', async () => {
+		const envelopeDirectory = join(storeDirectory, 'vault', 'envelope');
+		await mkdir(envelopeDirectory, { recursive: true });
+		const registry = new VaultRetirementRegistry(storeDirectory);
+		const lifecycle = new VaultCredentialLifecycle(
+			new VaultKeyEnvelopeStore(envelopeDirectory),
+			registry,
+		);
+		const begun = await lifecycle.beginCreate({
+			passphrase: 'original private atlas words',
+			memoryProfile: 'qualified-constrained',
+		});
+		if (begun.kind !== 'recoveryConfirmationRequired') {
+			throw new Error('Expected vault creation to begin');
+		}
+		const created = await lifecycle.confirmCreate({
+			creationId: begun.creationId,
+			recoverySecret: begun.recoverySecret,
+		});
+		if (created.kind !== 'opened') throw new Error('Expected vault to open');
+		created.keyRing.dispose();
+		const committedEnvelope = await readFile(
+			join(envelopeDirectory, 'vault-key-envelope.json'),
+		);
+
+		await expect(lifecycle.retireWithPassphrase({
+			passphrase: 'wrong private atlas words',
+		})).resolves.toEqual({ kind: 'rejected', reason: 'wrongCredential' });
+		const stillActive = await lifecycle.unlockWithPassphrase(
+			'original private atlas words',
+		);
+		expect(stillActive.kind).toBe('opened');
+		if (stillActive.kind === 'opened') stillActive.keyRing.dispose();
+
+		await expect(lifecycle.retireWithPassphrase({
+			passphrase: 'original private atlas words',
+		})).resolves.toEqual({ kind: 'retired' });
+
+		const restoreRetiredEnvelope = async () => {
+			await mkdir(envelopeDirectory, { recursive: true });
+			await writeFile(
+				join(envelopeDirectory, 'vault-key-envelope.json'),
+				committedEnvelope,
+			);
+			return new VaultCredentialLifecycle(
+				new VaultKeyEnvelopeStore(envelopeDirectory),
+				registry,
+			);
+		};
+		await expect((await restoreRetiredEnvelope()).unlockWithPassphrase(
+			'original private atlas words',
+		)).resolves.toEqual({ kind: 'failedClosed' });
+		await expect((await restoreRetiredEnvelope()).recoverWithRecoverySecret({
+			recoverySecret: begun.recoverySecret,
+			newPassphrase: 'replacement private atlas words',
+			memoryProfile: 'qualified-constrained',
+		})).resolves.toEqual({ kind: 'failedClosed' });
+		await expect((await restoreRetiredEnvelope()).changePassphrase({
+			currentPassphrase: 'original private atlas words',
+			newPassphrase: 'replacement private atlas words',
+			memoryProfile: 'qualified-constrained',
+		})).resolves.toEqual({ kind: 'failedClosed' });
+		await expect((await restoreRetiredEnvelope()).beginRecoverySecretReplacement({
+			passphrase: 'original private atlas words',
+		})).resolves.toEqual({ kind: 'failedClosed' });
 	});
 
 	test.each([
