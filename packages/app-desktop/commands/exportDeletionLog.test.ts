@@ -43,6 +43,25 @@ describe('exportDeletionLog', () => {
 		jest.setSystemTime(new Date('2024-09-18T12:00:00Z').getTime());
 	});
 
+	it('does not materialise diagnostics when encrypted profiles disable external files', async () => {
+		Setting.setConstant('allowPersistentDiagnostics', false);
+		jest.setSystemTime(new Date('2024-09-19T12:00:00Z').getTime());
+		const outputPath = `${Setting.value('profileDir')}/deletion_log_20240919.txt`;
+		await shim.fsDriver().remove(outputPath);
+		try {
+			await createFakeLogFile('log.txt', logContentWithDeleteAction);
+			const command = exportDeletionLog.runtime();
+			await command.execute({ state, dispatch: () => {} });
+
+			await expect(shim.fsDriver().exists(outputPath)).resolves.toBe(false);
+			expect(command.enabledCondition).toBe('false');
+			expect(command.visibleCondition).toBe('false');
+		} finally {
+			Setting.setConstant('allowPersistentDiagnostics', true);
+			jest.setSystemTime(new Date('2024-09-18T12:00:00Z').getTime());
+		}
+	});
+
 	it('should get all deletion lines from the log file', async () => {
 		await createFakeLogFile('log.txt', logContentWithDeleteAction);
 

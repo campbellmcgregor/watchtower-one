@@ -10,6 +10,7 @@ import resolveProfileStorageBinding, {
 import EncryptionService from './services/e2ee/EncryptionService';
 import Logger, { TargetType } from '@joplin/utils/Logger';
 import shim from './shim';
+import getDesktopDefaultPluginsInfo from './services/plugins/defaultPlugins/desktopDefaultPluginsInfo';
 
 const { DatabaseDriverNode } = require('./database-driver-node.js');
 
@@ -91,6 +92,8 @@ describe('resolveProfileStorageBinding', () => {
 		expect(shim.fsDriver_).toBe(runtimeFileSystem);
 		expect(Setting.value('allowArbitraryPluginInstallation')).toBe(false);
 		expect(Setting.value('allowExternalEditing')).toBe(false);
+		expect(Setting.value('allowPersistentDiagnostics')).toBe(false);
+		expect(getDesktopDefaultPluginsInfo()['io.github.jackgruber.backup'].enabled).toBe(false);
 		expect(Resource.fsDriver()).toBe(resourceFileSystem);
 		expect(EncryptionService.fsDriver_).toBe(resourceFileSystem);
 

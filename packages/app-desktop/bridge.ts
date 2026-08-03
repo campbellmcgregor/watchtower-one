@@ -98,6 +98,15 @@ export class Bridge {
 	}
 
 	private sentryInit() {
+		if (this.profileStorage_) {
+			// Sentry persists crash dumps and event payloads outside the encrypted
+			// profile. Watchtower keeps diagnostics content-free and ephemeral.
+			this.autoUploadCrashDumps_ = false;
+			// eslint-disable-next-line no-console
+			console.info('Sentry: Disabled for encrypted profile storage');
+			return;
+		}
+
 		const getLogLines = () => {
 			try {
 				if (!this.logFilePath_ || !pathExistsSync(this.logFilePath_)) return '';

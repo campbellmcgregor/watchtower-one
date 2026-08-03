@@ -88,6 +88,9 @@ unlocked Vault Session at-rest contract. ADR-0005 defines the independently
 wrapped Local Vault Key, domain-separated key schedule, mandatory user-held
 recovery, credential rotation, and minimal envelope portion of Public Bootstrap
 State. The Windows adapter now has a packaged create, close, plaintext-canary
-scan, and reopen proof for the ordinary shutdown path. Forced termination,
+scan, and reopen proof for the ordinary shutdown path. Stock plaintext backup,
+content-bearing crash/diagnostic persistence, and external editing are disabled;
+user-directed export and print require an Explicit Plaintext Egress warning.
+Forced termination,
 recovery, the complete release allowlist, and macOS/Linux adapters remain
 release gates. Remaining decisions must not be guessed in feature code.

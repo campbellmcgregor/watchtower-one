@@ -14,7 +14,7 @@ const getDefaultPluginsInfo = (): DefaultPluginsInfo => {
 			// Joplin Portable is more likely to run on a device with low write speeds
 			// and memory. Because Simple Backup has auto-backup enabled by default,
 			// we disable it in Joplin Portable.
-			enabled: !shim.isPortable(),
+			enabled: Setting.value('allowAutomaticBackups') && !shim.isPortable(),
 		},
 
 		'io.github.personalizedrefrigerator.js-draw': {

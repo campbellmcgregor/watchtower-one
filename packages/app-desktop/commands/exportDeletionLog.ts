@@ -26,6 +26,8 @@ const getDeletionLines = async (filePath: string) => {
 export const runtime = (): CommandRuntime => {
 	return {
 		execute: async () => {
+			if (!Setting.value('allowPersistentDiagnostics')) return;
+
 			const files = await shim.fsDriver().readDirStats(Setting.value('profileDir'));
 			// Get all log.txt and log-{timestamp}.txt files but ignore deletion_log.txt
 			const logFiles = files.filter(f => f.path.match(/^log(-\d+)?\.txt$/gi));
@@ -48,5 +50,7 @@ export const runtime = (): CommandRuntime => {
 
 			await bridge().openItem(deletionLogPath);
 		},
+		enabledCondition: Setting.value('allowPersistentDiagnostics') ? undefined : 'false',
+		visibleCondition: Setting.value('allowPersistentDiagnostics') ? undefined : 'false',
 	};
 };
