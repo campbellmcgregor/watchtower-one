@@ -147,6 +147,7 @@ jobs:
       - name: Run the plaintext-path policy proof
         run: |
           corepack yarn workspace @joplin/lib test --runInBand services/ExternalEditWatcher.test.js services/ResourceEditWatcher/index.test.js
+          corepack yarn workspace @joplin/app-desktop exec node node_modules/@mapbox/node-pre-gyp/bin/node-pre-gyp install --fallback-to-build --directory node_modules/sqlite3
           corepack yarn workspace @joplin/app-desktop test --runInBand commands/exportDeletionLog.test.ts gui/WindowCommandsAndDialogs/commands/revealResourceFile.test.ts watchtower/profile/explicitPlaintextEgress.test.ts watchtower/renderer/startEncryptedJoplinRenderer.test.ts
 
       - name: Run the pre-profile unlock-window proof
