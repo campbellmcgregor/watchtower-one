@@ -12,6 +12,10 @@ import Note from '@joplin/lib/models/Note';
 const { friendlySafeFilename } = require('@joplin/lib/path-utils');
 import time from '@joplin/lib/time';
 import { BrowserWindow, BrowserWindowConstructorOptions } from 'electron';
+import {
+	confirmExplicitPlaintextEgress,
+	ExplicitPlaintextEgressKind,
+} from './watchtower/profile/explicitPlaintextEgress';
 const md5 = require('md5');
 const url = require('url');
 
@@ -27,6 +31,12 @@ interface ExportNoteOptions {
 }
 
 export default class InteropServiceHelper {
+	private static confirmPlaintextEgress(kind: ExplicitPlaintextEgressKind) {
+		return confirmExplicitPlaintextEgress(
+			kind,
+			(message, options) => bridge().showMessageBox(message, options),
+		);
+	}
 
 	private static async exportNoteToHtmlFile(noteId: string, exportOptions: ExportNoteOptions) {
 		const tempFile = `${Setting.value('tempDir')}/${md5(Date.now() + Math.random())}.html`;
@@ -46,6 +56,9 @@ export default class InteropServiceHelper {
 	}
 
 	private static async exportNoteTo_(target: string, noteId: string, options: ExportNoteOptions = {}) {
+		const egressKind = target === 'printer' ? ExplicitPlaintextEgressKind.Print : ExplicitPlaintextEgressKind.Export;
+		if (!this.confirmPlaintextEgress(egressKind)) return null;
+
 		let win: BrowserWindow|null = null;
 		let htmlFile: string = null;
 
@@ -213,6 +226,7 @@ export default class InteropServiceHelper {
 		if (!path || (Array.isArray(path) && !path.length)) return;
 
 		if (Array.isArray(path)) path = path[0];
+		if (!this.confirmPlaintextEgress(ExplicitPlaintextEgressKind.Export)) return;
 
 		void CommandService.instance().execute('showModalMessage', _('Exporting to "%s" as "%s" format. Please wait...', path, module.format));
 

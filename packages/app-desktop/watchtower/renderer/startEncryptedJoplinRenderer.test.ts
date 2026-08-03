@@ -5,6 +5,7 @@ import {
 import { ProfileStorageBinding } from '@joplin/lib/profileStorageBinding';
 import { Bridge } from '../../bridge';
 import ElectronAppWrapper from '../../ElectronAppWrapper';
+import * as Sentry from '@sentry/electron/main';
 
 jest.mock('@sentry/electron/main', () => ({
 	IPCMode: { Classic: 'classic' },
@@ -25,6 +26,10 @@ jest.mock('electron', () => ({
 }));
 
 describe('startEncryptedJoplinRenderer', () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
 	test('removes harness-only arguments before Joplin parses a test launch', () => {
 		expect(profileApplicationArgv([
 			'Watchtower One.exe',
@@ -63,7 +68,7 @@ describe('startEncryptedJoplinRenderer', () => {
 			'net.watchtower.one',
 			'Watchtower One',
 			'C:\\WatchtowerPublicBootstrap',
-			false,
+			true,
 			'',
 			profileStorage,
 		);
@@ -89,5 +94,7 @@ describe('startEncryptedJoplinRenderer', () => {
 			argv: process.argv,
 			profileStorage,
 		});
+		expect(Sentry.init).not.toHaveBeenCalled();
+		expect(trustedBridge.autoUploadCrashDumps).toBe(false);
 	});
 });

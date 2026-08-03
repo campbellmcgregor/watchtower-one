@@ -198,7 +198,9 @@ const resolveProfileStorageBinding = (
 	const runtimeFileSystem = binding?.runtimeFileSystem;
 
 	Setting.setConstant('allowArbitraryPluginInstallation', !binding);
+	Setting.setConstant('allowAutomaticBackups', !binding);
 	Setting.setConstant('allowExternalEditing', !binding);
+	Setting.setConstant('allowPersistentDiagnostics', !binding);
 	Setting.setConstant('resourceDirName', 'resources');
 	Setting.setConstant('resourceDir', resourceDirectory);
 	if (pluginCode) {

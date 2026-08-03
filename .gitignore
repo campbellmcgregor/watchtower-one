@@ -661,6 +661,8 @@ packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.test
 packages/app-desktop/watchtower/profile/SqlCipherEncryptedProfileConnection.js
 packages/app-desktop/watchtower/profile/bindJoplinProfileStorage.js
 packages/app-desktop/watchtower/profile/ephemeralProfileRuntimeTypes.js
+packages/app-desktop/watchtower/profile/explicitPlaintextEgress.test.js
+packages/app-desktop/watchtower/profile/explicitPlaintextEgress.js
 packages/app-desktop/watchtower/profile/joplinProfileTypes.js
 packages/app-desktop/watchtower/profile/openSqlCipherProfileStorage.js
 packages/app-desktop/watchtower/profile/profileStorageTypes.js

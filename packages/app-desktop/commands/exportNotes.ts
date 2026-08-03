@@ -1,6 +1,8 @@
 import { CommandRuntime, CommandDeclaration } from '@joplin/lib/services/CommandService';
 import InteropService from '@joplin/lib/services/interop/InteropService';
 import { ExportModuleOutputFormat, ExportOptions, FileSystemItem } from '@joplin/lib/services/interop/types';
+import bridge from '../services/bridge';
+import { confirmExplicitPlaintextEgress, ExplicitPlaintextEgressKind } from '../watchtower/profile/explicitPlaintextEgress';
 
 export const declaration: CommandDeclaration = {
 	name: 'exportNotes',
@@ -10,6 +12,11 @@ export const runtime = (): CommandRuntime => {
 	return {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 		execute: async (_context: any, noteIds: string[], format: ExportModuleOutputFormat, targetDirectoryPath: string) => {
+			if (!confirmExplicitPlaintextEgress(
+				ExplicitPlaintextEgressKind.Export,
+				(message, options) => bridge().showMessageBox(message, options),
+			)) return null;
+
 			const exportOptions: ExportOptions = {
 				path: targetDirectoryPath,
 				format: format,

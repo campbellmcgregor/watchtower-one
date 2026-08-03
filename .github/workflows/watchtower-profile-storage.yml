@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/watchtower-profile-storage.yml
       - packages/app-desktop/bridge.ts
+      - packages/app-desktop/InteropServiceHelper.ts
       - packages/app-desktop/app.ts
       - packages/app-desktop/joplinMain.ts
       - packages/app-desktop/main-html.ts
@@ -17,11 +18,15 @@ on:
       - packages/app-desktop/services/plugins/plugin_index.*
       - packages/app-desktop/ElectronAppWrapper.ts
       - packages/app-desktop/commands/editProfileConfig.ts
+      - packages/app-desktop/commands/exportDeletionLog*
+      - packages/app-desktop/commands/exportFolders.ts
+      - packages/app-desktop/commands/exportNotes.ts
       - packages/app-desktop/commands/startExternalEditing.ts
       - packages/app-desktop/commands/stopExternalEditing.ts
       - packages/app-desktop/commands/toggleExternalEditing.ts
       - packages/app-desktop/gui/NoteEditor/utils/contextMenu.ts
       - packages/app-desktop/gui/ResourceScreen.tsx
+      - packages/app-desktop/gui/WindowCommandsAndDialogs/utils/usePrintToCallback.ts
       - packages/app-desktop/gui/WindowCommandsAndDialogs/commands/revealResourceFile*
       - packages/lib/profileStorageBinding.ts
       - packages/lib/profileStorageBinding.test.ts
@@ -138,6 +143,11 @@ jobs:
       - name: Run the public plugin code-path proof
         run: |
           corepack yarn workspace @joplin/lib test --runInBand profileStorageBinding.test.js services/plugins/loadPlugins.test.js
+
+      - name: Run the plaintext-path policy proof
+        run: |
+          corepack yarn workspace @joplin/lib test --runInBand services/ExternalEditWatcher.test.js services/ResourceEditWatcher/index.test.js
+          corepack yarn workspace @joplin/app-desktop test --runInBand commands/exportDeletionLog.test.ts gui/WindowCommandsAndDialogs/commands/revealResourceFile.test.ts watchtower/profile/explicitPlaintextEgress.test.ts watchtower/renderer/startEncryptedJoplinRenderer.test.ts
 
       - name: Run the pre-profile unlock-window proof
         run: |
