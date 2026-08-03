@@ -28,6 +28,10 @@ interface UnlockApi {
 	onFeedback(callback: (feedback: { kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists' })=> void): void;
 	onRecoverySecret(callback: (recoverySecret: string)=> void): void;
 	submit(operation: 'unlock'|'create', passphrase: string): void;
+	submit(operation: 'recover', credentials: {
+		recoverySecret: string;
+		newPassphrase: string;
+	}): void;
 }
 
 describe('pre-profile unlock assets', () => {
@@ -57,12 +61,21 @@ describe('pre-profile unlock assets', () => {
 		]);
 
 		api.submit('unlock', 'private atlas words');
+		api.submit('recover', {
+			recoverySecret: 'WT1-RECOVERY-SECRET',
+			newPassphrase: 'replacement private atlas words',
+		});
 		api.confirmRecoverySecret('WT1-RECOVERY-SECRET');
 		api.cancel();
 		expect(ipcSend.mock.calls).toEqual([
 			[unlockSubmitChannel, {
 				operation: 'unlock',
 				passphrase: 'private atlas words',
+			}],
+			[unlockSubmitChannel, {
+				operation: 'recover',
+				recoverySecret: 'WT1-RECOVERY-SECRET',
+				newPassphrase: 'replacement private atlas words',
 			}],
 			[unlockRecoveryConfirmChannel, 'WT1-RECOVERY-SECRET'],
 			[unlockCancelChannel],
@@ -98,7 +111,16 @@ describe('pre-profile unlock assets', () => {
 				<p id="progress" hidden></p>
 				<button id="unlock" type="submit">Unlock</button>
 				<button id="create" type="button">Create</button>
+				<button id="recover" type="button">Recover</button>
 				<button id="cancel" type="button">Cancel</button>
+			</form>
+			<form id="recover-form" hidden>
+				<input id="recover-secret">
+				<input id="recover-passphrase" type="password">
+				<p id="recover-error" hidden></p>
+				<p id="recover-progress" hidden></p>
+				<button id="recover-back" type="button">Back</button>
+				<button id="recover-submit" type="submit">Recover</button>
 			</form>
 			<section id="recovery" hidden>
 				<code id="recovery-secret"></code>
@@ -140,6 +162,21 @@ describe('pre-profile unlock assets', () => {
 		expect(error.hidden).toBe(false);
 		expect(error.textContent).toBe('That passphrase did not unlock this vault.');
 		expect(document.activeElement).toBe(input);
+
+		document.querySelector<HTMLButtonElement>('#recover')!.click();
+		const recoverSecret = document.querySelector<HTMLInputElement>('#recover-secret')!;
+		const recoverPassphrase = document.querySelector<HTMLInputElement>('#recover-passphrase')!;
+		recoverSecret.value = 'WT1-RECOVERY-SECRET';
+		recoverPassphrase.value = 'replacement private atlas words';
+		document.querySelector<HTMLFormElement>('#recover-form')!.dispatchEvent(
+			new Event('submit', { bubbles: true, cancelable: true }),
+		);
+		expect(recoverSecret.value).toBe('');
+		expect(recoverPassphrase.value).toBe('');
+		expect(submit).toHaveBeenLastCalledWith('recover', {
+			recoverySecret: 'WT1-RECOVERY-SECRET',
+			newPassphrase: 'replacement private atlas words',
+		});
 
 		showRecoverySecret!('WT1-RECOVERY-SECRET');
 		expect(document.querySelector<HTMLElement>('#recovery')!.hidden).toBe(false);

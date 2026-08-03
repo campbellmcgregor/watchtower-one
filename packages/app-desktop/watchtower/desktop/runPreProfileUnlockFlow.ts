@@ -11,10 +11,12 @@ import type {
 
 export type PreProfileUnlockFeedback = {
 	kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
+	operation?: 'recover';
 };
 
 export type PreProfileUnlockSubmission =
 	{ kind: 'submitted'; operation?: 'unlock'|'create'; passphrase: string; signal: AbortSignal }|
+	{ kind: 'submitted'; operation: 'recover'; recoverySecret: string; newPassphrase: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
 
 export interface PreProfileUnlockView {
@@ -47,12 +49,16 @@ const runPreProfileUnlockFlow = async (
 			const submission = await view.requestPassphrase(feedback);
 			if (submission.kind === 'cancelled') return submission;
 
-			const command = submission.operation === 'create' ? {
+			const command: EncryptedDesktopCommand = submission.operation === 'create' ? {
 				kind: 'create' as const,
 				passphrase: submission.passphrase,
 				confirmRecoverySecret: async (recoverySecret: string) => {
 					return view.confirmRecoverySecret?.(recoverySecret);
 				},
+			} : submission.operation === 'recover' ? {
+				kind: 'recover',
+				recoverySecret: submission.recoverySecret,
+				newPassphrase: submission.newPassphrase,
 			} : {
 				kind: 'unlock' as const,
 				passphrase: submission.passphrase,
@@ -61,8 +67,15 @@ const runPreProfileUnlockFlow = async (
 			try {
 				started = await startAttempt(command, submission.signal);
 			} finally {
-				command.passphrase = '';
-				submission.passphrase = '';
+				if (command.kind === 'recover' && submission.operation === 'recover') {
+					command.recoverySecret = '';
+					command.newPassphrase = '';
+					submission.recoverySecret = '';
+					submission.newPassphrase = '';
+				} else if (command.kind !== 'recover' && submission.operation !== 'recover') {
+					command.passphrase = '';
+					submission.passphrase = '';
+				}
 			}
 
 			if (
@@ -73,7 +86,10 @@ const runPreProfileUnlockFlow = async (
 					'alreadyExists',
 				].includes(started.result.reason)
 			) {
-				feedback = { kind: started.result.reason as PreProfileUnlockFeedback['kind'] };
+				feedback = {
+					kind: started.result.reason as PreProfileUnlockFeedback['kind'],
+					...(command.kind === 'recover' ? { operation: 'recover' as const } : {}),
+				};
 				continue;
 			}
 			if (

@@ -20,6 +20,7 @@ const executable = join(
 const scanner = join(repository, 'watchtower', 'tools', 'plaintext-trace.mjs');
 const runRoot = join(repository, 'packages', 'app-desktop', 'test-results', 'watchtower-first-run');
 const passphrase = 'first private atlas notebook words';
+const replacementPassphrase = 'replacement private atlas notebook words';
 const noteTitle = 'Watchtower usable application proof';
 const noteCanary = 'WT1-USABLE-NOTE-CANARY-20260801';
 const forcedTerminationNoteTitle = 'Watchtower forced termination proof';
@@ -110,7 +111,7 @@ const forceTerminate = async (application: Awaited<ReturnType<typeof launch>>) =
 	await applicationClosed;
 };
 
-test('survives ordinary close and forced termination without plaintext fallback', async () => {
+test('survives restart, forced termination, and credential recovery without plaintext fallback', async () => {
 	await rm(runRoot, { recursive: true, force: true });
 	const application = await launch();
 	const unlock = await application.firstWindow();
@@ -179,6 +180,41 @@ test('survives ordinary close and forced termination without plaintext fallback'
 	await recoveredApplication.close();
 	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
 
+	const recoveryApplication = await launch();
+	const recoveryUnlock = await recoveryApplication.firstWindow();
+	await recoveryUnlock.locator('#recover').click();
+	await expect(recoveryUnlock.locator('#recover-form')).toBeVisible();
+	await recoveryUnlock.locator('#recover-secret').fill(recoverySecret!);
+	await recoveryUnlock.locator('#recover-passphrase').fill(replacementPassphrase);
+	await recoveryUnlock.locator('#recover-submit').click();
+	const recoveryWindow = await waitForJoplinWindow(recoveryApplication);
+	await expect(recoveryWindow.getByText(forcedTerminationNoteTitle)).toBeVisible({ timeout: 30_000 });
+	await recoveryApplication.close();
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
+
+	await scanForPlaintext(
+		'watchtower-recovery-credential-rewrap-closed',
+		'recovery-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementPassphrase,
+		},
+	);
+
+	const retiredPassphraseApplication = await launch();
+	const retiredPassphraseUnlock = await retiredPassphraseApplication.firstWindow();
+	await retiredPassphraseUnlock.locator('#passphrase').fill(passphrase);
+	await retiredPassphraseUnlock.locator('#unlock').click();
+	await expect(retiredPassphraseUnlock.locator('#error')).toHaveText(
+		'That passphrase did not unlock this vault.',
+		{ timeout: 30_000 },
+	);
+	const retiredPassphraseClosed = retiredPassphraseApplication.waitForEvent('close');
+	await retiredPassphraseUnlock.locator('#cancel').click();
+	await retiredPassphraseClosed;
+
 	const envelopePath = join(
 		runRoot,
 		'Watchtower One',
@@ -198,7 +234,7 @@ test('survives ordinary close and forced termination without plaintext fallback'
 	});
 	const corruptUnlock = await corruptApplication.firstWindow();
 	const corruptApplicationClosed = corruptApplication.waitForEvent('close');
-	await corruptUnlock.locator('#passphrase').fill(passphrase);
+	await corruptUnlock.locator('#passphrase').fill(replacementPassphrase);
 	await corruptUnlock.locator('#unlock').click();
 	await corruptApplicationClosed;
 	expect(corruptApplication.windows().filter(window => !window.isClosed())).toEqual([]);
@@ -210,6 +246,8 @@ test('survives ordinary close and forced termination without plaintext fallback'
 		{
 			note: noteCanary,
 			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementPassphrase,
 		},
 	);
 	const databaseHeader = await readFile(join(

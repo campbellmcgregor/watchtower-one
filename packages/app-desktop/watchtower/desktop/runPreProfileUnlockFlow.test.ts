@@ -28,7 +28,8 @@ describe('runPreProfileUnlockFlow', () => {
 		commands.push(command);
 		const accessAdapter: VaultAccessAdapter = {
 			create: jest.fn(),
-			unlock: async () => command.passphrase === 'correct private atlas words' ?
+			unlock: async () => command.kind !== 'recover' &&
+				command.passphrase === 'correct private atlas words' ?
 				{ kind: 'opened', handle: openHandle } :
 				{ kind: 'rejected', reason: 'wrongCredential' },
 			recover: jest.fn(),
@@ -85,7 +86,9 @@ describe('runPreProfileUnlockFlow', () => {
 			{ kind: 'wrongCredential' },
 		]);
 		expect(commands).toHaveLength(2);
-		expect(commands.every(command => command.passphrase === '')).toBe(true);
+		expect(commands.every(command => (
+			command.kind !== 'recover' && command.passphrase === ''
+		))).toBe(true);
 		expect(view.close).toHaveBeenCalledTimes(1);
 	});
 
@@ -101,6 +104,39 @@ describe('runPreProfileUnlockFlow', () => {
 		expect(result).toEqual({ kind: 'cancelled' });
 		expect(startAttempt).not.toHaveBeenCalled();
 		expect(view.close).toHaveBeenCalledTimes(1);
+	});
+
+	test('hands recovery credentials to one attempt and clears both values', async () => {
+		const submission = {
+			kind: 'submitted' as const,
+			operation: 'recover' as const,
+			recoverySecret: 'WT1-RECOVERY-SECRET',
+			newPassphrase: 'replacement private atlas words',
+			signal: activeSignal(),
+		};
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => submission,
+			close: jest.fn(),
+		};
+		const received: EncryptedDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+			received.push(command);
+			return {
+				lifecycle: undefined as never,
+				result: { kind: 'unlocked' as const },
+			};
+		});
+
+		await expect(runPreProfileUnlockFlow(view, startAttempt)).resolves.toEqual({
+			kind: 'unlocked',
+			lifecycle: undefined,
+		});
+		expect(received).toHaveLength(1);
+		expect(received[0]).toMatchObject({
+			kind: 'recover',
+			recoverySecret: '',
+			newPassphrase: '',
+		});
 	});
 
 	test('a corrupt vault is terminal and exposes only the opaque start result', async () => {

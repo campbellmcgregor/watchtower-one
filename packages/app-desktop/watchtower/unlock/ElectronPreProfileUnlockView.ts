@@ -49,22 +49,35 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 	) => {
 		const operation = typeof submitted === 'object' && submitted !== null &&
 			'operation' in submitted ? submitted.operation : 'unlock';
+		const recoverySecret = typeof submitted === 'object' && submitted !== null &&
+			'recoverySecret' in submitted ? submitted.recoverySecret : undefined;
+		const newPassphrase = typeof submitted === 'object' && submitted !== null &&
+			'newPassphrase' in submitted ? submitted.newPassphrase : undefined;
 		const passphrase = typeof submitted === 'object' && submitted !== null &&
 			'passphrase' in submitted ? submitted.passphrase : submitted;
 		if (
 			event.sender !== this.window_.webContents ||
-			(operation !== 'unlock' && operation !== 'create') ||
-			typeof passphrase !== 'string' ||
+			(
+				operation === 'recover' ?
+					typeof recoverySecret !== 'string' || typeof newPassphrase !== 'string' :
+					(operation !== 'unlock' && operation !== 'create') || typeof passphrase !== 'string'
+			) ||
 			!this.pending_
 		) return;
 
 		const pending = this.pending_;
 		this.pending_ = undefined;
 		this.activeAttempt_ = pending.controller;
-		pending.resolve({
+		pending.resolve(operation === 'recover' ? {
 			kind: 'submitted',
 			operation,
-			passphrase,
+			recoverySecret: recoverySecret as string,
+			newPassphrase: newPassphrase as string,
+			signal: pending.controller.signal,
+		} : {
+			kind: 'submitted',
+			operation: operation as 'unlock'|'create',
+			passphrase: passphrase as string,
 			signal: pending.controller.signal,
 		});
 	};

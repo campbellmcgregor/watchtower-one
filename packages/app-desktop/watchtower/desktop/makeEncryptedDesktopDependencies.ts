@@ -33,8 +33,14 @@ export interface EncryptedDesktopCreateCommand {
 	confirmRecoverySecret(recoverySecret: string): Promise<string|undefined>;
 }
 
+export interface EncryptedDesktopRecoverCommand {
+	kind: 'recover';
+	recoverySecret: string;
+	newPassphrase: string;
+}
+
 export type EncryptedDesktopCommand =
-	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand;
+	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand|EncryptedDesktopRecoverCommand;
 
 export interface EncryptedDesktopDependencyOptions {
 	command: EncryptedDesktopCommand;
@@ -82,8 +88,16 @@ const failedClosed = (): VaultOpenResult => ({
 export const makeEncryptedDesktopDependencies = (
 	options: EncryptedDesktopDependencyOptions,
 ): WatchtowerDesktopDependencies => {
-	let pendingPassphrase = options.command.passphrase;
-	options.command.passphrase = '';
+	let pendingPassphrase = options.command.kind === 'recover' ?
+		options.command.newPassphrase : options.command.passphrase;
+	let pendingRecoverySecret = options.command.kind === 'recover' ?
+		options.command.recoverySecret : '';
+	if (options.command.kind === 'recover') {
+		options.command.newPassphrase = '';
+		options.command.recoverySecret = '';
+	} else {
+		options.command.passphrase = '';
+	}
 	const {
 		databasePath,
 		envelopeDirectory,
@@ -187,11 +201,41 @@ export const makeEncryptedDesktopDependencies = (
 		return openWithKeyRing(result.keyRing, signal);
 	};
 
-	const unavailable = async (): Promise<VaultOpenResult> => failedClosed();
+	const recover = async (signal: AbortSignal): Promise<VaultOpenResult> => {
+		if (options.command.kind !== 'recover' || signal.aborted) return failedClosed();
+		let recoverySecret = pendingRecoverySecret;
+		let newPassphrase = pendingPassphrase;
+		pendingRecoverySecret = '';
+		pendingPassphrase = '';
+		if (!recoverySecret || !newPassphrase) {
+			recoverySecret = '';
+			newPassphrase = '';
+			return { kind: 'rejected', reason: 'wrongCredential' };
+		}
+		const result = await credentialLifecycle.recoverWithRecoverySecret({
+			recoverySecret,
+			newPassphrase,
+			memoryProfile: 'standard',
+		});
+		recoverySecret = '';
+		newPassphrase = '';
+		if (result.kind === 'rejected') {
+			if (result.reason === 'passphraseRejected') {
+				return { kind: 'rejected', reason: 'passphraseRejected' };
+			}
+			if (result.reason === 'missingVault' || result.reason === 'wrongCredential') {
+				return { kind: 'rejected', reason: result.reason };
+			}
+			return failedClosed();
+		}
+		if (result.kind === 'failedClosed') return failedClosed();
+		return openWithKeyRing(result.keyRing, signal);
+	};
+
 	const accessAdapter: VaultAccessAdapter = {
 		create,
 		unlock,
-		recover: unavailable,
+		recover,
 		abort: () => false,
 	};
 	const profileHost = new EncryptedJoplinProfileHost(

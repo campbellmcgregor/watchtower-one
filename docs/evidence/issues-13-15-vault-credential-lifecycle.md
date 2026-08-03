@@ -56,9 +56,10 @@ This is lifecycle and filesystem evidence at the production vault seam. It
 does not claim physical secure erasure on SSDs.
 
 The packaged forced-termination and corrupt-envelope cases are recorded in
-`issue-13-packaged-crash-consistency.md`. UI progress/cancellation and wiring
-credential replacement commands into the pre-unlock host remain Issue #15
-work. Hard lock/close remains owned by the pre-profile process lifecycle rather
+`issue-13-packaged-crash-consistency.md`; the packaged Recovery Secret flow is
+recorded in `issue-15-packaged-recovery.md`. In-app passphrase change, Recovery
+Secret replacement, and vault retirement remain Issue #15 work. Hard lock/close
+remains owned by the pre-profile process lifecycle rather
 than by the credential-envelope module. Rejecting restoration of a previously copied,
 otherwise authentic envelope requires the independent retirement marker in
 authenticated encrypted metadata; the envelope file alone cannot prove
