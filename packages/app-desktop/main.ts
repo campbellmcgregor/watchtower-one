@@ -40,6 +40,11 @@ const registerProfileCloseHandler = (closeProfile: ()=> Promise<void>) => {
 	});
 };
 
+// Destroying the pre-profile window must not let Electron choose a successful
+// default exit before the encrypted bootstrap has reported its result.
+const keepAliveDuringPreProfileBootstrap = () => {};
+app.on('window-all-closed', keepAliveDuringPreProfileBootstrap);
+
 void runWatchtowerElectronMain({
 	host: {
 		prepareBeforeReady: registerCustomProtocols,
@@ -53,8 +58,7 @@ void runWatchtowerElectronMain({
 		waitUntilReady: async () => app.whenReady(),
 		createUnlockView: createElectronPreProfileUnlockView,
 		quit: exitCode => {
-			process.exitCode = exitCode;
-			app.quit();
+			app.exit(exitCode);
 		},
 	},
 	unlockAssetDirectory: join(__dirname, 'watchtower', 'unlock'),
@@ -64,4 +68,6 @@ void runWatchtowerElectronMain({
 	// The composition root already requested a failed-closed quit. Stderr is
 	// retained for packaged diagnostics without creating a profile log file.
 	console.error('Watchtower bootstrap failed closed:', error);
+}).finally(() => {
+	app.removeListener('window-all-closed', keepAliveDuringPreProfileBootstrap);
 });

@@ -87,10 +87,10 @@ ADR-0003 selects the SQLCipher-led logical profile vault. ADR-0004 defines the
 unlocked Vault Session at-rest contract. ADR-0005 defines the independently
 wrapped Local Vault Key, domain-separated key schedule, mandatory user-held
 recovery, credential rotation, and minimal envelope portion of Public Bootstrap
-State. The Windows adapter now has a packaged create, close, plaintext-canary
-scan, and reopen proof for the ordinary shutdown path. Stock plaintext backup,
+State. The Windows adapter now has packaged ordinary-restart, forced-process-
+termination, encrypted-recovery, corrupt-envelope refusal, and plaintext-
+canary scan evidence. Stock plaintext backup,
 content-bearing crash/diagnostic persistence, and external editing are disabled;
 user-directed export and print require an Explicit Plaintext Egress warning.
-Forced termination,
-recovery, the complete release allowlist, and macOS/Linux adapters remain
-release gates. Remaining decisions must not be guessed in feature code.
+The complete release allowlist and macOS/Linux adapters remain release gates.
+Remaining decisions must not be guessed in feature code.

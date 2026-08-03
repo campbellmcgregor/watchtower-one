@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { _electron as electron, expect, test } from '../../packages/app-desktop/node_modules/@playwright/test';
@@ -22,6 +22,8 @@ const runRoot = join(repository, 'packages', 'app-desktop', 'test-results', 'wat
 const passphrase = 'first private atlas notebook words';
 const noteTitle = 'Watchtower usable application proof';
 const noteCanary = 'WT1-USABLE-NOTE-CANARY-20260801';
+const forcedTerminationNoteTitle = 'Watchtower forced termination proof';
+const forcedTerminationCanary = 'WT1-FORCED-TERMINATION-CANARY-20260803';
 
 const launch = async () => {
 	const roaming = join(runRoot, 'appdata', 'roaming');
@@ -64,7 +66,51 @@ const waitForJoplinWindow = async (application: Awaited<ReturnType<typeof launch
 	throw new Error('Joplin note window did not appear after vault unlock');
 };
 
-test('creates, uses, closes, and reopens an encrypted Watchtower vault', async () => {
+const scanForPlaintext = async (
+	scenario: string,
+	fileName: string,
+	canaries: Record<string, string>,
+) => {
+	const evidencePath = join(runRoot, fileName);
+	const canaryArguments = Object.entries(canaries).flatMap(([id, value]) => [
+		'--canary',
+		`${id}=${value}`,
+	]);
+	await executeFile(process.execPath, [
+		scanner,
+		'snapshot',
+		'--scenario',
+		scenario,
+		'--root',
+		`smoke=${runRoot}`,
+		...canaryArguments,
+		'--output',
+		evidencePath,
+	], { cwd: repository });
+	const evidence = JSON.parse(await readFile(evidencePath, 'utf8'));
+	expect(evidence.errors).toEqual([]);
+	expect(evidence.files.filter((file: { canaries: { id: string }[] }) => (
+		file.canaries.length
+	))).toEqual([]);
+};
+
+const forceTerminate = async (application: Awaited<ReturnType<typeof launch>>) => {
+	const childProcess = application.process();
+	const applicationClosed = application.waitForEvent('close');
+	if (process.platform === 'win32') {
+		await executeFile('taskkill', [
+			'/PID',
+			String(childProcess.pid),
+			'/T',
+			'/F',
+		]);
+	} else {
+		childProcess.kill('SIGKILL');
+	}
+	await applicationClosed;
+};
+
+test('survives ordinary close and forced termination without plaintext fallback', async () => {
 	await rm(runRoot, { recursive: true, force: true });
 	const application = await launch();
 	const unlock = await application.firstWindow();
@@ -88,23 +134,11 @@ test('creates, uses, closes, and reopens an encrypted Watchtower vault', async (
 	await application.close();
 	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
 
-	const evidencePath = join(runRoot, 'plaintext-scan.json');
-	await executeFile(process.execPath, [
-		scanner,
-		'snapshot',
-		'--scenario',
+	await scanForPlaintext(
 		'watchtower-first-run-closed',
-		'--root',
-		`smoke=${runRoot}`,
-		'--canary',
-		`note=${noteCanary}`,
-		'--output',
-		evidencePath,
-	], { cwd: repository });
-	const evidence = JSON.parse(await readFile(evidencePath, 'utf8'));
-	expect(evidence.files.filter((file: { canaries: { id: string }[] }) => (
-		file.canaries.some(canary => canary.id === 'note')
-	))).toEqual([]);
+		'plaintext-scan.json',
+		{ note: noteCanary },
+	);
 
 	const reopenedApplication = await launch();
 	const reopenUnlock = await reopenedApplication.firstWindow();
@@ -112,5 +146,77 @@ test('creates, uses, closes, and reopens an encrypted Watchtower vault', async (
 	await reopenUnlock.locator('#unlock').click();
 	const reopenedWindow = await waitForJoplinWindow(reopenedApplication);
 	await expect(reopenedWindow.getByText(noteTitle)).toBeVisible({ timeout: 30_000 });
-	await reopenedApplication.close();
+
+	const reopenedScreen = new MainScreen(reopenedWindow);
+	await reopenedScreen.waitFor();
+	const forcedTerminationEditor = await reopenedScreen.createNewNote(forcedTerminationNoteTitle);
+	await forcedTerminationEditor.focusCodeMirrorEditor();
+	await reopenedWindow.keyboard.type(forcedTerminationCanary);
+	await expect(reopenedWindow.getByText(forcedTerminationNoteTitle)).toBeVisible();
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 5_000));
+
+	await forceTerminate(reopenedApplication);
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 500));
+	await scanForPlaintext(
+		'watchtower-forced-termination-closed',
+		'forced-termination-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+		},
+	);
+
+	const recoveredApplication = await launch();
+	const recoveredUnlock = await recoveredApplication.firstWindow();
+	await recoveredUnlock.locator('#passphrase').fill(passphrase);
+	await recoveredUnlock.locator('#unlock').click();
+	const recoveredWindow = await waitForJoplinWindow(recoveredApplication);
+	const recoveredScreen = new MainScreen(recoveredWindow);
+	await recoveredScreen.waitFor();
+	await recoveredWindow.getByText(forcedTerminationNoteTitle).first().click();
+	await expect(recoveredScreen.noteEditor.noteTitleInput).toHaveValue(forcedTerminationNoteTitle);
+	await recoveredScreen.noteEditor.expectToHaveText(forcedTerminationCanary);
+	await recoveredApplication.close();
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
+
+	const envelopePath = join(
+		runRoot,
+		'Watchtower One',
+		'vault',
+		'envelope',
+		'vault-key-envelope.json',
+	);
+	await writeFile(envelopePath, '{"incomplete":', 'utf8');
+	const corruptApplication = await launch();
+	const corruptProcess = corruptApplication.process();
+	const corruptProcessExited = new Promise<number | null>(resolveExitCode => {
+		if (corruptProcess.exitCode !== null) {
+			resolveExitCode(corruptProcess.exitCode);
+		} else {
+			corruptProcess.once('exit', resolveExitCode);
+		}
+	});
+	const corruptUnlock = await corruptApplication.firstWindow();
+	const corruptApplicationClosed = corruptApplication.waitForEvent('close');
+	await corruptUnlock.locator('#passphrase').fill(passphrase);
+	await corruptUnlock.locator('#unlock').click();
+	await corruptApplicationClosed;
+	expect(corruptApplication.windows().filter(window => !window.isClosed())).toEqual([]);
+	expect(await corruptProcessExited).toBe(1);
+
+	await scanForPlaintext(
+		'watchtower-corrupt-envelope-failed-closed',
+		'corrupt-envelope-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+		},
+	);
+	const databaseHeader = await readFile(join(
+		runRoot,
+		'Watchtower One',
+		'vault',
+		'profile.sqlite',
+	));
+	expect(databaseHeader.subarray(0, 16).toString('utf8')).not.toBe('SQLite format 3\0');
 });
