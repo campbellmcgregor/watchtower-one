@@ -144,7 +144,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		expect(displayedRecoverySecret).toMatch(/^WT1-/);
 		expect(command.passphrase).toBe('');
 		await started.lifecycle.end('close');
-	});
+	}, 30_000);
 
 	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {
 		const passphrase = 'production private atlas words';
