@@ -112,7 +112,7 @@ const forceTerminate = async (application: Awaited<ReturnType<typeof launch>>) =
 	await applicationClosed;
 };
 
-test('survives restart, forced termination, recovery, and passphrase rotation without plaintext fallback', async () => {
+test('survives restart, forced termination, recovery, and credential rotation without plaintext fallback', async () => {
 	await rm(runRoot, { recursive: true, force: true });
 	const application = await launch();
 	const unlock = await application.firstWindow();
@@ -252,6 +252,51 @@ test('survives restart, forced termination, recovery, and passphrase rotation wi
 	await preRotationPassphraseUnlock.locator('#cancel').click();
 	await preRotationPassphraseClosed;
 
+	const replacementApplication = await launch();
+	const replacementUnlock = await replacementApplication.firstWindow();
+	await replacementUnlock.locator('#replace-recovery-secret').click();
+	await expect(replacementUnlock.locator('#replace-recovery-secret-form')).toBeVisible();
+	await replacementUnlock.locator('#replace-recovery-passphrase').fill(rotatedPassphrase);
+	await replacementUnlock.locator('#replace-recovery-submit').click();
+	await replacementUnlock.locator('#recovery').waitFor({ state: 'visible', timeout: 120_000 });
+	const replacementRecoverySecret = await replacementUnlock.locator('#recovery-secret').textContent();
+	expect(replacementRecoverySecret).toMatch(/^WT1-/);
+	expect(replacementRecoverySecret).not.toBe(recoverySecret);
+	await replacementUnlock.locator('#recovery-confirmation').fill(replacementRecoverySecret!);
+	await replacementUnlock.locator('#recovery-confirm').click();
+	const replacementWindow = await waitForJoplinWindow(replacementApplication);
+	await expect(replacementWindow.getByText(forcedTerminationNoteTitle)).toBeVisible({ timeout: 30_000 });
+	await replacementApplication.close();
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
+
+	await scanForPlaintext(
+		'watchtower-recovery-secret-replacement-closed',
+		'recovery-secret-replacement-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementRecoverySecret: replacementRecoverySecret!,
+			replacementPassphrase,
+			rotatedPassphrase,
+		},
+	);
+
+	const retiredRecoveryApplication = await launch();
+	const retiredRecoveryUnlock = await retiredRecoveryApplication.firstWindow();
+	await retiredRecoveryUnlock.locator('#recover').click();
+	await retiredRecoveryUnlock.locator('#recover-secret').fill(recoverySecret!);
+	await retiredRecoveryUnlock.locator('#recover-passphrase').fill(replacementPassphrase);
+	await retiredRecoveryUnlock.locator('#recover-submit').click();
+	await expect(retiredRecoveryUnlock.locator('#recover-error')).toHaveText(
+		'That Recovery Secret did not unlock this vault.',
+		{ timeout: 30_000 },
+	);
+	await retiredRecoveryUnlock.locator('#recover-back').click();
+	const retiredRecoveryClosed = retiredRecoveryApplication.waitForEvent('close');
+	await retiredRecoveryUnlock.locator('#cancel').click();
+	await retiredRecoveryClosed;
+
 	const envelopePath = join(
 		runRoot,
 		'Watchtower One',
@@ -284,6 +329,7 @@ test('survives restart, forced termination, recovery, and passphrase rotation wi
 			note: noteCanary,
 			forcedTerminationNote: forcedTerminationCanary,
 			recoverySecret: recoverySecret!,
+			replacementRecoverySecret: replacementRecoverySecret!,
 			replacementPassphrase,
 			rotatedPassphrase,
 		},

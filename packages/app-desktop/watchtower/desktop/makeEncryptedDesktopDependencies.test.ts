@@ -274,6 +274,85 @@ describe('makeEncryptedDesktopDependencies', () => {
 		if (rotated.kind === 'opened') rotated.keyRing.dispose();
 	}, 90_000);
 
+	test('replaces and confirms the Recovery Secret without changing profile keys', async () => {
+		const passphrase = 'replacement authorization private atlas words';
+		const credentialLifecycle = new VaultCredentialLifecycle(
+			new VaultKeyEnvelopeStore(vaultDirectory),
+		);
+		const begun = await credentialLifecycle.beginCreate({
+			passphrase,
+			memoryProfile: 'qualified-constrained',
+		});
+		if (begun.kind !== 'recoveryConfirmationRequired') {
+			throw new Error('Expected vault creation to begin');
+		}
+		const oldRecoverySecret = begun.recoverySecret;
+		const created = await credentialLifecycle.confirmCreate({
+			creationId: begun.creationId,
+			recoverySecret: oldRecoverySecret,
+		});
+		if (created.kind !== 'opened') throw new Error('Expected vault creation');
+		const expectedFingerprint = await created.keyRing.withDerivedKey(
+			'sqlcipher',
+			key => createHash('sha256').update(key).digest('hex'),
+		);
+		created.keyRing.dispose();
+
+		let displayedRecoverySecret = '';
+		let openedFingerprint = '';
+		const command = {
+			kind: 'replaceRecoverySecret' as const,
+			passphrase,
+			confirmRecoverySecret: async (recoverySecret: string) => {
+				displayedRecoverySecret = recoverySecret;
+				return recoverySecret;
+			},
+		};
+		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
+			command,
+			databasePath: join(vaultDirectory, 'profile.sqlite'),
+			envelopeDirectory: vaultDirectory,
+			openProfileStorage: async keyRing => {
+				openedFingerprint = await keyRing.withDerivedKey(
+					'sqlcipher',
+					key => createHash('sha256').update(key).digest('hex'),
+				);
+				return new EncryptedProfileStorage(makeConnection());
+			},
+			profileHostOptions: {
+				pluginCode,
+				ephemeralSessionFactory: {
+					fromPartition: async () => ({
+						browserSession,
+						storagePath: null,
+						clearCache: async () => {},
+						clearStorageData: async () => {},
+						closeAllConnections: async () => {},
+					}),
+				},
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
+				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
+			},
+			loadJoplinProfileRuntime: async () => ({
+				start: async () => {},
+				stop: async () => ({ kind: 'stopped' }),
+				terminate: () => true,
+			}),
+		}));
+
+		expect(started.result).toEqual({ kind: 'unlocked' });
+		expect(openedFingerprint).toBe(expectedFingerprint);
+		expect(displayedRecoverySecret).toMatch(/^WT1-/);
+		expect(displayedRecoverySecret).not.toBe(oldRecoverySecret);
+		expect(command.passphrase).toBe('');
+		await started.lifecycle.end('close');
+		await expect(credentialLifecycle.recoverWithRecoverySecret({
+			recoverySecret: oldRecoverySecret,
+			newPassphrase: 'unused replacement private atlas words',
+			memoryProfile: 'qualified-constrained',
+		})).resolves.toEqual({ kind: 'rejected', reason: 'wrongCredential' });
+	}, 90_000);
+
 	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {
 		const passphrase = 'production private atlas words';
 		const createdKeyRing = await createCommittedVault(passphrase);

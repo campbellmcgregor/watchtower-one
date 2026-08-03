@@ -11,20 +11,24 @@ import type {
 
 export type PreProfileUnlockFeedback = {
 	kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-	operation?: 'recover'|'changePassphrase';
+	operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
 };
 
 export type PreProfileUnlockSubmission =
 	{ kind: 'submitted'; operation?: 'unlock'|'create'; passphrase: string; signal: AbortSignal }|
 	{ kind: 'submitted'; operation: 'recover'; recoverySecret: string; newPassphrase: string; signal: AbortSignal }|
 	{ kind: 'submitted'; operation: 'changePassphrase'; currentPassphrase: string; newPassphrase: string; signal: AbortSignal }|
+	{ kind: 'submitted'; operation: 'replaceRecoverySecret'; passphrase: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
 
 export interface PreProfileUnlockView {
 	requestPassphrase(
 		feedback?: PreProfileUnlockFeedback,
 	): Promise<PreProfileUnlockSubmission>;
-	confirmRecoverySecret?(recoverySecret: string): Promise<string|undefined>;
+	confirmRecoverySecret?(
+		recoverySecret: string,
+		purpose?: 'create'|'replace',
+	): Promise<string|undefined>;
 	close(): Promise<void>|void;
 }
 
@@ -54,7 +58,7 @@ const runPreProfileUnlockFlow = async (
 				kind: 'create' as const,
 				passphrase: submission.passphrase,
 				confirmRecoverySecret: async (recoverySecret: string) => {
-					return view.confirmRecoverySecret?.(recoverySecret);
+					return view.confirmRecoverySecret?.(recoverySecret, 'create');
 				},
 			} : submission.operation === 'recover' ? {
 				kind: 'recover',
@@ -64,6 +68,12 @@ const runPreProfileUnlockFlow = async (
 				kind: 'changePassphrase',
 				currentPassphrase: submission.currentPassphrase,
 				newPassphrase: submission.newPassphrase,
+			} : submission.operation === 'replaceRecoverySecret' ? {
+				kind: 'replaceRecoverySecret',
+				passphrase: submission.passphrase,
+				confirmRecoverySecret: async (recoverySecret: string) => {
+					return view.confirmRecoverySecret?.(recoverySecret, 'replace');
+				},
 			} : {
 				kind: 'unlock' as const,
 				passphrase: submission.passphrase,
@@ -104,7 +114,8 @@ const runPreProfileUnlockFlow = async (
 			) {
 				feedback = {
 					kind: started.result.reason as PreProfileUnlockFeedback['kind'],
-					...(command.kind === 'recover' || command.kind === 'changePassphrase' ?
+					...(command.kind === 'recover' || command.kind === 'changePassphrase' ||
+					command.kind === 'replaceRecoverySecret' ?
 						{ operation: command.kind } : {}),
 				};
 				continue;

@@ -58,8 +58,9 @@ does not claim physical secure erasure on SSDs.
 The packaged forced-termination and corrupt-envelope cases are recorded in
 `issue-13-packaged-crash-consistency.md`; packaged Recovery Secret and
 passphrase-rotation flows are recorded in `issue-15-packaged-recovery.md` and
-`issue-15-packaged-passphrase-rotation.md`. Recovery Secret replacement and
-vault retirement remain Issue #15 work. Hard lock/close
+`issue-15-packaged-passphrase-rotation.md`; packaged Recovery Secret
+replacement is recorded in `issue-15-packaged-recovery-secret-replacement.md`.
+Vault retirement remains Issue #15 work. Hard lock/close
 remains owned by the pre-profile process lifecycle rather
 than by the credential-envelope module. Rejecting restoration of a previously copied,
 otherwise authentic envelope requires the independent retirement marker in

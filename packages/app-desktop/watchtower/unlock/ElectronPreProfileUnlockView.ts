@@ -64,7 +64,8 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 					typeof recoverySecret !== 'string' || typeof newPassphrase !== 'string' :
 					operation === 'changePassphrase' ?
 						typeof currentPassphrase !== 'string' || typeof newPassphrase !== 'string' :
-						(operation !== 'unlock' && operation !== 'create') || typeof passphrase !== 'string'
+						(operation !== 'unlock' && operation !== 'create' &&
+					operation !== 'replaceRecoverySecret') || typeof passphrase !== 'string'
 			) ||
 			!this.pending_
 		) return;
@@ -86,7 +87,7 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 			signal: pending.controller.signal,
 		} : {
 			kind: 'submitted',
-			operation: operation as 'unlock'|'create',
+			operation: operation as 'unlock'|'create'|'replaceRecoverySecret',
 			passphrase: passphrase as string,
 			signal: pending.controller.signal,
 		});
@@ -134,14 +135,17 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 		this.pendingRecoveryConfirmation_ = undefined;
 	}
 
-	public confirmRecoverySecret(recoverySecret: string): Promise<string|undefined> {
+	public confirmRecoverySecret(
+		recoverySecret: string,
+		purpose: 'create'|'replace' = 'create',
+	): Promise<string|undefined> {
 		if (this.disposed_ || this.windowClosed_) {
 			throw new Error('Pre-profile unlock view is closed');
 		}
 		if (this.pendingRecoveryConfirmation_) {
 			throw new Error('Recovery Secret confirmation is already pending');
 		}
-		this.window_.webContents.send(unlockRecoverySecretChannel, recoverySecret);
+		this.window_.webContents.send(unlockRecoverySecretChannel, recoverySecret, purpose);
 		return new Promise(resolve => {
 			this.pendingRecoveryConfirmation_ = resolve;
 		});
@@ -218,7 +222,7 @@ const createElectronPreProfileUnlockView = async (
 
 	const window = new BrowserWindow({
 		width: 460,
-		height: 500,
+		height: 560,
 		resizable: false,
 		show: false,
 		title: 'Unlock Watchtower One',
