@@ -32,10 +32,7 @@ The Windows CI artifact `watchtower-packaged-first-run-win32-x64` now includes
 `recovery-plaintext-scan.json` alongside the ordinary-close,
 forced-termination, and corrupt-envelope reports.
 
-## Remaining Issue 15 scope
+## Issue 15 completion
 
-This slice does not close Issue #15. The cryptographic lifecycle already has
-forced-termination coverage for passphrase change and Recovery Secret
-replacement, but those operations still require trusted user-facing commands.
-Vault retirement/deletion also requires its authenticated retirement marker
-and explicit destructive confirmation before the lifecycle is complete.
+Packaged passphrase rotation, Recovery Secret replacement, and authenticated
+vault retirement are recorded in the corresponding Issue 15 evidence files.

@@ -27,7 +27,7 @@ interface UnlockApi {
 	confirmRecoverySecret(confirmation: string): void;
 	onFeedback(callback: (feedback: {
 		kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+		operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault';
 	})=> void): void;
 	onRecoverySecret(callback: (
 		recoverySecret: string,
@@ -41,6 +41,10 @@ interface UnlockApi {
 	submit(operation: 'changePassphrase', credentials: {
 		currentPassphrase: string;
 		newPassphrase: string;
+	}): void;
+	submit(operation: 'retireVault', credentials: {
+		passphrase: string;
+		confirmation: string;
 	}): void;
 }
 
@@ -80,6 +84,10 @@ describe('pre-profile unlock assets', () => {
 			newPassphrase: 'rotated private atlas words',
 		});
 		api.submit('replaceRecoverySecret', 'current private atlas words');
+		api.submit('retireVault', {
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+		});
 		api.confirmRecoverySecret('WT1-RECOVERY-SECRET');
 		api.cancel();
 		expect(ipcSend.mock.calls).toEqual([
@@ -100,6 +108,11 @@ describe('pre-profile unlock assets', () => {
 			[unlockSubmitChannel, {
 				operation: 'replaceRecoverySecret',
 				passphrase: 'current private atlas words',
+			}],
+			[unlockSubmitChannel, {
+				operation: 'retireVault',
+				passphrase: 'current private atlas words',
+				confirmation: 'DELETE MY VAULT',
 			}],
 			[unlockRecoveryConfirmChannel, 'WT1-RECOVERY-SECRET'],
 			[unlockCancelChannel],
@@ -138,7 +151,16 @@ describe('pre-profile unlock assets', () => {
 				<button id="recover" type="button">Recover</button>
 				<button id="change-passphrase" type="button">Change</button>
 				<button id="replace-recovery-secret" type="button">Replace recovery</button>
+				<button id="retire-vault" type="button">Delete vault</button>
 				<button id="cancel" type="button">Cancel</button>
+			</form>
+			<form id="retire-vault-form" hidden>
+				<input id="retire-passphrase" type="password">
+				<input id="retire-confirmation">
+				<p id="retire-error" hidden></p>
+				<p id="retire-progress" hidden></p>
+				<button id="retire-back" type="button">Back</button>
+				<button id="retire-submit" type="submit">Delete</button>
 			</form>
 			<form id="replace-recovery-secret-form" hidden>
 				<input id="replace-recovery-passphrase" type="password">
@@ -176,7 +198,7 @@ describe('pre-profile unlock assets', () => {
 		const confirmRecoverySecret = jest.fn();
 		let showFeedback: ((feedback: {
 			kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-			operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+			operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault';
 		})=> void)|undefined;
 		let showRecoverySecret: ((
 			recoverySecret: string,
@@ -253,6 +275,30 @@ describe('pre-profile unlock assets', () => {
 		expect(submit).toHaveBeenLastCalledWith(
 			'replaceRecoverySecret',
 			'current private atlas words',
+		);
+
+		document.querySelector<HTMLButtonElement>('#retire-vault')!.click();
+		const retirePassphrase = document.querySelector<HTMLInputElement>(
+			'#retire-passphrase',
+		)!;
+		const retireConfirmation = document.querySelector<HTMLInputElement>(
+			'#retire-confirmation',
+		)!;
+		retirePassphrase.value = 'current private atlas words';
+		retireConfirmation.value = 'DELETE MY VAULT';
+		document.querySelector<HTMLFormElement>('#retire-vault-form')!.dispatchEvent(
+			new Event('submit', { bubbles: true, cancelable: true }),
+		);
+		expect(retirePassphrase.value).toBe('');
+		expect(retireConfirmation.value).toBe('');
+		expect(submit).toHaveBeenLastCalledWith('retireVault', {
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+		});
+		showFeedback!({ kind: 'wrongCredential', operation: 'retireVault' });
+		expect(document.querySelector<HTMLElement>('#retire-vault-form')!.hidden).toBe(false);
+		expect(document.querySelector<HTMLElement>('#retire-error')!.textContent).toBe(
+			'That passphrase or confirmation did not authorize vault deletion.',
 		);
 
 		showRecoverySecret!('WT1-RECOVERY-SECRET', 'replace');

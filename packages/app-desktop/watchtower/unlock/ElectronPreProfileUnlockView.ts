@@ -55,6 +55,8 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 			'newPassphrase' in submitted ? submitted.newPassphrase : undefined;
 		const currentPassphrase = typeof submitted === 'object' && submitted !== null &&
 			'currentPassphrase' in submitted ? submitted.currentPassphrase : undefined;
+		const confirmation = typeof submitted === 'object' && submitted !== null &&
+			'confirmation' in submitted ? submitted.confirmation : undefined;
 		const passphrase = typeof submitted === 'object' && submitted !== null &&
 			'passphrase' in submitted ? submitted.passphrase : submitted;
 		if (
@@ -64,7 +66,9 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 					typeof recoverySecret !== 'string' || typeof newPassphrase !== 'string' :
 					operation === 'changePassphrase' ?
 						typeof currentPassphrase !== 'string' || typeof newPassphrase !== 'string' :
-						(operation !== 'unlock' && operation !== 'create' &&
+						operation === 'retireVault' ?
+							typeof passphrase !== 'string' || typeof confirmation !== 'string' :
+							(operation !== 'unlock' && operation !== 'create' &&
 					operation !== 'replaceRecoverySecret') || typeof passphrase !== 'string'
 			) ||
 			!this.pending_
@@ -84,6 +88,12 @@ class ElectronPreProfileUnlockView implements PreProfileUnlockView {
 			operation,
 			currentPassphrase: currentPassphrase as string,
 			newPassphrase: newPassphrase as string,
+			signal: pending.controller.signal,
+		} : operation === 'retireVault' ? {
+			kind: 'submitted',
+			operation,
+			passphrase: passphrase as string,
+			confirmation: confirmation as string,
 			signal: pending.controller.signal,
 		} : {
 			kind: 'submitted',

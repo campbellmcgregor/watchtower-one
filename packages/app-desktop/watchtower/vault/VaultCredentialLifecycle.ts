@@ -11,6 +11,7 @@ import VaultPassphrasePolicy, {
 	VaultPassphraseMemoryProfile,
 	VaultPassphrasePolicyError,
 } from './vaultPassphrasePolicy';
+import type { VaultRetirementPolicy } from './VaultRetirementRegistry';
 
 export interface BeginVaultCreationOptions {
 	passphrase: string;
@@ -65,6 +66,11 @@ export type VaultCredentialOpenResult =
 	}|
 	{ kind: 'failedClosed' };
 
+export type VaultRetirementResult =
+	{ kind: 'retired' }|
+	{ kind: 'rejected'; reason: 'missingVault'|'wrongCredential' }|
+	{ kind: 'failedClosed' };
+
 interface PendingVaultCreation {
 	creationId: string;
 	publicState: VaultKeyEnvelopePublicState;
@@ -79,13 +85,24 @@ export default class VaultCredentialLifecycle {
 	private pendingCreation_: PendingVaultCreation|null = null;
 	private pendingRecoveryReplacement_: PendingRecoverySecretReplacement|null = null;
 
-	public constructor(private readonly store_: VaultKeyEnvelopeStore) {}
+	public constructor(
+		private readonly store_: VaultKeyEnvelopeStore,
+		private readonly retirementPolicy_?: VaultRetirementPolicy,
+	) {}
+
+	private async inspectActiveCommitted_() {
+		const inspection = await this.store_.inspectCommitted();
+		if (inspection.kind === 'committed') {
+			await this.retirementPolicy_?.assertActive(inspection.publicState.vaultId);
+		}
+		return inspection;
+	}
 
 	public async beginCreate(
 		options: BeginVaultCreationOptions,
 	): Promise<BeginVaultCreationResult> {
 		try {
-			const inspection = await this.store_.inspectCommitted();
+			const inspection = await this.inspectActiveCommitted_();
 			if (inspection.kind === 'committed') {
 				return { kind: 'rejected', reason: 'alreadyExists' };
 			}
@@ -169,7 +186,7 @@ export default class VaultCredentialLifecycle {
 	): Promise<VaultCredentialOpenResult> {
 		let committed: VaultKeyEnvelopePublicState;
 		try {
-			const inspection = await this.store_.inspectCommitted();
+			const inspection = await this.inspectActiveCommitted_();
 			if (inspection.kind === 'missing') {
 				return { kind: 'rejected', reason: 'missingVault' };
 			}
@@ -197,12 +214,49 @@ export default class VaultCredentialLifecycle {
 		}
 	}
 
+	public async retireWithPassphrase(
+		options: { passphrase: string },
+	): Promise<VaultRetirementResult> {
+		let committed: VaultKeyEnvelopePublicState;
+		try {
+			const inspection = await this.inspectActiveCommitted_();
+			if (inspection.kind === 'missing') {
+				return { kind: 'rejected', reason: 'missingVault' };
+			}
+			committed = inspection.publicState;
+		} catch {
+			return { kind: 'failedClosed' };
+		}
+
+		let keyRing: VaultSessionKeyRing;
+		try {
+			keyRing = await VaultKeyEnvelope.unlockWithPassphrase(
+				committed,
+				options.passphrase,
+			);
+		} catch (error) {
+			if (error instanceof InvalidVaultKeyEnvelopeError) {
+				return { kind: 'rejected', reason: 'wrongCredential' };
+			}
+			return { kind: 'failedClosed' };
+		}
+
+		try {
+			if (!this.retirementPolicy_) return { kind: 'failedClosed' };
+			return await this.retirementPolicy_.retire(committed.vaultId, keyRing);
+		} catch {
+			return { kind: 'failedClosed' };
+		} finally {
+			keyRing.dispose();
+		}
+	}
+
 	public async recoverWithRecoverySecret(
 		options: RecoverVaultOptions,
 	): Promise<VaultCredentialOpenResult> {
 		let committed: VaultKeyEnvelopePublicState;
 		try {
-			const inspection = await this.store_.inspectCommitted();
+			const inspection = await this.inspectActiveCommitted_();
 			if (inspection.kind === 'missing') {
 				return { kind: 'rejected', reason: 'missingVault' };
 			}
@@ -272,7 +326,7 @@ export default class VaultCredentialLifecycle {
 	): Promise<VaultCredentialOpenResult> {
 		let committed: VaultKeyEnvelopePublicState;
 		try {
-			const inspection = await this.store_.inspectCommitted();
+			const inspection = await this.inspectActiveCommitted_();
 			if (inspection.kind === 'missing') {
 				return { kind: 'rejected', reason: 'missingVault' };
 			}
@@ -339,7 +393,7 @@ export default class VaultCredentialLifecycle {
 	): Promise<BeginRecoverySecretReplacementResult> {
 		let committed: VaultKeyEnvelopePublicState;
 		try {
-			const inspection = await this.store_.inspectCommitted();
+			const inspection = await this.inspectActiveCommitted_();
 			if (inspection.kind === 'missing') {
 				return { kind: 'rejected', reason: 'missingVault' };
 			}

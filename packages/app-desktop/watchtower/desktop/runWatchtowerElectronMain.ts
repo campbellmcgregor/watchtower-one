@@ -22,6 +22,10 @@ import type {
 import {
 	loadJoplinElectronProfileRuntime,
 } from './JoplinElectronProfileRuntime';
+import type {
+	RetireEncryptedDesktopVaultOptions,
+	RetireEncryptedDesktopVaultStart,
+} from './retireEncryptedDesktopVault';
 
 export interface WatchtowerElectronHost {
 	prepareBeforeReady(): void;
@@ -42,6 +46,9 @@ export interface WatchtowerElectronMainDependencies {
 	makeEncryptedDesktopDependencies(
 		options: EncryptedDesktopDependencyOptions,
 	): WatchtowerDesktopDependencies;
+	retireEncryptedDesktopVault(
+		options: RetireEncryptedDesktopVaultOptions,
+	): Promise<RetireEncryptedDesktopVaultStart>;
 }
 
 const runWatchtowerElectronMain = async (
@@ -66,27 +73,39 @@ const runWatchtowerElectronMain = async (
 		const vaultDirectory = join(userDataDirectory, 'vault');
 		const result = await runPreProfileUnlockFlow(
 			view,
-			async (command, signal) => startWatchtowerDesktop(
-				dependencies.makeEncryptedDesktopDependencies({
-					command,
-					databasePath: join(vaultDirectory, 'profile.sqlite'),
-					envelopeDirectory: join(vaultDirectory, 'envelope'),
-					loadJoplinProfileRuntime: dependencies.loadJoplinProfileRuntime ??
+			async (command, signal) => {
+				if (command.kind === 'retireVault') {
+					return dependencies.retireEncryptedDesktopVault({
+						command,
+						userDataDirectory,
+						signal,
+					});
+				}
+				return startWatchtowerDesktop(
+					dependencies.makeEncryptedDesktopDependencies({
+						command,
+						userDataDirectory,
+						databasePath: join(vaultDirectory, 'profile.sqlite'),
+						envelopeDirectory: join(vaultDirectory, 'envelope'),
+						loadJoplinProfileRuntime: dependencies.loadJoplinProfileRuntime ??
 						loadJoplinElectronProfileRuntime,
-					profileHostOptions: {
-						ephemeralSessionFactory: dependencies.ephemeralSessionFactory,
-						pluginCode: {
-							cacheDirectory: join(publicPluginCodeDirectory, 'cache'),
-							packageDirectory: join(publicPluginCodeDirectory, 'packages'),
+						profileHostOptions: {
+							ephemeralSessionFactory: dependencies.ephemeralSessionFactory,
+							pluginCode: {
+								cacheDirectory: join(publicPluginCodeDirectory, 'cache'),
+								packageDirectory: join(publicPluginCodeDirectory, 'packages'),
+							},
+							publicVaultLockFilePath,
+							resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 						},
-						publicVaultLockFilePath,
-						resourceDirectory: join(vaultDirectory, 'resource-virtual'),
-					},
-				}),
-				signal,
-			),
+					}),
+					signal,
+				);
+			},
 		);
-		if (result.kind === 'cancelled') { dependencies.host.quit(0); } else if (result.kind !== 'unlocked') { dependencies.host.quit(1); } else {
+		if (result.kind === 'cancelled' || result.kind === 'retired') {
+			dependencies.host.quit(0);
+		} else if (result.kind !== 'unlocked') { dependencies.host.quit(1); } else {
 			dependencies.host.registerProfileCloseHandler(async () => {
 				await result.lifecycle.end('close');
 			});

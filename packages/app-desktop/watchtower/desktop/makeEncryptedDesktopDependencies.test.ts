@@ -73,6 +73,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 
 		const dependencies = makeEncryptedDesktopDependencies({
 			command,
+			userDataDirectory: vaultDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
@@ -116,6 +117,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		};
 		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
 			command,
+			userDataDirectory: vaultDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
@@ -172,6 +174,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		};
 		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
 			command,
+			userDataDirectory: vaultDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
@@ -226,6 +229,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		};
 		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
 			command,
+			userDataDirectory: vaultDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async keyRing => {
@@ -310,6 +314,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		};
 		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
 			command,
+			userDataDirectory: vaultDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: vaultDirectory,
 			openProfileStorage: async keyRing => {
@@ -367,6 +372,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		const makeDependencies = (candidatePassphrase: string) =>
 			makeEncryptedDesktopDependencies({
 				command: { kind: 'unlock', passphrase: candidatePassphrase },
+				userDataDirectory: vaultDirectory,
 				databasePath: join(vaultDirectory, 'profile.sqlite'),
 				envelopeDirectory: vaultDirectory,
 				openProfileStorage: async keyRing => {
@@ -451,6 +457,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		const starting = startWatchtowerDesktop(
 			makeEncryptedDesktopDependencies({
 				command: { kind: 'unlock', passphrase },
+				userDataDirectory: vaultDirectory,
 				databasePath: join(vaultDirectory, 'profile.sqlite'),
 				envelopeDirectory: vaultDirectory,
 				openProfileStorage,
@@ -494,6 +501,7 @@ describe('makeEncryptedDesktopDependencies', () => {
 		const started = await startWatchtowerDesktop(
 			makeEncryptedDesktopDependencies({
 				command: { kind: 'unlock', passphrase },
+				userDataDirectory: vaultDirectory,
 				databasePath: join(vaultDirectory, 'profile.sqlite'),
 				envelopeDirectory: vaultDirectory,
 				profileHostOptions: {

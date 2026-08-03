@@ -32,8 +32,9 @@ Recovery Secret flow and verifies:
 The Windows CI artifact `watchtower-packaged-first-run-win32-x64` now includes
 `passphrase-rotation-plaintext-scan.json`.
 
-## Remaining Issue 15 scope
+## Issue 15 completion
 
-This slice does not close Issue #15. Recovery Secret replacement is recorded
-separately in `issue-15-packaged-recovery-secret-replacement.md`.
-Authenticated vault retirement/deletion remains.
+Recovery Secret replacement is recorded separately in
+`issue-15-packaged-recovery-secret-replacement.md`.
+Packaged vault retirement is recorded separately in
+`issue-15-packaged-vault-retirement.md`.

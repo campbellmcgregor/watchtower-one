@@ -11,7 +11,7 @@ import type {
 
 export type PreProfileUnlockFeedback = {
 	kind: 'wrongCredential'|'passphraseRejected'|'alreadyExists';
-	operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret';
+	operation?: 'recover'|'changePassphrase'|'replaceRecoverySecret'|'retireVault';
 };
 
 export type PreProfileUnlockSubmission =
@@ -19,7 +19,14 @@ export type PreProfileUnlockSubmission =
 	{ kind: 'submitted'; operation: 'recover'; recoverySecret: string; newPassphrase: string; signal: AbortSignal }|
 	{ kind: 'submitted'; operation: 'changePassphrase'; currentPassphrase: string; newPassphrase: string; signal: AbortSignal }|
 	{ kind: 'submitted'; operation: 'replaceRecoverySecret'; passphrase: string; signal: AbortSignal }|
+	{ kind: 'submitted'; operation: 'retireVault'; passphrase: string; confirmation: string; signal: AbortSignal }|
 	{ kind: 'cancelled' };
+
+export type PreProfileDesktopCommand = EncryptedDesktopCommand|{
+	kind: 'retireVault';
+	passphrase: string;
+	confirmation: string;
+};
 
 export interface PreProfileUnlockView {
 	requestPassphrase(
@@ -33,12 +40,15 @@ export interface PreProfileUnlockView {
 }
 
 export type StartEncryptedDesktopUnlock = (
-	command: EncryptedDesktopCommand,
+	command: PreProfileDesktopCommand,
 	signal: AbortSignal,
-)=> Promise<WatchtowerDesktopStart>;
+)=> Promise<WatchtowerDesktopStart|{
+	result: { kind: 'retired' }|Exclude<VaultStartResult, { kind: 'unlocked' }>;
+}>;
 
 export type PreProfileUnlockFlowResult =
 	{ kind: 'cancelled' }|
+	{ kind: 'retired' }|
 	{ kind: 'unlocked'; lifecycle: PreProfileVaultBootstrap }|
 	Exclude<VaultStartResult, { kind: 'unlocked' }>;
 
@@ -54,7 +64,7 @@ const runPreProfileUnlockFlow = async (
 			const submission = await view.requestPassphrase(feedback);
 			if (submission.kind === 'cancelled') return submission;
 
-			const command: EncryptedDesktopCommand = submission.operation === 'create' ? {
+			const command: PreProfileDesktopCommand = submission.operation === 'create' ? {
 				kind: 'create' as const,
 				passphrase: submission.passphrase,
 				confirmRecoverySecret: async (recoverySecret: string) => {
@@ -74,11 +84,15 @@ const runPreProfileUnlockFlow = async (
 				confirmRecoverySecret: async (recoverySecret: string) => {
 					return view.confirmRecoverySecret?.(recoverySecret, 'replace');
 				},
+			} : submission.operation === 'retireVault' ? {
+				kind: 'retireVault',
+				passphrase: submission.passphrase,
+				confirmation: submission.confirmation,
 			} : {
 				kind: 'unlock' as const,
 				passphrase: submission.passphrase,
 			};
-			let started: WatchtowerDesktopStart;
+			let started: Awaited<ReturnType<StartEncryptedDesktopUnlock>>;
 			try {
 				started = await startAttempt(command, submission.signal);
 			} finally {
@@ -95,6 +109,14 @@ const runPreProfileUnlockFlow = async (
 					command.newPassphrase = '';
 					submission.currentPassphrase = '';
 					submission.newPassphrase = '';
+				} else if (
+					command.kind === 'retireVault' &&
+					submission.operation === 'retireVault'
+				) {
+					command.passphrase = '';
+					command.confirmation = '';
+					submission.passphrase = '';
+					submission.confirmation = '';
 				} else if (
 					command.kind !== 'recover' && command.kind !== 'changePassphrase' &&
 					submission.operation !== 'recover' && submission.operation !== 'changePassphrase'
@@ -115,7 +137,7 @@ const runPreProfileUnlockFlow = async (
 				feedback = {
 					kind: started.result.reason as PreProfileUnlockFeedback['kind'],
 					...(command.kind === 'recover' || command.kind === 'changePassphrase' ||
-					command.kind === 'replaceRecoverySecret' ?
+					command.kind === 'replaceRecoverySecret' || command.kind === 'retireVault' ?
 						{ operation: command.kind } : {}),
 				};
 				continue;
@@ -127,7 +149,11 @@ const runPreProfileUnlockFlow = async (
 				return { kind: 'cancelled' };
 			}
 
+			if (started.result.kind === 'retired') return started.result;
 			if (started.result.kind === 'unlocked') {
+				if (!('lifecycle' in started)) {
+					throw new Error('Unlocked desktop attempt did not return its lifecycle');
+				}
 				unlockedLifecycle = started.lifecycle;
 				return {
 					kind: 'unlocked',

@@ -127,6 +127,7 @@ describe('runWatchtowerElectronMain', () => {
 				}`);
 				return unlockedDependencies(events);
 			},
+			retireEncryptedDesktopVault: jest.fn(),
 		});
 
 		expect(result.kind).toBe('unlocked');
@@ -145,6 +146,7 @@ describe('runWatchtowerElectronMain', () => {
 			'profile-close-handler-registered',
 		]);
 		expect(receivedOptions).toMatchObject({
+			userDataDirectory,
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
 			envelopeDirectory: join(vaultDirectory, 'envelope'),
 			profileHostOptions: {
@@ -175,10 +177,54 @@ describe('runWatchtowerElectronMain', () => {
 			unlockAssetDirectory,
 			ephemeralSessionFactory: sessionFactory,
 			makeEncryptedDesktopDependencies,
+			retireEncryptedDesktopVault: jest.fn(),
 		})).resolves.toEqual({ kind: 'cancelled' });
 
 		expect(makeEncryptedDesktopDependencies).not.toHaveBeenCalled();
 		expect(events.at(-1)).toBe('quit:0');
+	});
+
+	test('retires the encrypted vault without constructing or starting Joplin', async () => {
+		const events: string[] = [];
+		const submission = {
+			kind: 'submitted' as const,
+			operation: 'retireVault' as const,
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+			signal: new AbortController().signal,
+		};
+		const makeEncryptedDesktopDependencies = jest.fn();
+		let receivedCommand: { passphrase: string; confirmation: string }|undefined;
+		const retireEncryptedDesktopVault = jest.fn(async options => {
+			receivedCommand = { ...options.command };
+			return { result: { kind: 'retired' as const } };
+		});
+
+		await expect(runWatchtowerElectronMain({
+			host: host(events, {
+				requestPassphrase: async () => submission,
+				close: async () => {
+					events.push('unlock-view-closed');
+				},
+			}),
+			unlockAssetDirectory,
+			ephemeralSessionFactory: sessionFactory,
+			makeEncryptedDesktopDependencies,
+			retireEncryptedDesktopVault,
+		})).resolves.toEqual({ kind: 'retired' });
+
+		expect(receivedCommand).toEqual({
+			kind: 'retireVault',
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+		});
+		expect(retireEncryptedDesktopVault).toHaveBeenCalledWith(expect.objectContaining({
+			userDataDirectory,
+			signal: submission.signal,
+		}));
+		expect(submission).toMatchObject({ passphrase: '', confirmation: '' });
+		expect(makeEncryptedDesktopDependencies).not.toHaveBeenCalled();
+		expect(events.slice(-2)).toEqual(['unlock-view-closed', 'quit:0']);
 	});
 
 	test('cancellation during dependency-backed unlock also quits cleanly', async () => {
@@ -213,6 +259,7 @@ describe('runWatchtowerElectronMain', () => {
 					terminate: () => true,
 				},
 			}),
+			retireEncryptedDesktopVault: jest.fn(),
 		})).resolves.toEqual({ kind: 'cancelled' });
 
 		expect(events.at(-1)).toBe('quit:0');
@@ -258,6 +305,7 @@ describe('runWatchtowerElectronMain', () => {
 					terminate: () => true,
 				},
 			}),
+			retireEncryptedDesktopVault: jest.fn(),
 		})).resolves.toEqual({
 			kind: 'failedClosed',
 			stage: 'profileStart',
@@ -282,6 +330,7 @@ describe('runWatchtowerElectronMain', () => {
 			unlockAssetDirectory,
 			ephemeralSessionFactory: sessionFactory,
 			makeEncryptedDesktopDependencies: jest.fn(),
+			retireEncryptedDesktopVault: jest.fn(),
 		})).rejects.toThrow('public bootstrap root unavailable');
 
 		expect(events.at(-1)).toBe('quit:1');

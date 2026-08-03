@@ -285,6 +285,32 @@ describe('ElectronPreProfileUnlockView', () => {
 		await view.close();
 	});
 
+	test('collects passphrase and exact confirmation for vault retirement', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const submissionPromise = view.requestPassphrase();
+		electronHarness.ipcMain.emit(
+			unlockSubmitChannel,
+			{ sender: window.webContents },
+			{
+				operation: 'retireVault',
+				passphrase: 'current private atlas words',
+				confirmation: 'DELETE MY VAULT',
+			},
+		);
+
+		await expect(submissionPromise).resolves.toEqual({
+			kind: 'submitted',
+			operation: 'retireVault',
+			passphrase: 'current private atlas words',
+			confirmation: 'DELETE MY VAULT',
+			signal: expect.any(AbortSignal),
+		});
+		await view.close();
+	});
+
 	test('shows and authenticates first-run Recovery Secret confirmation', async () => {
 		const view = await createElectronPreProfileUnlockView(
 			'C:\\WatchtowerApplication\\unlock',
