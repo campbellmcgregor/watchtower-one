@@ -28,7 +28,7 @@ describe('runPreProfileUnlockFlow', () => {
 		commands.push(command);
 		const accessAdapter: VaultAccessAdapter = {
 			create: jest.fn(),
-			unlock: async () => command.kind !== 'recover' &&
+			unlock: async () => command.kind !== 'recover' && command.kind !== 'changePassphrase' &&
 				command.passphrase === 'correct private atlas words' ?
 				{ kind: 'opened', handle: openHandle } :
 				{ kind: 'rejected', reason: 'wrongCredential' },
@@ -87,7 +87,8 @@ describe('runPreProfileUnlockFlow', () => {
 		]);
 		expect(commands).toHaveLength(2);
 		expect(commands.every(command => (
-			command.kind !== 'recover' && command.passphrase === ''
+			command.kind !== 'recover' && command.kind !== 'changePassphrase' &&
+			command.passphrase === ''
 		))).toBe(true);
 		expect(view.close).toHaveBeenCalledTimes(1);
 	});
@@ -135,6 +136,36 @@ describe('runPreProfileUnlockFlow', () => {
 		expect(received[0]).toMatchObject({
 			kind: 'recover',
 			recoverySecret: '',
+			newPassphrase: '',
+		});
+	});
+
+	test('hands passphrase rotation credentials to one attempt and clears both values', async () => {
+		const submission = {
+			kind: 'submitted' as const,
+			operation: 'changePassphrase' as const,
+			currentPassphrase: 'current private atlas words',
+			newPassphrase: 'replacement private atlas words',
+			signal: activeSignal(),
+		};
+		const view: PreProfileUnlockView = {
+			requestPassphrase: async () => submission,
+			close: jest.fn(),
+		};
+		const received: EncryptedDesktopCommand[] = [];
+		const startAttempt = jest.fn(async (command: EncryptedDesktopCommand) => {
+			received.push(command);
+			return {
+				lifecycle: undefined as never,
+				result: { kind: 'unlocked' as const },
+			};
+		});
+
+		await runPreProfileUnlockFlow(view, startAttempt);
+		expect(received).toHaveLength(1);
+		expect(received[0]).toMatchObject({
+			kind: 'changePassphrase',
+			currentPassphrase: '',
 			newPassphrase: '',
 		});
 	});

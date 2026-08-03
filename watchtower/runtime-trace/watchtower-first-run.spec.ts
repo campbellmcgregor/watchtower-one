@@ -21,6 +21,7 @@ const scanner = join(repository, 'watchtower', 'tools', 'plaintext-trace.mjs');
 const runRoot = join(repository, 'packages', 'app-desktop', 'test-results', 'watchtower-first-run');
 const passphrase = 'first private atlas notebook words';
 const replacementPassphrase = 'replacement private atlas notebook words';
+const rotatedPassphrase = 'rotated private atlas notebook words';
 const noteTitle = 'Watchtower usable application proof';
 const noteCanary = 'WT1-USABLE-NOTE-CANARY-20260801';
 const forcedTerminationNoteTitle = 'Watchtower forced termination proof';
@@ -111,7 +112,7 @@ const forceTerminate = async (application: Awaited<ReturnType<typeof launch>>) =
 	await applicationClosed;
 };
 
-test('survives restart, forced termination, and credential recovery without plaintext fallback', async () => {
+test('survives restart, forced termination, recovery, and passphrase rotation without plaintext fallback', async () => {
 	await rm(runRoot, { recursive: true, force: true });
 	const application = await launch();
 	const unlock = await application.firstWindow();
@@ -215,6 +216,42 @@ test('survives restart, forced termination, and credential recovery without plai
 	await retiredPassphraseUnlock.locator('#cancel').click();
 	await retiredPassphraseClosed;
 
+	const rotationApplication = await launch();
+	const rotationUnlock = await rotationApplication.firstWindow();
+	await rotationUnlock.locator('#change-passphrase').click();
+	await expect(rotationUnlock.locator('#change-passphrase-form')).toBeVisible();
+	await rotationUnlock.locator('#current-passphrase').fill(replacementPassphrase);
+	await rotationUnlock.locator('#new-passphrase').fill(rotatedPassphrase);
+	await rotationUnlock.locator('#change-passphrase-submit').click();
+	const rotationWindow = await waitForJoplinWindow(rotationApplication);
+	await expect(rotationWindow.getByText(forcedTerminationNoteTitle)).toBeVisible({ timeout: 30_000 });
+	await rotationApplication.close();
+	await new Promise(resolveDelay => setTimeout(resolveDelay, 2_000));
+
+	await scanForPlaintext(
+		'watchtower-passphrase-rotation-closed',
+		'passphrase-rotation-plaintext-scan.json',
+		{
+			note: noteCanary,
+			forcedTerminationNote: forcedTerminationCanary,
+			recoverySecret: recoverySecret!,
+			replacementPassphrase,
+			rotatedPassphrase,
+		},
+	);
+
+	const preRotationPassphraseApplication = await launch();
+	const preRotationPassphraseUnlock = await preRotationPassphraseApplication.firstWindow();
+	await preRotationPassphraseUnlock.locator('#passphrase').fill(replacementPassphrase);
+	await preRotationPassphraseUnlock.locator('#unlock').click();
+	await expect(preRotationPassphraseUnlock.locator('#error')).toHaveText(
+		'That passphrase did not unlock this vault.',
+		{ timeout: 30_000 },
+	);
+	const preRotationPassphraseClosed = preRotationPassphraseApplication.waitForEvent('close');
+	await preRotationPassphraseUnlock.locator('#cancel').click();
+	await preRotationPassphraseClosed;
+
 	const envelopePath = join(
 		runRoot,
 		'Watchtower One',
@@ -234,7 +271,7 @@ test('survives restart, forced termination, and credential recovery without plai
 	});
 	const corruptUnlock = await corruptApplication.firstWindow();
 	const corruptApplicationClosed = corruptApplication.waitForEvent('close');
-	await corruptUnlock.locator('#passphrase').fill(replacementPassphrase);
+	await corruptUnlock.locator('#passphrase').fill(rotatedPassphrase);
 	await corruptUnlock.locator('#unlock').click();
 	await corruptApplicationClosed;
 	expect(corruptApplication.windows().filter(window => !window.isClosed())).toEqual([]);
@@ -248,6 +285,7 @@ test('survives restart, forced termination, and credential recovery without plai
 			forcedTerminationNote: forcedTerminationCanary,
 			recoverySecret: recoverySecret!,
 			replacementPassphrase,
+			rotatedPassphrase,
 		},
 	);
 	const databaseHeader = await readFile(join(

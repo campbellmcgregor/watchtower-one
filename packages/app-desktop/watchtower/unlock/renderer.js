@@ -8,6 +8,7 @@
 	const unlock = document.querySelector('#unlock');
 	const create = document.querySelector('#create');
 	const recover = document.querySelector('#recover');
+	const changePassphrase = document.querySelector('#change-passphrase');
 	const cancel = document.querySelector('#cancel');
 	const progress = document.querySelector('#progress');
 	const recovery = document.querySelector('#recovery');
@@ -22,6 +23,13 @@
 	const recoverSubmit = document.querySelector('#recover-submit');
 	const recoverError = document.querySelector('#recover-error');
 	const recoverProgress = document.querySelector('#recover-progress');
+	const changePassphraseForm = document.querySelector('#change-passphrase-form');
+	const currentPassphrase = document.querySelector('#current-passphrase');
+	const newPassphrase = document.querySelector('#new-passphrase');
+	const changePassphraseBack = document.querySelector('#change-passphrase-back');
+	const changePassphraseSubmit = document.querySelector('#change-passphrase-submit');
+	const changePassphraseError = document.querySelector('#change-passphrase-error');
+	const changePassphraseProgress = document.querySelector('#change-passphrase-progress');
 	const focus = element => {
 		// This pre-profile asset cannot import Joplin's profile-bearing focus helper.
 		// eslint-disable-next-line no-restricted-properties
@@ -33,21 +41,38 @@
 		unlock.disabled = busy;
 		create.disabled = busy;
 		recover.disabled = busy;
+		changePassphrase.disabled = busy;
 		recoverSecret.disabled = busy;
 		recoverPassphrase.disabled = busy;
 		recoverSubmit.disabled = busy;
+		currentPassphrase.disabled = busy;
+		newPassphrase.disabled = busy;
+		changePassphraseSubmit.disabled = busy;
 		progress.hidden = !busy;
 		recoverProgress.hidden = !busy;
+		changePassphraseProgress.hidden = !busy;
 	};
 
 	const showRecoveryForm = () => {
 		form.hidden = true;
 		recovery.hidden = true;
 		recoverForm.hidden = false;
+		changePassphraseForm.hidden = true;
 		error.hidden = true;
 		recoverError.hidden = true;
 		setBusy(false);
 		focus(recoverSecret);
+	};
+
+	const showChangePassphraseForm = () => {
+		form.hidden = true;
+		recovery.hidden = true;
+		recoverForm.hidden = true;
+		changePassphraseForm.hidden = false;
+		error.hidden = true;
+		changePassphraseError.hidden = true;
+		setBusy(false);
+		focus(currentPassphrase);
 	};
 
 	const submit = operation => {
@@ -65,12 +90,32 @@
 
 	create.addEventListener('click', () => submit('create'));
 	recover.addEventListener('click', showRecoveryForm);
+	changePassphrase.addEventListener('click', showChangePassphraseForm);
 	recoverBack.addEventListener('click', () => {
 		recoverSecret.value = '';
 		recoverPassphrase.value = '';
 		recoverForm.hidden = true;
 		form.hidden = false;
 		focus(input);
+	});
+	changePassphraseBack.addEventListener('click', () => {
+		currentPassphrase.value = '';
+		newPassphrase.value = '';
+		changePassphraseForm.hidden = true;
+		form.hidden = false;
+		focus(input);
+	});
+	changePassphraseForm.addEventListener('submit', event => {
+		event.preventDefault();
+		const currentPassphraseValue = currentPassphrase.value;
+		const newPassphraseValue = newPassphrase.value;
+		currentPassphrase.value = '';
+		newPassphrase.value = '';
+		setBusy(true);
+		api.submit('changePassphrase', {
+			currentPassphrase: currentPassphraseValue,
+			newPassphrase: newPassphraseValue,
+		});
 	});
 	recoverForm.addEventListener('submit', event => {
 		event.preventDefault();
@@ -89,6 +134,8 @@
 		input.value = '';
 		recoverSecret.value = '';
 		recoverPassphrase.value = '';
+		currentPassphrase.value = '';
+		newPassphrase.value = '';
 		recoveryConfirmation.value = '';
 		api.cancel();
 	});
@@ -101,8 +148,10 @@
 
 	api.onFeedback(feedback => {
 		setBusy(false);
-		form.hidden = feedback.operation === 'recover';
+		form.hidden = feedback.operation === 'recover' ||
+			feedback.operation === 'changePassphrase';
 		recoverForm.hidden = feedback.operation !== 'recover';
+		changePassphraseForm.hidden = feedback.operation !== 'changePassphrase';
 		recovery.hidden = true;
 		recoverySecret.textContent = '';
 		error.textContent = feedback.kind === 'passphraseRejected' ?
@@ -118,12 +167,21 @@
 			recoverError.hidden = false;
 			error.hidden = true;
 		}
-		focus(feedback.operation === 'recover' ? recoverSecret : input);
+		if (feedback.operation === 'changePassphrase') {
+			changePassphraseError.textContent = feedback.kind === 'passphraseRejected' ?
+				'Choose a stronger, less commonly used passphrase.' :
+				'That current passphrase did not unlock this vault.';
+			changePassphraseError.hidden = false;
+			error.hidden = true;
+		}
+		focus(feedback.operation === 'recover' ? recoverSecret :
+			feedback.operation === 'changePassphrase' ? currentPassphrase : input);
 	});
 
 	api.onRecoverySecret(secret => {
 		form.hidden = true;
 		recoverForm.hidden = true;
+		changePassphraseForm.hidden = true;
 		recovery.hidden = false;
 		recoverySecret.textContent = secret;
 		focus(recoveryConfirmation);

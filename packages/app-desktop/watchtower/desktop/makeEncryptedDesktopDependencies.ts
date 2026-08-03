@@ -39,8 +39,15 @@ export interface EncryptedDesktopRecoverCommand {
 	newPassphrase: string;
 }
 
+export interface EncryptedDesktopChangePassphraseCommand {
+	kind: 'changePassphrase';
+	currentPassphrase: string;
+	newPassphrase: string;
+}
+
 export type EncryptedDesktopCommand =
-	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand|EncryptedDesktopRecoverCommand;
+	EncryptedDesktopUnlockCommand|EncryptedDesktopCreateCommand|
+	EncryptedDesktopRecoverCommand|EncryptedDesktopChangePassphraseCommand;
 
 export interface EncryptedDesktopDependencyOptions {
 	command: EncryptedDesktopCommand;
@@ -88,13 +95,19 @@ const failedClosed = (): VaultOpenResult => ({
 export const makeEncryptedDesktopDependencies = (
 	options: EncryptedDesktopDependencyOptions,
 ): WatchtowerDesktopDependencies => {
-	let pendingPassphrase = options.command.kind === 'recover' ?
-		options.command.newPassphrase : options.command.passphrase;
+	let pendingPassphrase = options.command.kind === 'recover' ? '' :
+		options.command.kind === 'changePassphrase' ?
+			options.command.currentPassphrase : options.command.passphrase;
+	let pendingNewPassphrase = options.command.kind === 'recover' ||
+		options.command.kind === 'changePassphrase' ? options.command.newPassphrase : '';
 	let pendingRecoverySecret = options.command.kind === 'recover' ?
 		options.command.recoverySecret : '';
 	if (options.command.kind === 'recover') {
 		options.command.newPassphrase = '';
 		options.command.recoverySecret = '';
+	} else if (options.command.kind === 'changePassphrase') {
+		options.command.currentPassphrase = '';
+		options.command.newPassphrase = '';
 	} else {
 		options.command.passphrase = '';
 	}
@@ -180,6 +193,35 @@ export const makeEncryptedDesktopDependencies = (
 
 	const unlock = async (signal: AbortSignal): Promise<VaultOpenResult> => {
 		if (signal.aborted) return failedClosed();
+		if (options.command.kind === 'changePassphrase') {
+			let currentPassphrase = pendingPassphrase;
+			let newPassphrase = pendingNewPassphrase;
+			pendingPassphrase = '';
+			pendingNewPassphrase = '';
+			if (!currentPassphrase || !newPassphrase) {
+				currentPassphrase = '';
+				newPassphrase = '';
+				return { kind: 'rejected', reason: 'wrongCredential' };
+			}
+			const changed = await credentialLifecycle.changePassphrase({
+				currentPassphrase,
+				newPassphrase,
+				memoryProfile: 'standard',
+			});
+			currentPassphrase = '';
+			newPassphrase = '';
+			if (changed.kind === 'rejected') {
+				if (changed.reason === 'passphraseRejected') {
+					return { kind: 'rejected', reason: 'passphraseRejected' };
+				}
+				if (changed.reason === 'missingVault' || changed.reason === 'wrongCredential') {
+					return { kind: 'rejected', reason: changed.reason };
+				}
+				return failedClosed();
+			}
+			if (changed.kind === 'failedClosed') return failedClosed();
+			return openWithKeyRing(changed.keyRing, signal);
+		}
 		const passphrase = pendingPassphrase;
 		pendingPassphrase = '';
 		if (!passphrase) {
@@ -204,9 +246,9 @@ export const makeEncryptedDesktopDependencies = (
 	const recover = async (signal: AbortSignal): Promise<VaultOpenResult> => {
 		if (options.command.kind !== 'recover' || signal.aborted) return failedClosed();
 		let recoverySecret = pendingRecoverySecret;
-		let newPassphrase = pendingPassphrase;
+		let newPassphrase = pendingNewPassphrase;
 		pendingRecoverySecret = '';
-		pendingPassphrase = '';
+		pendingNewPassphrase = '';
 		if (!recoverySecret || !newPassphrase) {
 			recoverySecret = '';
 			newPassphrase = '';
@@ -250,7 +292,8 @@ export const makeEncryptedDesktopDependencies = (
 	);
 
 	return {
-		operation: options.command.kind,
+		operation: options.command.kind === 'changePassphrase' ?
+			'unlock' : options.command.kind,
 		accessAdapter,
 		profileHost,
 		options: {
