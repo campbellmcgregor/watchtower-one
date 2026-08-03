@@ -358,4 +358,5 @@ helpers:
 - `docs/research/watchtower-unlocked-vault-session-at-rest-contract.md`
 - `docs/research/joplin-v3.6.15-windows-runtime-plaintext-footprint.md`
 - `docs/evidence/issue-8-sqlcipher-joplin-architecture-proof.md`
+- `docs/evidence/issue-11-packaged-encrypted-profile-proof.md`
 - `docs/adr/0003-sqlcipher-logical-profile-vault.md`

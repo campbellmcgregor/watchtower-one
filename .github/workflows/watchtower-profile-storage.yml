@@ -16,12 +16,22 @@ on:
       - packages/app-desktop/services/plugins/PluginModulePolicy*
       - packages/app-desktop/services/plugins/plugin_index.*
       - packages/app-desktop/ElectronAppWrapper.ts
+      - packages/app-desktop/commands/editProfileConfig.ts
+      - packages/app-desktop/commands/startExternalEditing.ts
+      - packages/app-desktop/commands/stopExternalEditing.ts
+      - packages/app-desktop/commands/toggleExternalEditing.ts
+      - packages/app-desktop/gui/NoteEditor/utils/contextMenu.ts
+      - packages/app-desktop/gui/ResourceScreen.tsx
+      - packages/app-desktop/gui/WindowCommandsAndDialogs/commands/revealResourceFile*
       - packages/lib/profileStorageBinding.ts
       - packages/lib/profileStorageBinding.test.ts
       - packages/lib/BaseApplication.ts
       - packages/lib/models/Setting.ts
       - packages/lib/services/plugins/PluginService.ts
       - packages/lib/services/plugins/loadPlugins.test.ts
+      - packages/lib/services/ExternalEditWatcher*
+      - packages/lib/services/ResourceEditWatcher/**
+      - packages/lib/services/externalEditingPolicy.ts
       - packages/app-desktop/watchtower/desktop/**
       - packages/app-desktop/watchtower/profile/**
       - packages/app-desktop/watchtower/renderer/**
@@ -113,9 +123,10 @@ jobs:
 
       - name: Build Jest runtime workspace dependencies
         run: |
-          corepack yarn workspace @joplin/fork-htmlparser2 build
-          corepack yarn workspace @joplin/utils build
-          corepack yarn workspace @joplin/lib tsc
+          corepack yarn workspace @joplin/lib exec node node_modules/@mapbox/node-pre-gyp/bin/node-pre-gyp install --fallback-to-build --directory node_modules/sqlite3
+          corepack yarn workspaces foreach -R --from @joplin/lib -pt run build
+          corepack yarn workspaces foreach -R --from @joplin/lib -pt run tsc
+          corepack yarn workspace @joplin/app-desktop tsc
 
       - name: Run the encrypted profile proof
         shell: pwsh
@@ -132,6 +143,33 @@ jobs:
         run: |
           corepack yarn workspace @joplin/app-desktop gulp bundleWatchtowerUnlockPreload
           corepack yarn workspace @joplin/app-desktop test --config watchtower/unlock/jest.unlock-proof.config.js --runInBand
+
+      - name: Build the packaged Watchtower proof application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          corepack yarn workspace @joplin/app-desktop build
+          corepack yarn workspace @joplin/app-desktop electronRebuild
+          $source = '${{ github.workspace }}\node-sqlcipher\prebuilds\win32-x64\@signalapp+sqlcipher.node'
+          $destination = '${{ github.workspace }}\packages\app-desktop\node_modules\@signalapp\sqlcipher\prebuilds\win32-x64\@signalapp+sqlcipher.node'
+          Copy-Item -LiteralPath $source -Destination $destination -Force
+          corepack yarn workspace @joplin/app-desktop bundle
+          corepack yarn workspace @joplin/app-desktop exec electron-builder --win dir --x64
+
+      - name: Run the packaged create, close, scan, and reopen proof
+        run: |
+          corepack yarn workspace @joplin/app-desktop playwright test --config ../../watchtower/runtime-trace/playwright.first-run.config.ts --reporter=line
+
+      - name: Upload packaged runtime evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-packaged-first-run-win32-x64
+          if-no-files-found: error
+          path: |
+            packages/app-desktop/test-results/watchtower-first-run/plaintext-scan.json
+            packages/app-desktop/test-results/watchtower-first-run/usable-note-window.png
+          retention-days: 14
 
       - name: Upload verified compatibility evidence
         uses: actions/upload-artifact@v4

@@ -11,6 +11,7 @@ export type VaultLifecycleState =
 export type VaultRejectionReason =
 	'alreadyExists'|
 	'missingVault'|
+	'passphraseRejected'|
 	'wrongCredential'|
 	'recoveryRejected';
 
@@ -68,6 +69,7 @@ export interface ProfileHost {
 
 export interface VaultBootstrapOptions {
 	operationTimeoutMs: number;
+	profileStartTimeoutMs?: number;
 }
 
 export type VaultStartResult =
@@ -189,6 +191,7 @@ export default class PreProfileVaultBootstrap {
 	private async runBounded_<T>(
 		operation: (signal: AbortSignal)=> Promise<T>,
 		externalSignal?: AbortSignal,
+		timeoutMs = this.options_.operationTimeoutMs,
 	): Promise<BoundedOperationResult<T>> {
 		const controller = new AbortController();
 		return await new Promise(resolve => {
@@ -210,7 +213,7 @@ export default class PreProfileVaultBootstrap {
 			const timeout = setTimeout(() => {
 				controller.abort();
 				finish({ kind: 'timedOut' });
-			}, this.options_.operationTimeoutMs);
+			}, timeoutMs);
 
 			void Promise.resolve().then(() => operation(controller.signal)).then(
 				value => finish(externallyCancelled ?
@@ -296,6 +299,7 @@ export default class PreProfileVaultBootstrap {
 		const profileStartResult = await this.runBounded_(
 			signal => profileHost.start(sessionAuthority.capability, signal),
 			externalSignal,
+			this.options_.profileStartTimeoutMs ?? this.options_.operationTimeoutMs,
 		);
 		if (profileStartResult.kind === 'completed') {
 			this.openHandle_ = openResult.handle;

@@ -26,15 +26,12 @@ import determineBaseAppDirs from '@joplin/lib/determineBaseAppDirs';
 import getAppName from '@joplin/lib/getAppName';
 import { execCommand } from '@joplin/utils';
 import selectJoplinElectronSession from './watchtower/profile/selectJoplinElectronSession';
+import RendererProfileCloseCoordinator, { RendererProfileCloseReply } from './watchtower/desktop/RendererProfileCloseCoordinator';
 import type { ProfileLogFileSystem } from '@joplin/lib/profileStorageBinding';
 import type {
 	WindowStateFactory,
 	WindowStateOptions,
 } from './utils/window/windowStateTypes';
-
-interface RendererProcessQuitReply {
-	canClose: boolean;
-}
 
 interface PluginWindows {
 	[key: string]: BrowserWindow;
@@ -73,7 +70,8 @@ export default class ElectronAppWrapper {
 	private enableUnresponsiveCheck_ = true;
 	private tray_: Tray = null;
 	private buildDir_: string = null;
-	private rendererProcessQuitReply_: RendererProcessQuitReply = null;
+	private rendererProcessQuitReply_: RendererProfileCloseReply = null;
+	private readonly rendererProfileClose_ = new RendererProfileCloseCoordinator(5_000);
 
 	private initialCallbackUrl_: string = null;
 	private updaterService_: AutoUpdaterService = null;
@@ -88,6 +86,7 @@ export default class ElectronAppWrapper {
 	private ipcStartPort_ = 2658;
 
 	private mainProcessLoggerFilePath_: string;
+	private mainProcessLogger_: Logger;
 	private ipcLogger_: LoggerWrapper;
 	private appLogger_: LoggerWrapper;
 
@@ -109,6 +108,7 @@ export default class ElectronAppWrapper {
 		);
 
 		const mainProcessLogger = new Logger();
+		this.mainProcessLogger_ = mainProcessLogger;
 		this.mainProcessLoggerFilePath_ = `${profilePath}/log-main-process.txt`;
 		mainProcessLogger.addTarget(TargetType.File, {
 			path: this.mainProcessLoggerFilePath_,
@@ -575,6 +575,7 @@ export default class ElectronAppWrapper {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Old code before rule was applied
 		ipcMain.on('asynchronous-message', (_event: any, message: string, args: any) => {
 			if (message === 'appCloseReply') {
+				if (this.rendererProfileClose_.accept(args)) return;
 				// We got the response from the renderer process:
 				// save the response and try quit again.
 				this.rendererProcessQuitReply_ = args;
@@ -657,6 +658,62 @@ export default class ElectronAppWrapper {
 		void stopServer(this.ipcServer_).catch(_error => {
 			// Ignore it since we're stopping, and to prevent unnecessary messages.
 		});
+	}
+
+	private destroyProfileWindows_() {
+		for (const window of Object.values(this.pluginWindows_)) {
+			if (!window.isDestroyed()) window.destroy();
+		}
+		this.pluginWindows_ = {};
+		for (const { electronId } of this.secondaryWindows_.values()) {
+			const window = BrowserWindow.fromId(electronId);
+			if (window && !window.isDestroyed()) window.destroy();
+		}
+		this.secondaryWindows_.clear();
+		if (this.win_ && !this.win_.isDestroyed()) this.win_.destroy();
+		this.win_ = null;
+		if (this.tray_) {
+			this.tray_.destroy();
+			this.tray_ = null;
+		}
+	}
+
+	private async drainRendererProfileWork_(): Promise<void> {
+		if (!this.win_ || this.win_.isDestroyed() || this.win_.webContents.isDestroyed()) return;
+		if (this.rendererProcessQuitReply_?.canClose) {
+			this.rendererProcessQuitReply_ = null;
+			return;
+		}
+		const outcome = await this.rendererProfileClose_.request(() => {
+			this.appLogger_.info('[appClose] Requesting renderer profile drain...');
+			this.win_?.webContents.send('appClose');
+		});
+		if (outcome === 'timeout') {
+			this.appLogger_.warn('[appClose] Renderer profile drain timed out; enforcing hard lock');
+		}
+	}
+
+	public async closeProfileSession(): Promise<void> {
+		this.stopPeriodicUpdateCheck();
+		await this.drainRendererProfileWork_();
+		this.profileLocker_.unlockSync();
+		this.destroyProfileWindows_();
+		if (this.ipcServer_) await stopServer(this.ipcServer_);
+		this.ipcServer_ = null;
+		await this.mainProcessLogger_.waitForFileWritesToComplete_();
+		this.mainProcessLogger_.enabled = false;
+	}
+
+	public terminateProfileSession(): boolean {
+		try {
+			this.onExit();
+			this.destroyProfileWindows_();
+			this.ipcServer_ = null;
+			return true;
+		} catch (error) {
+			this.appLogger_.error('Could not terminate profile session:', error);
+			return false;
+		}
 	}
 
 	public quit() {

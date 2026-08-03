@@ -9,6 +9,7 @@ import resolveProfileStorageBinding, {
 } from './profileStorageBinding';
 import EncryptionService from './services/e2ee/EncryptionService';
 import Logger, { TargetType } from '@joplin/utils/Logger';
+import shim from './shim';
 
 const { DatabaseDriverNode } = require('./database-driver-node.js');
 
@@ -16,6 +17,17 @@ class TestResourceFileSystem extends FsDriverNode implements ProfileResourceFile
 
 	public resourceDirectory() {
 		return 'C:\\WatchtowerVirtualProfile\\resources';
+	}
+}
+
+class TestRuntimeFileSystem extends FsDriverNode {
+
+	public cacheDirectory() {
+		return 'watchtower-memory://cache';
+	}
+
+	public temporaryDirectory() {
+		return 'watchtower-memory://temporary';
 	}
 }
 
@@ -30,6 +42,7 @@ describe('resolveProfileStorageBinding', () => {
 			name: 'watchtower-encrypted-profile',
 		};
 		const resourceFileSystem = new TestResourceFileSystem();
+		const runtimeFileSystem = new TestRuntimeFileSystem();
 		const privateContent = new Map<string, Buffer>();
 		const privateData = {
 			write: async (_scope: 'settings', key: string, content: Uint8Array) => {
@@ -58,6 +71,7 @@ describe('resolveProfileStorageBinding', () => {
 					appendFile: async () => {},
 				},
 				resourceFileSystem,
+				runtimeFileSystem,
 				privateData,
 				profileConfig,
 				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
@@ -72,7 +86,11 @@ describe('resolveProfileStorageBinding', () => {
 		expect(Setting.value('resourceDir')).toBe(resourceFileSystem.resourceDirectory());
 		expect(Setting.value('pluginDir')).toBe('C:\\WatchtowerPublicCode\\plugins\\packages');
 		expect(Setting.value('pluginCacheDir')).toBe('C:\\WatchtowerPublicCode\\plugins\\cache');
+		expect(Setting.value('cacheDir')).toBe('watchtower-memory://cache');
+		expect(Setting.value('tempDir')).toBe('watchtower-memory://temporary');
+		expect(shim.fsDriver_).toBe(runtimeFileSystem);
 		expect(Setting.value('allowArbitraryPluginInstallation')).toBe(false);
+		expect(Setting.value('allowExternalEditing')).toBe(false);
 		expect(Resource.fsDriver()).toBe(resourceFileSystem);
 		expect(EncryptionService.fsDriver_).toBe(resourceFileSystem);
 

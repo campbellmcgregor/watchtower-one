@@ -46,6 +46,7 @@ interface CacheItem {
 
 export interface Constants {
 	allowArbitraryPluginInstallation: boolean;
+	allowExternalEditing: boolean;
 	env: Env;
 	isDemo: boolean;
 	appName: string;
@@ -291,6 +292,7 @@ class Setting extends BaseModel {
 	// cannot be modified by the user:
 	public static constants_: Constants = {
 		allowArbitraryPluginInstallation: true,
+		allowExternalEditing: true,
 		env: Env.Undefined,
 		isDemo: false,
 		appName: 'joplin',

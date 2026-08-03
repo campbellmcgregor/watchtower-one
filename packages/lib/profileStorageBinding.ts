@@ -9,6 +9,7 @@ import FileHandler, {
 import { basename, filename } from './path-utils';
 import type { ProfileConfigStorage } from './services/profileConfig';
 import Logger from '@joplin/utils/Logger';
+import shim from './shim';
 
 export interface ProfileResourceFileSystem extends FsDriverBase {
 	resourceDirectory(): string;
@@ -65,6 +66,12 @@ export interface ProfileStorageBinding {
 	privateData: ProfilePrivateData;
 	publicVaultLockFilePath: string;
 	resourceFileSystem: ProfileResourceFileSystem;
+	runtimeFileSystem: ProfileRuntimeFileSystem;
+}
+
+export interface ProfileRuntimeFileSystem extends FsDriverBase {
+	cacheDirectory(): string;
+	temporaryDirectory(): string;
 }
 
 export interface ProfilePluginCodeDirectories {
@@ -188,13 +195,20 @@ const resolveProfileStorageBinding = (
 	const resourceDirectory = resourceFileSystem?.resourceDirectory() ?? stock!.resourceDirectory;
 	const privateData = binding?.privateData;
 	const pluginCode = binding?.pluginCode;
+	const runtimeFileSystem = binding?.runtimeFileSystem;
 
 	Setting.setConstant('allowArbitraryPluginInstallation', !binding);
+	Setting.setConstant('allowExternalEditing', !binding);
 	Setting.setConstant('resourceDirName', 'resources');
 	Setting.setConstant('resourceDir', resourceDirectory);
 	if (pluginCode) {
 		Setting.setConstant('pluginDir', pluginCode.packageDirectory);
 		Setting.setConstant('pluginCacheDir', pluginCode.cacheDirectory);
+	}
+	if (runtimeFileSystem) {
+		Setting.setConstant('cacheDir', runtimeFileSystem.cacheDirectory());
+		Setting.setConstant('tempDir', runtimeFileSystem.temporaryDirectory());
+		shim.fsDriver_ = runtimeFileSystem;
 	}
 	if (resourceFileSystem) {
 		Resource.fsDriver_ = resourceFileSystem;

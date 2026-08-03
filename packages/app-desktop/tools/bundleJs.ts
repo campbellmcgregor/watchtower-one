@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { dirname, join, relative } from 'path';
 
+// cspell:ignore signalapp sqlcipher
+
 const baseDir = dirname(__dirname);
 const baseNodeModules = join(baseDir, 'node_modules');
 
@@ -35,7 +37,7 @@ const makeBuildContext = (
 				// in the final bundle.
 				name: 'joplin--relative-imports-for-externals',
 				setup: build => {
-					const externalRegex = /^(.*\.node|sqlite3|node-fetch|electron|@electron\/remote\/.*|electron\/.*|@mapbox\/node-pre-gyp|jsdom)$/;
+					const externalRegex = /^(.*\.node|sqlite3|node-fetch|electron|@electron\/remote\/.*|electron\/.*|@mapbox\/node-pre-gyp|@node-rs\/argon2|@signalapp\/sqlcipher|jsdom)$/;
 					build.onResolve({ filter: externalRegex }, args => {
 						// Electron packages don't need relative requires
 						if (args.path === 'electron' || args.path.startsWith('electron/')) {

@@ -5,6 +5,7 @@ import Note from '../models/Note';
 import { msleep } from '@joplin/utils/time';
 import waitFor from '../testing/waitFor';
 import { NoteEntity } from './database/types';
+import Setting from '../models/Setting';
 
 const createAndWatchNotes = async (notes: NoteEntity[]) => {
 	const watcher = new ExternalEditWatcher();
@@ -46,6 +47,20 @@ describe('ExternalEditWatcher', () => {
 		await setupDatabaseAndSynchronizer(0);
 		await switchClient(0);
 		jest.useRealTimers();
+	});
+
+	test('fails before writing a note when encrypted profiles disable external editing', async () => {
+		Setting.setConstant('allowExternalEditing', false);
+		try {
+			const note = await Note.save({ title: 'Private', body: 'canary' });
+			const watcher = new ExternalEditWatcher();
+
+			await expect(watcher.openAndWatch(note)).rejects.toThrow(
+				'External editing is unavailable for encrypted profiles',
+			);
+		} finally {
+			Setting.setConstant('allowExternalEditing', true);
+		}
 	});
 
 	test('should handle rapid changes to a file', async () => {

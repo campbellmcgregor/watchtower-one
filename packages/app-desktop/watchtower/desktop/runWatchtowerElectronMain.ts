@@ -3,7 +3,7 @@ import type {
 	EphemeralElectronSessionFactory,
 } from '../profile/ephemeralProfileRuntimeTypes';
 import type {
-	JoplinProfileRuntime,
+	LoadJoplinProfileRuntime,
 } from '../profile/joplinProfileTypes';
 import type {
 	EncryptedDesktopDependencyOptions,
@@ -19,8 +19,13 @@ import {
 import type {
 	WatchtowerDesktopDependencies,
 } from './startWatchtowerDesktop';
+import {
+	loadJoplinElectronProfileRuntime,
+} from './JoplinElectronProfileRuntime';
 
 export interface WatchtowerElectronHost {
+	prepareBeforeReady(): void;
+	registerProfileCloseHandler(closeProfile: ()=> Promise<void>): void;
 	applicationDataDirectory(): string;
 	ensureDirectory(path: string): void;
 	setUserDataDirectory(path: string): void;
@@ -33,22 +38,17 @@ export interface WatchtowerElectronMainDependencies {
 	host: WatchtowerElectronHost;
 	unlockAssetDirectory: string;
 	ephemeralSessionFactory: EphemeralElectronSessionFactory;
+	loadJoplinProfileRuntime?: LoadJoplinProfileRuntime;
 	makeEncryptedDesktopDependencies(
 		options: EncryptedDesktopDependencyOptions,
 	): WatchtowerDesktopDependencies;
 }
 
-const loadPendingEncryptedJoplinRuntime = async (): Promise<JoplinProfileRuntime> => {
-	// Stock Joplin startup still creates plugin files, caches, and general
-	// temporary/editor files. Keep that runtime unavailable until those paths
-	// consume the encrypted/ephemeral binding.
-	throw new Error('Encrypted Joplin runtime binding is unavailable');
-};
-
 const runWatchtowerElectronMain = async (
 	dependencies: WatchtowerElectronMainDependencies,
 ): Promise<PreProfileUnlockFlowResult> => {
 	try {
+		dependencies.host.prepareBeforeReady();
 		const userDataDirectory = join(
 			dependencies.host.applicationDataDirectory(),
 			'Watchtower One',
@@ -71,7 +71,8 @@ const runWatchtowerElectronMain = async (
 					command,
 					databasePath: join(vaultDirectory, 'profile.sqlite'),
 					envelopeDirectory: join(vaultDirectory, 'envelope'),
-					loadJoplinProfileRuntime: loadPendingEncryptedJoplinRuntime,
+					loadJoplinProfileRuntime: dependencies.loadJoplinProfileRuntime ??
+						loadJoplinElectronProfileRuntime,
 					profileHostOptions: {
 						ephemeralSessionFactory: dependencies.ephemeralSessionFactory,
 						pluginCode: {
@@ -85,8 +86,11 @@ const runWatchtowerElectronMain = async (
 				signal,
 			),
 		);
-		if (result.kind === 'cancelled') dependencies.host.quit(0);
-		else if (result.kind !== 'unlocked') dependencies.host.quit(1);
+		if (result.kind === 'cancelled') { dependencies.host.quit(0); } else if (result.kind !== 'unlocked') { dependencies.host.quit(1); } else {
+			dependencies.host.registerProfileCloseHandler(async () => {
+				await result.lifecycle.end('close');
+			});
+		}
 		return result;
 	} catch (error) {
 		dependencies.host.quit(1);

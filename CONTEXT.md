@@ -87,6 +87,7 @@ ADR-0003 selects the SQLCipher-led logical profile vault. ADR-0004 defines the
 unlocked Vault Session at-rest contract. ADR-0005 defines the independently
 wrapped Local Vault Key, domain-separated key schedule, mandatory user-held
 recovery, credential rotation, and minimal envelope portion of Public Bootstrap
-State. The implementation must still qualify the complete Public Bootstrap
-State and macOS/Linux adapters. Remaining decisions must not be guessed in
-feature code.
+State. The Windows adapter now has a packaged create, close, plaintext-canary
+scan, and reopen proof for the ordinary shutdown path. Forced termination,
+recovery, the complete release allowlist, and macOS/Linux adapters remain
+release gates. Remaining decisions must not be guessed in feature code.

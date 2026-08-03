@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'crypto';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { performance } from 'perf_hooks';
 import deriveArgon2id from './argon2id';
@@ -45,14 +45,29 @@ export class VaultPassphrasePolicyError extends Error {
 
 let blocklist: Buffer|undefined;
 
+export const resolvePassphraseBlocklistPath = (
+	moduleDirectory: string,
+	pathExists: (path: string)=> boolean = existsSync,
+) => {
+	const sourceModulePath = join(
+		moduleDirectory,
+		'assets',
+		'compromised-passphrases-v1.bin',
+	);
+	if (pathExists(sourceModulePath)) return sourceModulePath;
+	return join(
+		moduleDirectory,
+		'watchtower',
+		'vault',
+		'assets',
+		'compromised-passphrases-v1.bin',
+	);
+};
+
 const loadBlocklist = () => {
 	if (blocklist) return blocklist;
 
-	const loaded = readFileSync(join(
-		__dirname,
-		'assets',
-		'compromised-passphrases-v1.bin',
-	));
+	const loaded = readFileSync(resolvePassphraseBlocklistPath(__dirname));
 	if (
 		loaded.byteLength !== blocklistEntries * blocklistDigestPrefixBytes ||
 		createHash('sha256').update(loaded).digest('hex') !== blocklistSha256

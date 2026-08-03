@@ -12,8 +12,10 @@ export const declaration: CommandDeclaration = {
 export const runtime = (): CommandRuntime => {
 	return {
 		execute: async (_context: CommandContext) => {
+			if (!Setting.value('allowExternalEditing')) return;
 			await openFileWithExternalEditor(`${Setting.value('rootProfileDir')}/profiles.json`, bridge());
 		},
-		enabledCondition: 'hasMultiProfiles',
+		enabledCondition: Setting.value('allowExternalEditing') ? 'hasMultiProfiles' : 'false',
+		visibleCondition: Setting.value('allowExternalEditing') ? undefined : 'false',
 	};
 };

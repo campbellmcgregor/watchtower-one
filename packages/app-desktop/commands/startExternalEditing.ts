@@ -4,6 +4,7 @@ import { stateUtils } from '@joplin/lib/reducer';
 import ExternalEditWatcher from '@joplin/lib/services/ExternalEditWatcher';
 import Note from '@joplin/lib/models/Note';
 import bridge from '../services/bridge';
+import Setting from '@joplin/lib/models/Setting';
 
 export const declaration: CommandDeclaration = {
 	name: 'startExternalEditing',
@@ -14,6 +15,9 @@ export const declaration: CommandDeclaration = {
 export const runtime = (): CommandRuntime => {
 	return {
 		execute: async (context: CommandContext, noteId: string = null) => {
+			if (!Setting.value('allowExternalEditing')) {
+				throw new Error('External editing is unavailable for encrypted profiles');
+			}
 			noteId = noteId || stateUtils.selectedNoteId(context.state);
 
 			try {
@@ -23,6 +27,8 @@ export const runtime = (): CommandRuntime => {
 				bridge().showErrorMessageBox(_('Error opening note in editor: %s', error.message));
 			}
 		},
-		enabledCondition: 'oneNoteSelected && !noteIsReadOnly',
+		enabledCondition: Setting.value('allowExternalEditing') ?
+			'oneNoteSelected && !noteIsReadOnly' : 'false',
+		visibleCondition: Setting.value('allowExternalEditing') ? undefined : 'false',
 	};
 };

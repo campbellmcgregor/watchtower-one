@@ -687,6 +687,7 @@ class Application extends BaseApplication {
 		});
 
 		addTask('app/set up external edit watchers', () => {
+			if (!Setting.value('allowExternalEditing')) return;
 			ExternalEditWatcher.instance().setLogger(reg.logger());
 			ExternalEditWatcher.instance().initialize(bridge, this.store().dispatch);
 

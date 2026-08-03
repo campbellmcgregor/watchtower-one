@@ -17,6 +17,7 @@ import type { WatchtowerDesktopDependencies } from './startWatchtowerDesktop';
 // cspell:ignore handoff
 
 describe('runWatchtowerElectronMain', () => {
+	let registeredCloseProfile: (()=> Promise<void>)|undefined;
 	const applicationDataDirectory = 'C:\\Users\\Alice\\AppData\\Roaming';
 	const userDataDirectory = join(applicationDataDirectory, 'Watchtower One');
 	const vaultDirectory = join(userDataDirectory, 'vault');
@@ -44,7 +45,10 @@ describe('runWatchtowerElectronMain', () => {
 			start: async () => {
 				events.push('joplin-started');
 			},
-			stop: async () => ({ kind: 'stopped' }),
+			stop: async () => {
+				events.push('joplin-stopped');
+				return { kind: 'stopped' };
+			},
 			terminate: () => true,
 		};
 		return {
@@ -58,6 +62,13 @@ describe('runWatchtowerElectronMain', () => {
 		events: string[],
 		view: PreProfileUnlockView,
 	) => ({
+		prepareBeforeReady: () => {
+			events.push('protocols-registered');
+		},
+		registerProfileCloseHandler: (closeProfile: ()=> Promise<void>) => {
+			events.push('profile-close-handler-registered');
+			registeredCloseProfile = closeProfile;
+		},
 		applicationDataDirectory: () => applicationDataDirectory,
 		ensureDirectory: (path: string) => {
 			events.push(`directory-created:${path}`);
@@ -78,6 +89,7 @@ describe('runWatchtowerElectronMain', () => {
 	});
 
 	test('assigns a dedicated Watchtower root before Electron readiness and encrypted profile startup', async () => {
+		registeredCloseProfile = undefined;
 		const events: string[] = [];
 		const submission = {
 			kind: 'submitted' as const,
@@ -94,11 +106,17 @@ describe('runWatchtowerElectronMain', () => {
 			},
 		};
 		let receivedOptions: EncryptedDesktopDependencyOptions|undefined;
+		const runtime = {
+			start: async () => {},
+			stop: async () => ({ kind: 'stopped' as const }),
+			terminate: () => true,
+		};
 
 		const result = await runWatchtowerElectronMain({
 			host: host(events, view),
 			unlockAssetDirectory,
 			ephemeralSessionFactory: sessionFactory,
+			loadJoplinProfileRuntime: async () => runtime,
 			makeEncryptedDesktopDependencies: options => {
 				receivedOptions = options;
 				events.push(`credential-received:${options.command.passphrase}`);
@@ -108,6 +126,7 @@ describe('runWatchtowerElectronMain', () => {
 
 		expect(result.kind).toBe('unlocked');
 		expect(events).toEqual([
+			'protocols-registered',
 			`directory-created:${userDataDirectory}`,
 			`directory-created:${publicRuntimeDirectory}`,
 			`user-data-assigned:${userDataDirectory}`,
@@ -118,6 +137,7 @@ describe('runWatchtowerElectronMain', () => {
 			'vault-opened',
 			'joplin-started',
 			'unlock-view-closed',
+			'profile-close-handler-registered',
 		]);
 		expect(receivedOptions).toMatchObject({
 			databasePath: join(vaultDirectory, 'profile.sqlite'),
@@ -132,10 +152,10 @@ describe('runWatchtowerElectronMain', () => {
 				resourceDirectory: join(vaultDirectory, 'resource-virtual'),
 			},
 		});
-		await expect(receivedOptions!.loadJoplinProfileRuntime()).rejects.toThrow(
-			'Encrypted Joplin runtime binding is unavailable',
-		);
+		await expect(receivedOptions!.loadJoplinProfileRuntime()).resolves.toBe(runtime);
 		expect(submission.passphrase).toBe('');
+		await registeredCloseProfile!();
+		expect(events.at(-1)).toBe('joplin-stopped');
 	});
 
 	test('cancellation before submission closes the view and quits cleanly', async () => {
@@ -193,7 +213,7 @@ describe('runWatchtowerElectronMain', () => {
 		expect(events.at(-1)).toBe('quit:0');
 	});
 
-	test('closes encrypted storage and quits failed closed at the pending Joplin runtime handoff', async () => {
+	test('closes encrypted storage and quits failed closed when Joplin runtime loading fails', async () => {
 		const events: string[] = [];
 		const closeVault = jest.fn(async () => {});
 
@@ -208,6 +228,9 @@ describe('runWatchtowerElectronMain', () => {
 			}),
 			unlockAssetDirectory,
 			ephemeralSessionFactory: sessionFactory,
+			loadJoplinProfileRuntime: async () => {
+				throw new Error('Joplin runtime load failed');
+			},
 			makeEncryptedDesktopDependencies: options => ({
 				operation: 'unlock',
 				accessAdapter: {
@@ -257,6 +280,7 @@ describe('runWatchtowerElectronMain', () => {
 		})).rejects.toThrow('public bootstrap root unavailable');
 
 		expect(events.at(-1)).toBe('quit:1');
+		expect(events[0]).toBe('protocols-registered');
 		expect(events).not.toContain('electron-ready');
 	});
 });

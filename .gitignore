@@ -479,6 +479,7 @@ packages/app-desktop/gui/WindowCommandsAndDialogs/commands/renameTag.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/resetLayout.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/restoreFolder.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/restoreNote.js
+packages/app-desktop/gui/WindowCommandsAndDialogs/commands/revealResourceFile.test.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/revealResourceFile.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/search.js
 packages/app-desktop/gui/WindowCommandsAndDialogs/commands/setTags.js
@@ -630,6 +631,10 @@ packages/app-desktop/utils/restartInSafeModeFromMain.js
 packages/app-desktop/utils/sourceMapSetup.js
 packages/app-desktop/utils/window/types.js
 packages/app-desktop/utils/window/windowStateTypes.js
+packages/app-desktop/watchtower/desktop/JoplinElectronProfileRuntime.test.js
+packages/app-desktop/watchtower/desktop/JoplinElectronProfileRuntime.js
+packages/app-desktop/watchtower/desktop/RendererProfileCloseCoordinator.test.js
+packages/app-desktop/watchtower/desktop/RendererProfileCloseCoordinator.js
 packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.test.js
 packages/app-desktop/watchtower/desktop/makeEncryptedDesktopDependencies.js
 packages/app-desktop/watchtower/desktop/runPreProfileUnlockFlow.test.js
@@ -644,6 +649,8 @@ packages/app-desktop/watchtower/profile/EncryptedProfileStorage.test.js
 packages/app-desktop/watchtower/profile/EncryptedProfileStorage.js
 packages/app-desktop/watchtower/profile/EncryptedResourceFsDriver.test.js
 packages/app-desktop/watchtower/profile/EncryptedResourceFsDriver.js
+packages/app-desktop/watchtower/profile/EphemeralProfileFsDriver.test.js
+packages/app-desktop/watchtower/profile/EphemeralProfileFsDriver.js
 packages/app-desktop/watchtower/profile/EphemeralProfileRuntime.test.js
 packages/app-desktop/watchtower/profile/EphemeralProfileRuntime.js
 packages/app-desktop/watchtower/profile/EphemeralWindowState.test.js
@@ -657,6 +664,8 @@ packages/app-desktop/watchtower/profile/ephemeralProfileRuntimeTypes.js
 packages/app-desktop/watchtower/profile/joplinProfileTypes.js
 packages/app-desktop/watchtower/profile/openSqlCipherProfileStorage.js
 packages/app-desktop/watchtower/profile/profileStorageTypes.js
+packages/app-desktop/watchtower/profile/publicJoplinRuntimeDirectory.test.js
+packages/app-desktop/watchtower/profile/publicJoplinRuntimeDirectory.js
 packages/app-desktop/watchtower/profile/readPrivateRootSettings.test.js
 packages/app-desktop/watchtower/profile/readPrivateRootSettings.js
 packages/app-desktop/watchtower/profile/selectJoplinElectronSession.test.js
@@ -1507,6 +1516,7 @@ packages/lib/services/NotePositionService.js
 packages/lib/services/PostMessageService.js
 packages/lib/services/ReportService.test.js
 packages/lib/services/ReportService.js
+packages/lib/services/ResourceEditWatcher/index.test.js
 packages/lib/services/ResourceEditWatcher/index.js
 packages/lib/services/ResourceEditWatcher/reducer.js
 packages/lib/services/ResourceFetcher.js
@@ -1560,6 +1570,7 @@ packages/lib/services/e2ee/ppk/webCrypto/buildRsaCryptoProvider.js
 packages/lib/services/e2ee/types.js
 packages/lib/services/e2ee/utils.test.js
 packages/lib/services/e2ee/utils.js
+packages/lib/services/externalEditingPolicy.js
 packages/lib/services/interop/InteropService.test.js
 packages/lib/services/interop/InteropService.js
 packages/lib/services/interop/InteropService_Exporter_Base.js
@@ -2043,4 +2054,6 @@ packages/whisper-voice-typing/src/index.js
 packages/whisper-voice-typing/src/specs/Whisper.nitro.js
 watchtower/runtime-trace/joplin-v3.6.15.spec.js
 watchtower/runtime-trace/playwright.config.js
+watchtower/runtime-trace/playwright.first-run.config.js
+watchtower/runtime-trace/watchtower-first-run.spec.js
 # AUTO-GENERATED - EXCLUDED TYPESCRIPT BUILD
