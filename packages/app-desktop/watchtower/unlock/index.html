@@ -97,6 +97,11 @@
 				background: #334155;
 				color: #e2e8f0;
 			}
+			#recover {
+				background: transparent;
+				color: #bae6fd;
+				padding-left: 0;
+			}
 			.recovery-secret {
 				background: #182230;
 				border: 1px solid #475467;
@@ -133,9 +138,29 @@
 					Unlocking securely. This may take about five seconds.
 				</p>
 				<div class="actions">
+					<button id="recover" type="button">Use Recovery Secret</button>
 					<button id="cancel" type="button">Cancel</button>
 					<button id="create" type="button">Create new vault</button>
 					<button id="unlock" type="submit">Unlock</button>
+				</div>
+			</form>
+			<form id="recover-form" autocomplete="off" hidden>
+				<h1>Recover your vault</h1>
+				<p class="intro">
+					Enter your Recovery Secret and choose a new vault passphrase.
+					Your existing notes will not be rewritten.
+				</p>
+				<label for="recover-secret">Recovery Secret</label>
+				<input id="recover-secret" autocomplete="off" spellcheck="false" required>
+				<label for="recover-passphrase">New vault passphrase</label>
+				<input id="recover-passphrase" type="password" autocomplete="off" required>
+				<p id="recover-error" class="message" role="alert" hidden></p>
+				<p id="recover-progress" class="message" role="status" hidden>
+					Recovering securely. This may take about five seconds.
+				</p>
+				<div class="actions">
+					<button id="recover-back" type="button">Back</button>
+					<button id="recover-submit" type="submit">Recover encrypted vault</button>
 				</div>
 			</form>
 			<section id="recovery" hidden>

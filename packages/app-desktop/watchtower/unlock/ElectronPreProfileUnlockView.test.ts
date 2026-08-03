@@ -203,6 +203,38 @@ describe('ElectronPreProfileUnlockView', () => {
 		await view.close();
 	});
 
+	test('collects a Recovery Secret and replacement passphrase without accepting foreign IPC', async () => {
+		const view = await createElectronPreProfileUnlockView(
+			'C:\\WatchtowerApplication\\unlock',
+		);
+		const window = electronHarness.windows[0];
+		const submissionPromise = view.requestPassphrase();
+		const recoverySubmission = {
+			operation: 'recover',
+			recoverySecret: 'WT1-RECOVERY-SECRET',
+			newPassphrase: 'replacement private atlas words',
+		};
+		electronHarness.ipcMain.emit(
+			unlockSubmitChannel,
+			{ sender: new EventEmitter() },
+			recoverySubmission,
+		);
+		electronHarness.ipcMain.emit(
+			unlockSubmitChannel,
+			{ sender: window.webContents },
+			recoverySubmission,
+		);
+
+		await expect(submissionPromise).resolves.toEqual({
+			kind: 'submitted',
+			operation: 'recover',
+			recoverySecret: 'WT1-RECOVERY-SECRET',
+			newPassphrase: 'replacement private atlas words',
+			signal: expect.any(AbortSignal),
+		});
+		await view.close();
+	});
+
 	test('shows and authenticates first-run Recovery Secret confirmation', async () => {
 		const view = await createElectronPreProfileUnlockView(
 			'C:\\WatchtowerApplication\\unlock',

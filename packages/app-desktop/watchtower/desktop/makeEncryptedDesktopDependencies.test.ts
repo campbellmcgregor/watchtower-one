@@ -146,6 +146,70 @@ describe('makeEncryptedDesktopDependencies', () => {
 		await started.lifecycle.end('close');
 	}, 30_000);
 
+	test('recovers the existing encrypted profile while replacing the lost passphrase', async () => {
+		const credentialLifecycle = new VaultCredentialLifecycle(
+			new VaultKeyEnvelopeStore(vaultDirectory),
+		);
+		const begun = await credentialLifecycle.beginCreate({
+			passphrase: 'lost private atlas words',
+			memoryProfile: 'qualified-constrained',
+		});
+		if (begun.kind !== 'recoveryConfirmationRequired') {
+			throw new Error('Expected vault creation to begin');
+		}
+		const recoverySecret = begun.recoverySecret;
+		const created = await credentialLifecycle.confirmCreate({
+			creationId: begun.creationId,
+			recoverySecret,
+		});
+		if (created.kind !== 'opened') throw new Error('Expected vault creation');
+		created.keyRing.dispose();
+
+		const command = {
+			kind: 'recover' as const,
+			recoverySecret,
+			newPassphrase: 'replacement private atlas notebook words',
+		};
+		const started = await startWatchtowerDesktop(makeEncryptedDesktopDependencies({
+			command,
+			databasePath: join(vaultDirectory, 'profile.sqlite'),
+			envelopeDirectory: vaultDirectory,
+			openProfileStorage: async () => new EncryptedProfileStorage(makeConnection()),
+			profileHostOptions: {
+				pluginCode,
+				ephemeralSessionFactory: {
+					fromPartition: async () => ({
+						browserSession,
+						storagePath: null,
+						clearCache: async () => {},
+						clearStorageData: async () => {},
+						closeAllConnections: async () => {},
+					}),
+				},
+				publicVaultLockFilePath: 'C:\\WatchtowerPublicRuntime\\vault.lock',
+				resourceDirectory: 'C:\\WatchtowerVirtualProfile\\resources',
+			},
+			loadJoplinProfileRuntime: async () => ({
+				start: async () => {},
+				stop: async () => ({ kind: 'stopped' }),
+				terminate: () => true,
+			}),
+		}));
+
+		expect(started.result).toEqual({ kind: 'unlocked' });
+		expect(command.recoverySecret).toBe('');
+		expect(command.newPassphrase).toBe('');
+		await started.lifecycle.end('close');
+		await expect(credentialLifecycle.unlockWithPassphrase(
+			'lost private atlas words',
+		)).resolves.toEqual({ kind: 'rejected', reason: 'wrongCredential' });
+		const replacement = await credentialLifecycle.unlockWithPassphrase(
+			'replacement private atlas notebook words',
+		);
+		expect(replacement.kind).toBe('opened');
+		if (replacement.kind === 'opened') replacement.keyRing.dispose();
+	}, 90_000);
+
 	test('unlocks encrypted storage before loading Joplin and rejects plaintext fallback', async () => {
 		const passphrase = 'production private atlas words';
 		const createdKeyRing = await createCommittedVault(passphrase);

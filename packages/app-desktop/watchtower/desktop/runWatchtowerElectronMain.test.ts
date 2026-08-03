@@ -119,7 +119,10 @@ describe('runWatchtowerElectronMain', () => {
 			loadJoplinProfileRuntime: async () => runtime,
 			makeEncryptedDesktopDependencies: options => {
 				receivedOptions = options;
-				events.push(`credential-received:${options.command.passphrase}`);
+				events.push(`credential-received:${
+					options.command.kind === 'recover' ?
+						options.command.recoverySecret : options.command.passphrase
+				}`);
 				return unlockedDependencies(events);
 			},
 		});
